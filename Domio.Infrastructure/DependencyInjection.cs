@@ -1,3 +1,7 @@
+using Domio.Application.Auditing;
+using Domio.Application.Diagnostics;
+using Domio.Infrastructure.Auditing;
+using Domio.Infrastructure.Diagnostics;
 using Domio.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -21,6 +25,9 @@ public static class DependencyInjection
 
         services.AddDbContext<DomioDbContext>(options =>
             options.UseSqlite(connectionString));
+
+        services.AddScoped<IAuditService, AuditService>();
+        services.AddScoped<IDatabaseDiagnosticsService, DatabaseDiagnosticsService>();
 
         return services;
     }

@@ -1,3 +1,5 @@
+using Domio.Application.Auditing;
+using Domio.Application.Diagnostics;
 using Domio.Infrastructure;
 using Domio.Infrastructure.Persistence;
 using Domio.Web.Errors;
@@ -29,6 +31,35 @@ if (app.Environment.IsDevelopment())
     await dbContext.Database.MigrateAsync();
 
     app.MapGet("/dev/error", static () => ThrowTestException());
+
+    app.MapGet("/dev/audit-test", async (
+        HttpContext httpContext,
+        IAuditService auditService,
+        DomioDbContext dbContext,
+        CancellationToken cancellationToken) =>
+    {
+        var auditId = await auditService.WriteAsync(
+            new AuditEntry(
+                EventType: "M01.4.AuditTest",
+                EntityType: "System",
+                EntityId: "M01",
+                ActorId: "development",
+                CorrelationId: httpContext.TraceIdentifier,
+                Description: "Kontrolowany wpis audytowy testu M01.4."),
+            cancellationToken);
+
+        var auditCount = await dbContext.AuditLogs
+            .AsNoTracking()
+            .CountAsync(cancellationToken);
+
+        return Results.Ok(new
+        {
+            status = "AuditSaved",
+            auditId,
+            correlationId = httpContext.TraceIdentifier,
+            auditCount
+        });
+    });
 }
 
 app.UseHttpsRedirection();
@@ -39,55 +70,52 @@ app.UseAuthorization();
 
 app.MapGet("/health", async (
     HttpContext httpContext,
-    DomioDbContext dbContext,
+    IDatabaseDiagnosticsService diagnosticsService,
     CancellationToken cancellationToken) =>
 {
     try
     {
-        var canConnect = await dbContext.Database.CanConnectAsync(cancellationToken);
+        var diagnostics = await diagnosticsService
+            .GetAsync(cancellationToken);
 
-        if (!canConnect)
+        var response = new
         {
-            return Results.Problem(
-                title: "Domio database unhealthy",
-                detail: "Nie można połączyć się z bazą SQLite.",
-                statusCode: StatusCodes.Status503ServiceUnavailable,
-                extensions: new Dictionary<string, object?>
-                {
-                    ["correlationId"] = httpContext.TraceIdentifier
-                });
-        }
-
-        var schemaVersion = await dbContext.SchemaVersions
-            .AsNoTracking()
-            .Where(x => x.Id == 1)
-            .Select(x => x.Version)
-            .SingleAsync(cancellationToken);
-
-        return Results.Ok(new
-        {
-            status = "Healthy",
+            status = diagnostics.IsHealthy ? "Healthy" : "Unhealthy",
             application = "Domio",
             module = "M01",
+            environment = app.Environment.EnvironmentName,
             correlationId = httpContext.TraceIdentifier,
             database = new
             {
-                status = "Healthy",
+                status = diagnostics.IsHealthy ? "Healthy" : "Unhealthy",
                 provider = "SQLite",
-                schemaVersion
+                schemaVersion = diagnostics.SchemaVersion,
+                integrityCheck = diagnostics.IntegrityCheck,
+                journalMode = diagnostics.JournalMode,
+                foreignKeysEnabled = diagnostics.ForeignKeysEnabled,
+                instanceId = diagnostics.InstanceId,
+                appliedMigrations = diagnostics.AppliedMigrations,
+                pendingMigrations = diagnostics.PendingMigrations,
+                currentMigration = diagnostics.CurrentMigration
             }
-        });
+        };
+
+        return diagnostics.IsHealthy
+            ? Results.Ok(response)
+            : Results.Json(
+                response,
+                statusCode: StatusCodes.Status503ServiceUnavailable);
     }
     catch (Exception ex)
     {
         app.Logger.LogError(
             ex,
-            "Health Check bazy danych zakończył się błędem. CorrelationId: {CorrelationId}",
+            "Rozszerzony Health Check zakończył się błędem. CorrelationId: {CorrelationId}",
             httpContext.TraceIdentifier);
 
         return Results.Problem(
             title: "Domio database unhealthy",
-            detail: "Wystąpił błąd podczas sprawdzania bazy danych.",
+            detail: "Wystąpił błąd podczas diagnostyki bazy danych.",
             statusCode: StatusCodes.Status503ServiceUnavailable,
             extensions: new Dictionary<string, object?>
             {
@@ -104,5 +132,6 @@ app.Run();
 
 static IResult ThrowTestException()
 {
-    throw new InvalidOperationException("Kontrolowany błąd testowy M01.3.");
+    throw new InvalidOperationException(
+        "Kontrolowany błąd testowy M01.3.");
 }

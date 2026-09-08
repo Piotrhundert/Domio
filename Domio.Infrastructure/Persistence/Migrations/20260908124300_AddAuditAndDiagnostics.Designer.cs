@@ -3,15 +3,17 @@ using System;
 using Domio.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace Domio.Infrastructure.Persistence.Migrations;
 
 [DbContext(typeof(DomioDbContext))]
-partial class DomioDbContextModelSnapshot : ModelSnapshot
+[Migration("20260908124300_AddAuditAndDiagnostics")]
+partial class AddAuditAndDiagnostics
 {
-    protected override void BuildModel(ModelBuilder modelBuilder)
+    protected override void BuildTargetModel(ModelBuilder modelBuilder)
     {
 #pragma warning disable 612, 618
         modelBuilder
