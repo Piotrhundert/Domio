@@ -73,6 +73,32 @@ if (isDevelopmentOrTest)
         });
     });
 
+    app.MapGet("/dev/m02/roles", async (
+        DomioDbContext dbContext,
+        CancellationToken cancellationToken) =>
+    {
+        var roles = await dbContext.RoleDefinitions
+            .AsNoTracking()
+            .OrderBy(x => x.Id)
+            .Select(x => new
+            {
+                x.Id,
+                x.Code,
+                name = x.NamePl,
+                description = x.DescriptionPl,
+                x.IsSystem
+            })
+            .ToListAsync(cancellationToken);
+
+        return Results.Ok(new
+        {
+            module = "M02",
+            package = "M02.1",
+            count = roles.Count,
+            roles
+        });
+    });
+
     app.MapPost("/dev/database/backup", async (
         HttpContext httpContext,
         IDatabaseMaintenanceService maintenanceService,
@@ -155,7 +181,8 @@ app.MapGet("/health", async (
                 ? "Healthy"
                 : "Unhealthy",
             application = "Domio",
-            module = "M01",
+            module = "M02",
+            package = "M02.1",
             environment = app.Environment.EnvironmentName,
             correlationId = httpContext.TraceIdentifier,
             database = new

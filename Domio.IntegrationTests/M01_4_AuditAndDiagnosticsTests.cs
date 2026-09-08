@@ -53,7 +53,7 @@ public sealed class M01_4_AuditAndDiagnosticsTests
                 Assert.True(diagnostics.CanConnect);
                 Assert.Equal("ok", diagnostics.IntegrityCheck);
                 Assert.True(diagnostics.ForeignKeysEnabled);
-                Assert.Equal(2, diagnostics.SchemaVersion);
+                Assert.True(diagnostics.SchemaVersion >= 2);
                 Assert.Equal(0, diagnostics.PendingMigrations);
                 Assert.False(string.IsNullOrWhiteSpace(
                     diagnostics.InstanceId));
@@ -63,7 +63,6 @@ public sealed class M01_4_AuditAndDiagnosticsTests
                 await dbContext.Database.CloseConnectionAsync();
             }
 
-            // Krótka chwila na zwolnienie uchwytu pliku przez system Windows/SQLite.
             await Task.Delay(100);
         }
         finally

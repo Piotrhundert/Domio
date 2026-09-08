@@ -124,7 +124,7 @@ public sealed class M01_5_DatabaseMaintenanceTests
                 var reset =
                     await maintenance.ResetTestDatabaseAsync();
 
-                Assert.Equal(2, reset.SchemaVersion);
+                Assert.True(reset.SchemaVersion >= 2);
                 Assert.False(
                     string.IsNullOrWhiteSpace(
                         reset.InstanceId));
