@@ -1,7 +1,9 @@
 using Domio.Application.Auditing;
 using Domio.Application.Diagnostics;
+using Domio.Application.Maintenance;
 using Domio.Infrastructure.Auditing;
 using Domio.Infrastructure.Diagnostics;
+using Domio.Infrastructure.Maintenance;
 using Domio.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -13,9 +15,13 @@ public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        string environmentName,
+        string contentRootPath)
     {
-        var connectionString = configuration.GetConnectionString("DefaultConnection");
+        var connectionString =
+            configuration.GetConnectionString(
+                "DefaultConnection");
 
         if (string.IsNullOrWhiteSpace(connectionString))
         {
@@ -26,8 +32,18 @@ public static class DependencyInjection
         services.AddDbContext<DomioDbContext>(options =>
             options.UseSqlite(connectionString));
 
+        services.AddSingleton(
+            new DatabaseMaintenanceRuntime(
+                environmentName,
+                contentRootPath));
+
         services.AddScoped<IAuditService, AuditService>();
-        services.AddScoped<IDatabaseDiagnosticsService, DatabaseDiagnosticsService>();
+        services.AddScoped<
+            IDatabaseDiagnosticsService,
+            DatabaseDiagnosticsService>();
+        services.AddScoped<
+            IDatabaseMaintenanceService,
+            DatabaseMaintenanceService>();
 
         return services;
     }

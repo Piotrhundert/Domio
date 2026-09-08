@@ -1,5 +1,6 @@
 using Domio.Application.Auditing;
 using Domio.Application.Diagnostics;
+using Domio.Application.Maintenance;
 using Domio.Infrastructure;
 using Domio.Infrastructure.Persistence;
 using Domio.Web.Errors;
@@ -9,7 +10,10 @@ using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllersWithViews();
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructure(
+    builder.Configuration,
+    builder.Environment.EnvironmentName,
+    builder.Environment.ContentRootPath);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 
@@ -24,13 +28,21 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-if (app.Environment.IsDevelopment())
+var isDevelopmentOrTest =
+    app.Environment.IsDevelopment() ||
+    app.Environment.IsEnvironment("Test");
+
+if (isDevelopmentOrTest)
 {
     using var scope = app.Services.CreateScope();
-    var dbContext = scope.ServiceProvider.GetRequiredService<DomioDbContext>();
+    var dbContext =
+        scope.ServiceProvider.GetRequiredService<DomioDbContext>();
+
     await dbContext.Database.MigrateAsync();
 
-    app.MapGet("/dev/error", static () => ThrowTestException());
+    app.MapGet(
+        "/dev/error",
+        static () => ThrowTestException());
 
     app.MapGet("/dev/audit-test", async (
         HttpContext httpContext,
@@ -43,7 +55,7 @@ if (app.Environment.IsDevelopment())
                 EventType: "M01.4.AuditTest",
                 EntityType: "System",
                 EntityId: "M01",
-                ActorId: "development",
+                ActorId: app.Environment.EnvironmentName.ToLowerInvariant(),
                 CorrelationId: httpContext.TraceIdentifier,
                 Description: "Kontrolowany wpis audytowy testu M01.4."),
             cancellationToken);
@@ -60,6 +72,65 @@ if (app.Environment.IsDevelopment())
             auditCount
         });
     });
+
+    app.MapPost("/dev/database/backup", async (
+        HttpContext httpContext,
+        IDatabaseMaintenanceService maintenanceService,
+        CancellationToken cancellationToken) =>
+    {
+        var result = await maintenanceService.CreateBackupAsync(
+            cancellationToken);
+
+        return Results.Ok(new
+        {
+            status = "BackupCreated",
+            result.FileName,
+            result.SizeBytes,
+            result.CreatedAtUtc,
+            correlationId = httpContext.TraceIdentifier
+        });
+    });
+
+    app.MapPost("/dev/database/restore/{fileName}", async (
+        string fileName,
+        HttpContext httpContext,
+        IDatabaseMaintenanceService maintenanceService,
+        CancellationToken cancellationToken) =>
+    {
+        var result = await maintenanceService.RestoreBackupAsync(
+            fileName,
+            cancellationToken);
+
+        return Results.Ok(new
+        {
+            status = "BackupRestored",
+            result.FileName,
+            result.RestoredAtUtc,
+            correlationId = httpContext.TraceIdentifier
+        });
+    });
+
+    if (app.Environment.IsEnvironment("Test"))
+    {
+        app.MapPost("/dev/test-data/reset", async (
+            HttpContext httpContext,
+            IDatabaseMaintenanceService maintenanceService,
+            CancellationToken cancellationToken) =>
+        {
+            var result =
+                await maintenanceService.ResetTestDatabaseAsync(
+                    cancellationToken);
+
+            return Results.Ok(new
+            {
+                status = "TestDatabaseReset",
+                result.SchemaVersion,
+                result.InstanceId,
+                result.ResetAtUtc,
+                correlationId = httpContext.TraceIdentifier
+            });
+        });
+    }
 }
 
 app.UseHttpsRedirection();
@@ -80,14 +151,18 @@ app.MapGet("/health", async (
 
         var response = new
         {
-            status = diagnostics.IsHealthy ? "Healthy" : "Unhealthy",
+            status = diagnostics.IsHealthy
+                ? "Healthy"
+                : "Unhealthy",
             application = "Domio",
             module = "M01",
             environment = app.Environment.EnvironmentName,
             correlationId = httpContext.TraceIdentifier,
             database = new
             {
-                status = diagnostics.IsHealthy ? "Healthy" : "Unhealthy",
+                status = diagnostics.IsHealthy
+                    ? "Healthy"
+                    : "Unhealthy",
                 provider = "SQLite",
                 schemaVersion = diagnostics.SchemaVersion,
                 integrityCheck = diagnostics.IntegrityCheck,
@@ -104,7 +179,8 @@ app.MapGet("/health", async (
             ? Results.Ok(response)
             : Results.Json(
                 response,
-                statusCode: StatusCodes.Status503ServiceUnavailable);
+                statusCode:
+                    StatusCodes.Status503ServiceUnavailable);
     }
     catch (Exception ex)
     {
@@ -116,17 +192,20 @@ app.MapGet("/health", async (
         return Results.Problem(
             title: "Domio database unhealthy",
             detail: "Wystąpił błąd podczas diagnostyki bazy danych.",
-            statusCode: StatusCodes.Status503ServiceUnavailable,
+            statusCode:
+                StatusCodes.Status503ServiceUnavailable,
             extensions: new Dictionary<string, object?>
             {
-                ["correlationId"] = httpContext.TraceIdentifier
+                ["correlationId"] =
+                    httpContext.TraceIdentifier
             });
     }
 });
 
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Home}/{action=Index}/{id?}");
+    pattern:
+        "{controller=Home}/{action=Index}/{id?}");
 
 app.Run();
 
