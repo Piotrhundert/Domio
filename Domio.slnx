@@ -1,0 +1,9 @@
+<Solution>
+  <Project Path="Domio.Application.Tests/Domio.Application.Tests.csproj" />
+  <Project Path="Domio.Application/Domio.Application.csproj" />
+  <Project Path="Domio.Domain.Tests/Domio.Domain.Tests.csproj" />
+  <Project Path="Domio.Domain/Domio.Domain.csproj" />
+  <Project Path="Domio.Infrastructure/Domio.Infrastructure.csproj" />
+  <Project Path="Domio.IntegrationTests/Domio.IntegrationTests.csproj" />
+  <Project Path="Domio.Web/Domio.Web.csproj" />
+</Solution>
