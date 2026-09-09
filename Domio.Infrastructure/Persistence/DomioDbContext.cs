@@ -13,16 +13,10 @@ public sealed class DomioDbContext : DbContext
     }
 
     public DbSet<SchemaVersionRecord> SchemaVersions => Set<SchemaVersionRecord>();
-
-    public DbSet<DatabaseMetadataRecord> DatabaseMetadata =>
-        Set<DatabaseMetadataRecord>();
-
+    public DbSet<DatabaseMetadataRecord> DatabaseMetadata => Set<DatabaseMetadataRecord>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
-
     public DbSet<Person> People => Set<Person>();
-
     public DbSet<RoleDefinition> RoleDefinitions => Set<RoleDefinition>();
-
     public DbSet<UserAccount> UserAccounts => Set<UserAccount>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -32,77 +26,42 @@ public sealed class DomioDbContext : DbContext
         modelBuilder.Entity<SchemaVersionRecord>(entity =>
         {
             entity.ToTable("SchemaVersions");
-
             entity.HasKey(x => x.Id);
-
-            entity.Property(x => x.Id)
-                .ValueGeneratedNever();
-
-            entity.Property(x => x.Version)
-                .IsRequired();
-
-            entity.Property(x => x.UpdatedAtUtc)
-                .IsRequired();
+            entity.Property(x => x.Id).ValueGeneratedNever();
+            entity.Property(x => x.Version).IsRequired();
+            entity.Property(x => x.UpdatedAtUtc).IsRequired();
 
             entity.HasData(new SchemaVersionRecord
             {
                 Id = 1,
-                Version = 4,
+                Version = 5,
                 UpdatedAtUtc = new DateTime(
-                    2026, 9, 8, 15, 26, 0, DateTimeKind.Utc)
+                    2026, 9, 9, 6, 28, 0, DateTimeKind.Utc)
             });
         });
 
         modelBuilder.Entity<DatabaseMetadataRecord>(entity =>
         {
             entity.ToTable("DatabaseMetadata");
-
             entity.HasKey(x => x.Id);
-
-            entity.Property(x => x.Id)
-                .ValueGeneratedNever();
-
-            entity.Property(x => x.InstanceId)
-                .HasMaxLength(32)
-                .IsRequired();
-
-            entity.Property(x => x.CreatedAtUtc)
-                .IsRequired();
+            entity.Property(x => x.Id).ValueGeneratedNever();
+            entity.Property(x => x.InstanceId).HasMaxLength(32).IsRequired();
+            entity.Property(x => x.CreatedAtUtc).IsRequired();
         });
 
         modelBuilder.Entity<AuditLog>(entity =>
         {
             entity.ToTable("AuditLogs");
-
             entity.HasKey(x => x.Id);
-
-            entity.Property(x => x.EventType)
-                .HasMaxLength(100)
-                .IsRequired();
-
-            entity.Property(x => x.EntityType)
-                .HasMaxLength(100)
-                .IsRequired();
-
-            entity.Property(x => x.EntityId)
-                .HasMaxLength(200);
-
-            entity.Property(x => x.ActorId)
-                .HasMaxLength(200);
-
-            entity.Property(x => x.CorrelationId)
-                .HasMaxLength(64)
-                .IsRequired();
-
-            entity.Property(x => x.Description)
-                .HasMaxLength(1000);
-
+            entity.Property(x => x.EventType).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.EntityType).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.EntityId).HasMaxLength(200);
+            entity.Property(x => x.ActorId).HasMaxLength(200);
+            entity.Property(x => x.CorrelationId).HasMaxLength(64).IsRequired();
+            entity.Property(x => x.Description).HasMaxLength(1000);
             entity.Property(x => x.OldValuesJson);
             entity.Property(x => x.NewValuesJson);
-
-            entity.Property(x => x.CreatedAtUtc)
-                .IsRequired();
-
+            entity.Property(x => x.CreatedAtUtc).IsRequired();
             entity.HasIndex(x => x.CreatedAtUtc);
             entity.HasIndex(x => x.CorrelationId);
             entity.HasIndex(x => x.EventType);
@@ -111,35 +70,15 @@ public sealed class DomioDbContext : DbContext
         modelBuilder.Entity<Person>(entity =>
         {
             entity.ToTable("People");
-
             entity.HasKey(x => x.Id);
-
-            entity.Property(x => x.FirstName)
-                .HasMaxLength(100)
-                .IsRequired();
-
-            entity.Property(x => x.LastName)
-                .HasMaxLength(100)
-                .IsRequired();
-
-            entity.Property(x => x.DisplayName)
-                .HasMaxLength(200);
-
-            entity.Property(x => x.Email)
-                .HasMaxLength(254);
-
-            entity.Property(x => x.Phone)
-                .HasMaxLength(50);
-
-            entity.Property(x => x.IsActive)
-                .IsRequired();
-
-            entity.Property(x => x.CreatedAtUtc)
-                .IsRequired();
-
-            entity.Property(x => x.UpdatedAtUtc)
-                .IsRequired();
-
+            entity.Property(x => x.FirstName).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.LastName).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.DisplayName).HasMaxLength(200);
+            entity.Property(x => x.Email).HasMaxLength(254);
+            entity.Property(x => x.Phone).HasMaxLength(50);
+            entity.Property(x => x.IsActive).IsRequired();
+            entity.Property(x => x.CreatedAtUtc).IsRequired();
+            entity.Property(x => x.UpdatedAtUtc).IsRequired();
             entity.HasIndex(x => x.LastName);
             entity.HasIndex(x => x.Email);
         });
@@ -147,29 +86,13 @@ public sealed class DomioDbContext : DbContext
         modelBuilder.Entity<RoleDefinition>(entity =>
         {
             entity.ToTable("RoleDefinitions");
-
             entity.HasKey(x => x.Id);
-
-            entity.Property(x => x.Id)
-                .ValueGeneratedNever();
-
-            entity.Property(x => x.Code)
-                .HasMaxLength(50)
-                .IsRequired();
-
-            entity.Property(x => x.NamePl)
-                .HasMaxLength(100)
-                .IsRequired();
-
-            entity.Property(x => x.DescriptionPl)
-                .HasMaxLength(1000)
-                .IsRequired();
-
-            entity.Property(x => x.IsSystem)
-                .IsRequired();
-
-            entity.HasIndex(x => x.Code)
-                .IsUnique();
+            entity.Property(x => x.Id).ValueGeneratedNever();
+            entity.Property(x => x.Code).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.NamePl).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.DescriptionPl).HasMaxLength(1000).IsRequired();
+            entity.Property(x => x.IsSystem).IsRequired();
+            entity.HasIndex(x => x.Code).IsUnique();
 
             entity.HasData(
                 new RoleDefinition
@@ -222,38 +145,19 @@ public sealed class DomioDbContext : DbContext
         modelBuilder.Entity<UserAccount>(entity =>
         {
             entity.ToTable("UserAccounts");
-
             entity.HasKey(x => x.Id);
-
-            entity.Property(x => x.LoginName)
-                .HasMaxLength(100)
-                .IsRequired();
-
-            entity.Property(x => x.NormalizedLoginName)
-                .HasMaxLength(100)
-                .IsRequired();
-
-            entity.Property(x => x.PasswordHash)
-                .HasMaxLength(512);
-
-            entity.Property(x => x.IsActive)
-                .IsRequired();
-
-            entity.Property(x => x.FailedLoginAttempts)
-                .IsRequired();
-
-            entity.Property(x => x.CreatedAtUtc)
-                .IsRequired();
-
-            entity.Property(x => x.UpdatedAtUtc)
-                .IsRequired();
-
-            entity.HasIndex(x => x.NormalizedLoginName)
-                .IsUnique();
-
-            entity.HasIndex(x => x.PersonId)
-                .IsUnique();
-
+            entity.Property(x => x.LoginName).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.NormalizedLoginName).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.Email).HasMaxLength(254);
+            entity.Property(x => x.NormalizedEmail).HasMaxLength(254);
+            entity.Property(x => x.PasswordHash).HasMaxLength(512);
+            entity.Property(x => x.IsActive).IsRequired();
+            entity.Property(x => x.FailedLoginAttempts).IsRequired();
+            entity.Property(x => x.CreatedAtUtc).IsRequired();
+            entity.Property(x => x.UpdatedAtUtc).IsRequired();
+            entity.HasIndex(x => x.NormalizedLoginName).IsUnique();
+            entity.HasIndex(x => x.NormalizedEmail).IsUnique();
+            entity.HasIndex(x => x.PersonId).IsUnique();
             entity.HasIndex(x => x.RoleDefinitionId);
 
             entity.HasOne<Person>()

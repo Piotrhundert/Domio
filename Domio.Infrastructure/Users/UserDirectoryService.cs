@@ -26,6 +26,7 @@ public sealed class UserDirectoryService(
                     ? (person.FirstName + " " + person.LastName).Trim()
                     : person.DisplayName!,
                 account.LoginName,
+                account.Email,
                 role.Code,
                 role.NamePl,
                 account.IsActive && person.IsActive,
@@ -34,6 +35,25 @@ public sealed class UserDirectoryService(
                 account.LockoutEndUtc,
                 account.LastLoginAtUtc,
                 account.CreatedAtUtc))
+            .ToListAsync(cancellationToken);
+
+        var peopleWithoutAccount = await dbContext.People
+            .AsNoTracking()
+            .Where(person =>
+                !dbContext.UserAccounts.Any(
+                    account => account.PersonId == person.Id))
+            .OrderBy(person => person.LastName)
+            .ThenBy(person => person.FirstName)
+            .Select(person =>
+                new PersonWithoutAccountItem(
+                    person.Id,
+                    string.IsNullOrWhiteSpace(person.DisplayName)
+                        ? (person.FirstName + " " + person.LastName).Trim()
+                        : person.DisplayName!,
+                    person.Email,
+                    person.Phone,
+                    person.IsActive,
+                    person.CreatedAtUtc))
             .ToListAsync(cancellationToken);
 
         var assignments = await dbContext.UserAccounts
@@ -65,9 +85,11 @@ public sealed class UserDirectoryService(
 
         return new UserDirectoryOverview(
             users,
+            peopleWithoutAccount,
             roles,
             users.Count,
             users.Count(x => x.IsActive),
-            users.Count(x => x.IsLocked));
+            users.Count(x => x.IsLocked),
+            peopleWithoutAccount.Count);
     }
 }

@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using Domio.Application.Auditing;
 using Domio.Application.Authentication;
 using Domio.Domain.Users;
@@ -12,23 +11,16 @@ public sealed class AccountAuthenticationService(
     IAuditService auditService) : IAccountAuthenticationService
 {
     private const int MaximumFailedAttempts = 5;
-    private static readonly TimeSpan LockoutDuration =
-        TimeSpan.FromMinutes(15);
-
-    private const int PasswordIterations = 210_000;
-    private const int SaltSize = 16;
-    private const int PasswordHashSize = 32;
-    private const string PasswordAlgorithm = "PBKDF2-SHA256";
+    private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
 
     public Task<bool> HasAnyUserAsync(
         CancellationToken cancellationToken = default) =>
         dbContext.UserAccounts.AnyAsync(cancellationToken);
 
-    public async Task<FirstAdministratorSetupResult>
-        InitializeFirstAdministratorAsync(
-            FirstAdministratorSetupRequest request,
-            string correlationId,
-            CancellationToken cancellationToken = default)
+    public async Task<FirstAdministratorSetupResult> InitializeFirstAdministratorAsync(
+        FirstAdministratorSetupRequest request,
+        string correlationId,
+        CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -41,15 +33,14 @@ public sealed class AccountAuthenticationService(
         ValidateRequired(request.FirstName, nameof(request.FirstName));
         ValidateRequired(request.LastName, nameof(request.LastName));
         ValidateRequired(request.LoginName, nameof(request.LoginName));
-        ValidatePassword(request.Password);
+        PasswordSecurity.ValidatePassword(request.Password);
 
         var now = DateTime.UtcNow;
         var loginName = request.LoginName.Trim();
         var normalizedLoginName = NormalizeLogin(loginName);
 
         await using var transaction =
-            await dbContext.Database.BeginTransactionAsync(
-                cancellationToken);
+            await dbContext.Database.BeginTransactionAsync(cancellationToken);
 
         if (await dbContext.UserAccounts.AnyAsync(
                 x => x.NormalizedLoginName == normalizedLoginName,
@@ -64,8 +55,7 @@ public sealed class AccountAuthenticationService(
             Id = Guid.NewGuid(),
             FirstName = request.FirstName.Trim(),
             LastName = request.LastName.Trim(),
-            DisplayName =
-                $"{request.FirstName.Trim()} {request.LastName.Trim()}",
+            DisplayName = $"{request.FirstName.Trim()} {request.LastName.Trim()}",
             IsActive = true,
             CreatedAtUtc = now,
             UpdatedAtUtc = now
@@ -78,7 +68,7 @@ public sealed class AccountAuthenticationService(
             RoleDefinitionId = SystemRoles.AdministratorId,
             LoginName = loginName,
             NormalizedLoginName = normalizedLoginName,
-            PasswordHash = HashPassword(request.Password),
+            PasswordHash = PasswordSecurity.HashPassword(request.Password),
             PasswordChangedAtUtc = now,
             IsActive = true,
             FailedLoginAttempts = 0,
@@ -88,7 +78,6 @@ public sealed class AccountAuthenticationService(
 
         dbContext.People.Add(person);
         dbContext.UserAccounts.Add(user);
-
         await dbContext.SaveChangesAsync(cancellationToken);
 
         await auditService.WriteAsync(
@@ -126,8 +115,8 @@ public sealed class AccountAuthenticationService(
         if (account is null)
         {
             await WriteLoginAuditAsync(
-                eventType: "M02.2.LoginFailed",
-                entityId: null,
+                "M02.2.LoginFailed",
+                null,
                 correlationId,
                 "Nieudana próba logowania.",
                 cancellationToken);
@@ -147,8 +136,7 @@ public sealed class AccountAuthenticationService(
                 "Próba logowania do nieaktywnego konta.",
                 cancellationToken);
 
-            return new AuthenticationResult(
-                AuthenticationStatus.Inactive);
+            return new AuthenticationResult(AuthenticationStatus.Inactive);
         }
 
         if (account.LockoutEndUtc is not null &&
@@ -168,7 +156,9 @@ public sealed class AccountAuthenticationService(
 
         var passwordValid =
             account.PasswordHash is not null &&
-            VerifyPassword(password, account.PasswordHash);
+            PasswordSecurity.VerifyPassword(
+                password,
+                account.PasswordHash);
 
         if (!passwordValid)
         {
@@ -185,9 +175,7 @@ public sealed class AccountAuthenticationService(
             var locked = account.LockoutEndUtc is not null;
 
             await WriteLoginAuditAsync(
-                locked
-                    ? "M02.2.LoginLocked"
-                    : "M02.2.LoginFailed",
+                locked ? "M02.2.LoginLocked" : "M02.2.LoginFailed",
                 account.Id.ToString(),
                 correlationId,
                 locked
@@ -217,8 +205,7 @@ public sealed class AccountAuthenticationService(
                 "Próba logowania dla nieaktywnej osoby.",
                 cancellationToken);
 
-            return new AuthenticationResult(
-                AuthenticationStatus.Inactive);
+            return new AuthenticationResult(AuthenticationStatus.Inactive);
         }
 
         var role = await dbContext.RoleDefinitions
@@ -230,7 +217,6 @@ public sealed class AccountAuthenticationService(
         account.LockoutEndUtc = null;
         account.LastLoginAtUtc = now;
         account.UpdatedAtUtc = now;
-
         await dbContext.SaveChangesAsync(cancellationToken);
 
         await WriteLoginAuditAsync(
@@ -256,12 +242,11 @@ public sealed class AccountAuthenticationService(
                 role.NamePl));
     }
 
-    public async Task RecordLogoutAsync(
+    public Task RecordLogoutAsync(
         Guid userId,
         string correlationId,
-        CancellationToken cancellationToken = default)
-    {
-        await auditService.WriteAsync(
+        CancellationToken cancellationToken = default) =>
+        auditService.WriteAsync(
             new AuditEntry(
                 EventType: "M02.2.Logout",
                 EntityType: "UserAccount",
@@ -270,7 +255,6 @@ public sealed class AccountAuthenticationService(
                 CorrelationId: correlationId,
                 Description: "Wylogowanie użytkownika."),
             cancellationToken);
-    }
 
     private Task<Guid> WriteLoginAuditAsync(
         string eventType,
@@ -289,89 +273,15 @@ public sealed class AccountAuthenticationService(
             cancellationToken);
 
     private static string NormalizeLogin(string loginName) =>
-        (loginName ?? string.Empty)
-            .Trim()
-            .ToUpperInvariant();
+        (loginName ?? string.Empty).Trim().ToUpperInvariant();
 
-    private static void ValidateRequired(
-        string value,
-        string parameterName)
+    private static void ValidateRequired(string value, string parameterName)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
             throw new ArgumentException(
                 "Wartość nie może być pusta.",
                 parameterName);
-        }
-    }
-
-    private static void ValidatePassword(string password)
-    {
-        if (string.IsNullOrWhiteSpace(password) ||
-            password.Length < 10 ||
-            !password.Any(char.IsUpper) ||
-            !password.Any(char.IsLower) ||
-            !password.Any(char.IsDigit))
-        {
-            throw new ArgumentException(
-                "Hasło musi mieć co najmniej 10 znaków oraz zawierać małą literę, wielką literę i cyfrę.",
-                nameof(password));
-        }
-    }
-
-    private static string HashPassword(string password)
-    {
-        var salt = RandomNumberGenerator.GetBytes(SaltSize);
-
-        var hash = Rfc2898DeriveBytes.Pbkdf2(
-            password,
-            salt,
-            PasswordIterations,
-            HashAlgorithmName.SHA256,
-            PasswordHashSize);
-
-        return string.Join(
-            '$',
-            PasswordAlgorithm,
-            PasswordIterations,
-            Convert.ToBase64String(salt),
-            Convert.ToBase64String(hash));
-    }
-
-    private static bool VerifyPassword(
-        string password,
-        string storedHash)
-    {
-        try
-        {
-            var parts = storedHash.Split('$');
-
-            if (parts.Length != 4 ||
-                parts[0] != PasswordAlgorithm ||
-                !int.TryParse(parts[1], out var iterations) ||
-                iterations < 100_000)
-            {
-                return false;
-            }
-
-            var salt = Convert.FromBase64String(parts[2]);
-            var expectedHash =
-                Convert.FromBase64String(parts[3]);
-
-            var actualHash = Rfc2898DeriveBytes.Pbkdf2(
-                password,
-                salt,
-                iterations,
-                HashAlgorithmName.SHA256,
-                expectedHash.Length);
-
-            return CryptographicOperations.FixedTimeEquals(
-                actualHash,
-                expectedHash);
-        }
-        catch (FormatException)
-        {
-            return false;
         }
     }
 }

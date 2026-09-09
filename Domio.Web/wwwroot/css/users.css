@@ -93,7 +93,8 @@
   padding: 30px;
 }
 
-.users-page-header {
+.users-page-header,
+.user-form-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -101,16 +102,24 @@
   margin-bottom: 22px;
 }
 
-.users-page-header h1 {
+.users-page-header h1,
+.user-form-header h1 {
   margin: 4px 0 6px;
   font-size: 2rem;
   font-weight: 780;
   letter-spacing: -0.04em;
 }
 
-.users-page-header p {
+.users-page-header p,
+.user-form-header p {
   margin: 0;
   color: var(--domio-muted);
+}
+
+.users-header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .users-kicker {
@@ -147,7 +156,8 @@
   font-weight: 780;
 }
 
-.users-panel {
+.users-panel,
+.user-form-card {
   overflow: hidden;
   border: 1px solid var(--domio-border);
   border-radius: 20px;
@@ -160,7 +170,8 @@
   border-bottom: 1px solid var(--domio-border);
 }
 
-.users-panel-heading h2 {
+.users-panel-heading h2,
+.user-form-section h2 {
   margin: 0 0 5px;
   font-size: 1.08rem;
   font-weight: 760;
@@ -336,6 +347,67 @@
   color: #68717d;
 }
 
+.user-form-card {
+  max-width: 920px;
+}
+
+.user-form-section {
+  padding: 24px;
+  border-bottom: 1px solid var(--domio-border);
+}
+
+.user-form-section h2 {
+  margin-bottom: 18px;
+}
+
+.user-form-section .form-label {
+  font-size: 0.84rem;
+  font-weight: 680;
+}
+
+.user-form-section .form-control,
+.user-form-section .form-select {
+  min-height: 48px;
+  border-color: var(--domio-border);
+  border-radius: 12px;
+}
+
+.user-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 20px 24px;
+  background: #fafbfc;
+}
+
+.user-role-readonly {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid var(--domio-border);
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.user-role-readonly span {
+  color: var(--domio-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.user-role-readonly strong {
+  font-size: 0.96rem;
+}
+
+.user-role-readonly small {
+  color: var(--domio-muted);
+}
+
+.user-active-switch {
+  padding-top: 6px;
+}
+
 @media (max-width: 1000px) {
   .domio-app-shell {
     grid-template-columns: 1fr;
@@ -371,7 +443,8 @@
     padding: 20px 14px;
   }
 
-  .users-page-header {
+  .users-page-header,
+  .user-form-header {
     flex-direction: column;
   }
 
@@ -384,4 +457,38 @@
     align-items: flex-start;
     flex-direction: column;
   }
+
+  .user-form-actions {
+    flex-direction: column-reverse;
+  }
+
+  .user-form-actions .btn {
+    width: 100%;
+  }
+}
+
+
+.auto-login-info {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border: 1px solid rgba(22, 63, 122, 0.12);
+  border-radius: 12px;
+  background: #f3f7ff;
+}
+
+.auto-login-info strong {
+  color: var(--domio-primary);
+  font-size: 0.9rem;
+}
+
+.auto-login-info span {
+  color: var(--domio-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.auto-login-info code {
+  color: var(--domio-primary);
+  font-weight: 700;
 }

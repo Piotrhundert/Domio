@@ -1,0 +1,98 @@
+@model Domio.Web.Models.Users.CreateAccountForPersonViewModel
+@{
+    ViewData["Title"] = "Utwórz konto";
+}
+
+<div class="users-page">
+    <div class="user-form-header">
+        <div>
+            <div class="users-kicker">M02.4 · KONTO DLA ISTNIEJĄCEJ OSOBY</div>
+            <h1>Utwórz konto</h1>
+            <p>
+                Konto zostanie powiązane z istniejącą osobą:
+                <strong>@Model.PersonName</strong>.
+            </p>
+        </div>
+        <a asp-action="Index" class="btn btn-outline-secondary">
+            Wróć
+        </a>
+    </div>
+
+    <form asp-action="CreateForPerson"
+          method="post"
+          class="user-form-card">
+
+        <input asp-for="PersonId" type="hidden" />
+        <input asp-for="PersonName" type="hidden" />
+
+        <div asp-validation-summary="ModelOnly"
+             class="text-danger mb-3"></div>
+
+        <div class="user-form-section">
+            <h2>Konto logowania</h2>
+
+            <div class="auto-login-info mb-3">
+                <strong>Login zostanie nadany automatycznie.</strong>
+                <span>
+                    Domio utworzy go z imienia i nazwiska osoby w formacie
+                    <code>Imię_Nazwisko</code>. W razie duplikatu zostanie dodany numer.
+                </span>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="Email" class="form-label"></label>
+                    <input asp-for="Email"
+                           class="form-control"
+                           autocomplete="off" />
+                    <span asp-validation-for="Email"
+                          class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="RoleDefinitionId" class="form-label"></label>
+                    <select asp-for="RoleDefinitionId"
+                            asp-items="Model.Roles"
+                            class="form-select">
+                        <option value="0">Wybierz rolę</option>
+                    </select>
+                    <span asp-validation-for="RoleDefinitionId"
+                          class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Password" class="form-label"></label>
+                    <input asp-for="Password"
+                           class="form-control"
+                           autocomplete="new-password" />
+                    <span asp-validation-for="Password"
+                          class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="ConfirmPassword" class="form-label"></label>
+                    <input asp-for="ConfirmPassword"
+                           class="form-control"
+                           autocomplete="new-password" />
+                    <span asp-validation-for="ConfirmPassword"
+                          class="text-danger small"></span>
+                </div>
+            </div>
+
+            <div class="password-rules mt-3">
+                Hasło: minimum 10 znaków, co najmniej jedna mała litera,
+                jedna wielka litera i jedna cyfra.
+            </div>
+        </div>
+
+        <div class="user-form-actions">
+            <a asp-action="Index" class="btn btn-outline-secondary">
+                Anuluj
+            </a>
+            <button type="submit" class="btn btn-primary">
+                Utwórz konto
+            </button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

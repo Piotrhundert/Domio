@@ -1,0 +1,129 @@
+@model Domio.Web.Models.Users.CreateUserViewModel
+@{
+    ViewData["Title"] = "Dodaj użytkownika";
+}
+
+<div class="users-page">
+    <div class="user-form-header">
+        <div>
+            <div class="users-kicker">M02.4 · NOWE KONTO</div>
+            <h1>Dodaj użytkownika</h1>
+            <p>
+                Utworzona zostanie nowa osoba oraz powiązane z nią konto logowania.
+            </p>
+        </div>
+        <a asp-action="Index" class="btn btn-outline-secondary">
+            Wróć
+        </a>
+    </div>
+
+    <form asp-action="Create"
+          method="post"
+          class="user-form-card">
+
+        <div asp-validation-summary="ModelOnly"
+             class="text-danger mb-3"></div>
+
+        <div class="user-form-section">
+            <h2>Dane osoby</h2>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="FirstName" class="form-label"></label>
+                    <input asp-for="FirstName" class="form-control" />
+                    <span asp-validation-for="FirstName"
+                          class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="LastName" class="form-label"></label>
+                    <input asp-for="LastName" class="form-control" />
+                    <span asp-validation-for="LastName"
+                          class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="DisplayName" class="form-label"></label>
+                    <input asp-for="DisplayName"
+                           class="form-control"
+                           placeholder="Opcjonalnie" />
+                    <span asp-validation-for="DisplayName"
+                          class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Phone" class="form-label"></label>
+                    <input asp-for="Phone"
+                           class="form-control"
+                           placeholder="Opcjonalnie" />
+                    <span asp-validation-for="Phone"
+                          class="text-danger small"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="user-form-section">
+            <h2>Konto logowania</h2>
+
+            <div class="auto-login-info mb-3">
+                <strong>Login zostanie nadany automatycznie.</strong>
+                <span>
+                    Format: <code>Imię_Nazwisko</code>, np. <code>Jan_Kowalski</code>.
+                    Jeśli taki login już istnieje, Domio doda kolejny numer,
+                    np. <code>Jan_Kowalski_2</code>.
+                </span>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="Email" class="form-label"></label>
+                    <input asp-for="Email"
+                           class="form-control"
+                           autocomplete="off" />
+                    <span asp-validation-for="Email"
+                          class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="RoleDefinitionId" class="form-label"></label>
+                    <select asp-for="RoleDefinitionId"
+                            asp-items="Model.Roles"
+                            class="form-select">
+                        <option value="0">Wybierz rolę</option>
+                    </select>
+                    <span asp-validation-for="RoleDefinitionId"
+                          class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Password" class="form-label"></label>
+                    <input asp-for="Password"
+                           class="form-control"
+                           autocomplete="new-password" />
+                    <span asp-validation-for="Password"
+                          class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="ConfirmPassword" class="form-label"></label>
+                    <input asp-for="ConfirmPassword"
+                           class="form-control"
+                           autocomplete="new-password" />
+                    <span asp-validation-for="ConfirmPassword"
+                          class="text-danger small"></span>
+                </div>
+            </div>
+
+            <div class="password-rules mt-3">
+                Hasło: minimum 10 znaków, co najmniej jedna mała litera,
+                jedna wielka litera i jedna cyfra.
+            </div>
+        </div>
+
+        <div class="user-form-actions">
+            <a asp-action="Index" class="btn btn-outline-secondary">
+                Anuluj
+            </a>
+            <button type="submit" class="btn btn-primary">
+                Utwórz użytkownika
+            </button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

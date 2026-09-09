@@ -1,0 +1,74 @@
+@model Domio.Web.Models.Users.CreatePersonViewModel
+@{
+    ViewData["Title"] = "Dodaj osobę";
+}
+
+<div class="users-page">
+    <div class="user-form-header">
+        <div>
+            <div class="users-kicker">M02.4 · OSOBA BEZ KONTA</div>
+            <h1>Dodaj osobę</h1>
+            <p>
+                Osoba zostanie zapisana w Domio bez loginu i możliwości logowania.
+                Konto możesz utworzyć dla niej później.
+            </p>
+        </div>
+        <a asp-action="Index" class="btn btn-outline-secondary">Wróć</a>
+    </div>
+
+    <form asp-action="CreatePerson" method="post" class="user-form-card">
+        <div asp-validation-summary="ModelOnly"
+             class="text-danger mb-3"></div>
+
+        <div class="user-form-section">
+            <h2>Dane osoby</h2>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="FirstName" class="form-label"></label>
+                    <input asp-for="FirstName" class="form-control" />
+                    <span asp-validation-for="FirstName"
+                          class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="LastName" class="form-label"></label>
+                    <input asp-for="LastName" class="form-control" />
+                    <span asp-validation-for="LastName"
+                          class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="DisplayName" class="form-label"></label>
+                    <input asp-for="DisplayName"
+                           class="form-control"
+                           placeholder="Opcjonalnie" />
+                    <span asp-validation-for="DisplayName"
+                          class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Email" class="form-label"></label>
+                    <input asp-for="Email"
+                           class="form-control"
+                           placeholder="Opcjonalnie" />
+                    <span asp-validation-for="Email"
+                          class="text-danger small"></span>
+                </div>
+                <div class="col-md-6">
+                    <label asp-for="Phone" class="form-label"></label>
+                    <input asp-for="Phone"
+                           class="form-control"
+                           placeholder="Opcjonalnie" />
+                    <span asp-validation-for="Phone"
+                          class="text-danger small"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="user-form-actions">
+            <a asp-action="Index" class="btn btn-outline-secondary">Anuluj</a>
+            <button type="submit" class="btn btn-primary">Zapisz osobę</button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

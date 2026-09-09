@@ -6,20 +6,31 @@
 <div class="users-page">
     <div class="users-page-header">
         <div>
-            <div class="users-kicker">M02 · UŻYTKOWNICY I ROLE</div>
+            <div class="users-kicker">M02.4 · UŻYTKOWNICY I OSOBY</div>
             <h1>Użytkownicy</h1>
             <p>
-                Podgląd osób posiadających konto w Domio oraz katalog ról systemowych.
+                Tworzenie osób i kont, edycja podstawowych danych oraz podgląd ról.
             </p>
         </div>
 
-        <button type="button"
-                class="btn btn-primary"
-                disabled
-                title="Dodawanie użytkowników zostanie uruchomione w M02.4.">
-            + Dodaj użytkownika
-        </button>
+        <div class="users-header-actions">
+            <a asp-action="CreatePerson"
+               class="btn btn-outline-primary">
+                + Dodaj osobę
+            </a>
+            <a asp-action="Create"
+               class="btn btn-primary">
+                + Dodaj użytkownika
+            </a>
+        </div>
     </div>
+
+    @if (TempData["UsersMessage"] is string message)
+    {
+        <div class="alert alert-success mb-4" role="alert">
+            @message
+        </div>
+    }
 
     <div class="users-summary-grid">
         <div class="users-summary-card">
@@ -35,27 +46,25 @@
             <strong>@Model.LockedUsers</strong>
         </div>
         <div class="users-summary-card">
-            <span>Role systemowe</span>
-            <strong>@Model.Roles.Count</strong>
+            <span>Osoby bez konta</span>
+            <strong>@Model.PeopleWithoutAccountCount</strong>
         </div>
     </div>
 
     <section class="users-panel">
         <div class="users-panel-heading">
             <div>
-                <h2>Lista użytkowników</h2>
+                <h2>Konta użytkowników</h2>
                 <p>
-                    Na tym etapie panel jest tylko do podglądu.
-                    Dodawanie i edycja kont pojawią się w kolejnych krokach M02.
+                    Edycja obejmuje dane osoby, login, e-mail oraz aktywność konta.
+                    Zmianę roli uruchomimy w kolejnym kroku M02.
                 </p>
             </div>
         </div>
 
         @if (Model.Users.Count == 0)
         {
-            <div class="users-empty">
-                Brak kont użytkowników.
-            </div>
+            <div class="users-empty">Brak kont użytkowników.</div>
         }
         else
         {
@@ -64,10 +73,11 @@
                     <thead>
                         <tr>
                             <th>Użytkownik</th>
-                            <th>Login</th>
+                            <th>Konto</th>
                             <th>Rola</th>
                             <th>Status</th>
                             <th>Ostatnie logowanie</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -99,18 +109,20 @@
                                 </div>
                             </td>
                             <td>
-                                <span class="users-login">@user.LoginName</span>
+                                <div class="users-login">@user.LoginName</div>
+                                @if (!string.IsNullOrWhiteSpace(user.Email))
+                                {
+                                    <div class="users-person-meta">@user.Email</div>
+                                }
                             </td>
                             <td>
-                                <span class="users-role-badge">
-                                    @user.RoleNamePl
-                                </span>
+                                <span class="users-role-badge">@user.RoleNamePl</span>
                             </td>
                             <td>
                                 @if (!user.IsActive)
                                 {
                                     <span class="users-status users-status-inactive">
-                                        Nieaktywne
+                                        Wyłączone
                                     </span>
                                 }
                                 else if (user.IsLocked)
@@ -136,6 +148,82 @@
                                     @(user.LastLoginAtUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm"))
                                 }
                             </td>
+                            <td class="text-end">
+                                <a asp-action="Edit"
+                                   asp-route-id="@user.UserId"
+                                   class="btn btn-sm btn-outline-secondary">
+                                    Edytuj
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <section class="users-panel mt-4">
+        <div class="users-panel-heading">
+            <div>
+                <h2>Osoby bez konta logowania</h2>
+                <p>
+                    Osoba może istnieć w Domio bez możliwości logowania.
+                    Konto można utworzyć później bez tworzenia duplikatu osoby.
+                </p>
+            </div>
+        </div>
+
+        @if (Model.PeopleWithoutAccount.Count == 0)
+        {
+            <div class="users-empty">
+                Wszystkie osoby mają już konto albo nie utworzono dodatkowych osób.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table users-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Osoba</th>
+                            <th>E-mail</th>
+                            <th>Telefon</th>
+                            <th>Status</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var person in Model.PeopleWithoutAccount)
+                    {
+                        <tr>
+                            <td><strong>@person.DisplayName</strong></td>
+                            <td>@(person.Email ?? "—")</td>
+                            <td>@(person.Phone ?? "—")</td>
+                            <td>
+                                @if (person.IsActive)
+                                {
+                                    <span class="users-status users-status-active">
+                                        Aktywna
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="users-status users-status-inactive">
+                                        Nieaktywna
+                                    </span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                @if (person.IsActive)
+                                {
+                                    <a asp-action="CreateForPerson"
+                                       asp-route-id="@person.PersonId"
+                                       class="btn btn-sm btn-outline-primary">
+                                        Utwórz konto
+                                    </a>
+                                }
+                            </td>
                         </tr>
                     }
                     </tbody>
@@ -148,9 +236,7 @@
         <div class="users-panel-heading">
             <div>
                 <h2>Role w Domio</h2>
-                <p>
-                    Polskie nazwy ról oraz opis ich przeznaczenia.
-                </p>
+                <p>Polskie nazwy ról oraz opis ich przeznaczenia.</p>
             </div>
         </div>
 
