@@ -37,7 +37,7 @@ public sealed class M02_1_UserRoleModelTests
                 .Select(x => x.Version)
                 .SingleAsync();
 
-            Assert.Equal(3, schemaVersion);
+            Assert.True(schemaVersion >= 3);
 
             var roles = await dbContext.RoleDefinitions
                 .AsNoTracking()

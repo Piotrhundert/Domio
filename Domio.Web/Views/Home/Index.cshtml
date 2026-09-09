@@ -1,8 +1,62 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
+@{
+    ViewData["Title"] = "Start";
+    var role = User.FindFirst("domio_role_name")?.Value ?? "Użytkownik";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="container-fluid px-4 py-4">
+    <div class="domio-welcome">
+        <div class="domio-welcome-main">
+            <div class="domio-welcome-logo-wrap">
+                <img src="~/images/domio-logo.png"
+                     alt="Logo Domio"
+                     class="domio-welcome-logo" />
+            </div>
+            <div>
+                <div class="domio-kicker">DOMIO</div>
+                <h1>Witaj, @User.Identity?.Name</h1>
+                <p>
+                    Jesteś zalogowany jako <strong>@role</strong>.
+                    Fundament aplikacji jest gotowy, a moduł użytkowników jest właśnie uruchamiany.
+                </p>
+            </div>
+        </div>
+        <div class="domio-status-badge">
+            M02 · Użytkownicy i role
+        </div>
+    </div>
+
+    <div class="row g-3 mt-2">
+        <div class="col-md-4">
+            <div class="domio-module-card">
+                <div class="domio-module-icon">U</div>
+                <h2>Użytkownicy</h2>
+                <p>
+                    Konta, osoby, role i uprawnienia.
+                </p>
+                <span class="badge text-bg-primary">W realizacji</span>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="domio-module-card">
+                <div class="domio-module-icon">F</div>
+                <h2>Finanse</h2>
+                <p>
+                    Finanse osobiste i gospodarstwa domowego.
+                </p>
+                <span class="badge text-bg-light">Wkrótce</span>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="domio-module-card">
+                <div class="domio-module-icon">N</div>
+                <h2>Najem i media</h2>
+                <p>
+                    Umowy, liczniki, faktury i rozliczenia lokatorów.
+                </p>
+                <span class="badge text-bg-light">Wkrótce</span>
+            </div>
+        </div>
+    </div>
 </div>

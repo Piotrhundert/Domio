@@ -1,0 +1,25 @@
+@{
+    ViewData["Title"] = "Brak dostępu";
+}
+
+<div class="auth-shell auth-shell-modern">
+    <div class="auth-background-orb auth-orb-left"></div>
+    <div class="auth-background-orb auth-orb-right"></div>
+
+    <div class="auth-card auth-card-modern text-center">
+        <img src="~/images/domio-logo.png"
+             alt="Domio"
+             class="auth-inline-logo mb-4" />
+        <div class="auth-kicker">BRAK DOSTĘPU</div>
+        <h1 class="h3 mb-3">Twoje konto nie ma uprawnień</h1>
+        <p class="text-secondary mb-4">
+            Nie możesz otworzyć tej części Domio. Wróć do strony głównej
+            lub skontaktuj się z administratorem systemu.
+        </p>
+        <a asp-controller="Home"
+           asp-action="Index"
+           class="btn btn-primary auth-submit-btn">
+            Wróć do strony głównej
+        </a>
+    </div>
+</div>

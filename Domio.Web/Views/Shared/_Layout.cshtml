@@ -1,50 +1,87 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="pl">
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - Domio.Web</title>
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Domio</title>
     <script type="importmap"></script>
-    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/Domio.Web.styles.css" asp-append-version="true" />
+    <link rel="stylesheet"
+          href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet"
+          href="~/css/site.css"
+          asp-append-version="true" />
+    <link rel="stylesheet"
+          href="~/Domio.Web.styles.css"
+          asp-append-version="true" />
 </head>
 <body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-light bg-white border-bottom box-shadow mb-3">
-            <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">Domio.Web</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
-                        aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Home</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
-                        </li>
-                    </ul>
+    <header class="domio-header">
+        <nav class="navbar navbar-expand-lg">
+            <div class="container-fluid px-4">
+                <a class="navbar-brand domio-brand"
+                   asp-controller="Home"
+                   asp-action="Index">
+                    <img src="~/images/domio-logo.png"
+                         alt="Domio"
+                         class="domio-brand-logo" />
+                    <span class="domio-brand-text">
+                        <span class="domio-brand-title">Domio</span>
+                        <span class="domio-brand-subtitle">domowe centrum zarządzania</span>
+                    </span>
+                </a>
+
+                <div class="ms-auto d-flex align-items-center gap-3">
+                    @if (User.Identity?.IsAuthenticated == true)
+                    {
+                        <div class="domio-user d-none d-sm-block">
+                            <div class="domio-user-name">
+                                @User.Identity.Name
+                            </div>
+                            <div class="domio-user-role">
+                                @User.FindFirst("domio_role_name")?.Value
+                            </div>
+                        </div>
+
+                        <form asp-controller="Account"
+                              asp-action="Logout"
+                              method="post">
+                            <button type="submit"
+                                    class="btn btn-outline-secondary btn-sm">
+                                Wyloguj
+                            </button>
+                        </form>
+                    }
+                    else
+                    {
+                        <a asp-controller="Account"
+                           asp-action="Login"
+                           class="btn btn-outline-primary btn-sm">
+                            Logowanie
+                        </a>
+                    }
                 </div>
             </div>
         </nav>
     </header>
-    <div class="container">
-        <main role="main" class="pb-3">
-            @RenderBody()
-        </main>
-    </div>
 
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2026 - Domio.Web - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+    <main role="main" class="domio-main">
+        @RenderBody()
+    </main>
+
+    <footer class="domio-footer">
+        <div class="container-fluid px-4 d-flex flex-column flex-md-row justify-content-between gap-2">
+            <span>Domio · domowe centrum zarządzania</span>
+            <span>Wersja robocza modułu użytkowników</span>
         </div>
     </footer>
+
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="~/js/site.js" asp-append-version="true"></script>
-    @await RenderSectionAsync("Scripts", required: false)
+    <script src="~/js/site.js"
+            asp-append-version="true"></script>
+    @await RenderSectionAsync(
+        "Scripts",
+        required: false)
 </body>
 </html>

@@ -1,7 +1,9 @@
 using Domio.Application.Auditing;
+using Domio.Application.Authentication;
 using Domio.Application.Diagnostics;
 using Domio.Application.Maintenance;
 using Domio.Infrastructure.Auditing;
+using Domio.Infrastructure.Authentication;
 using Domio.Infrastructure.Diagnostics;
 using Domio.Infrastructure.Maintenance;
 using Domio.Infrastructure.Persistence;
@@ -38,6 +40,9 @@ public static class DependencyInjection
                 contentRootPath));
 
         services.AddScoped<IAuditService, AuditService>();
+        services.AddScoped<
+            IAccountAuthenticationService,
+            AccountAuthenticationService>();
         services.AddScoped<
             IDatabaseDiagnosticsService,
             DatabaseDiagnosticsService>();

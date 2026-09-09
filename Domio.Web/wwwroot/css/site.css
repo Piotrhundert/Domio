@@ -8,8 +8,16 @@ html {
   }
 }
 
-.btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
-  box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
+:root {
+  --domio-bg: #f4f7fb;
+  --domio-surface: rgba(255, 255, 255, 0.94);
+  --domio-text: #172033;
+  --domio-muted: #6b7280;
+  --domio-border: #e6eaf0;
+  --domio-primary: #163f7a;
+  --domio-primary-2: #12a8b5;
+  --domio-primary-dark: #102f5d;
+  --domio-success: #5ac58d;
 }
 
 html {
@@ -18,14 +26,478 @@ html {
 }
 
 body {
-  margin-bottom: 60px;
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(circle at top left, rgba(18, 168, 181, 0.08), transparent 26%),
+    radial-gradient(circle at top right, rgba(22, 63, 122, 0.10), transparent 24%),
+    linear-gradient(180deg, #f8fbff 0%, #f3f6fb 100%);
+  color: var(--domio-text);
 }
 
-.form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
-  color: var(--bs-secondary-color);
-  text-align: end;
+.btn:focus,
+.btn:active:focus,
+.btn-link.nav-link:focus,
+.form-control:focus,
+.form-check-input:focus {
+  box-shadow: 0 0 0 0.2rem rgba(22, 63, 122, 0.14);
 }
 
-.form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
-  text-align: start;
+.btn-primary {
+  background: linear-gradient(135deg, var(--domio-primary) 0%, #254f95 100%);
+  border: none;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(135deg, var(--domio-primary-dark) 0%, var(--domio-primary) 100%);
+}
+
+.domio-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  backdrop-filter: blur(18px);
+  background: rgba(255, 255, 255, 0.82);
+  border-bottom: 1px solid rgba(230, 234, 240, 0.9);
+}
+
+.domio-header .navbar {
+  min-height: 74px;
+}
+
+.domio-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--domio-text);
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+}
+
+.domio-brand:hover {
+  color: var(--domio-text);
+}
+
+.domio-brand-logo {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  border-radius: 14px;
+  box-shadow: 0 10px 25px rgba(22, 63, 122, 0.08);
+}
+
+.domio-brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.domio-brand-title {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.domio-brand-subtitle {
+  margin-top: 3px;
+  color: var(--domio-muted);
+  font-size: 0.77rem;
+  font-weight: 500;
+}
+
+.domio-user {
+  text-align: right;
+  line-height: 1.15;
+}
+
+.domio-user-name {
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.domio-user-role {
+  margin-top: 3px;
+  color: var(--domio-muted);
+  font-size: 0.76rem;
+}
+
+.domio-main {
+  min-height: calc(100vh - 130px);
+}
+
+.domio-footer {
+  padding: 16px 0;
+  color: var(--domio-muted);
+  border-top: 1px solid var(--domio-border);
+  background: rgba(255, 255, 255, 0.9);
+  font-size: 0.82rem;
+}
+
+.auth-shell {
+  min-height: calc(100vh - 130px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 42px 20px;
+}
+
+.auth-shell-modern {
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-background-orb {
+  position: absolute;
+  width: 340px;
+  height: 340px;
+  border-radius: 50%;
+  filter: blur(18px);
+  opacity: 0.42;
+  pointer-events: none;
+}
+
+.auth-orb-left {
+  top: 5%;
+  left: -120px;
+  background: radial-gradient(circle, rgba(90, 197, 141, 0.65), rgba(18, 168, 181, 0.12) 70%, transparent 100%);
+}
+
+.auth-orb-right {
+  right: -120px;
+  bottom: 6%;
+  background: radial-gradient(circle, rgba(22, 63, 122, 0.28), rgba(18, 168, 181, 0.18) 70%, transparent 100%);
+}
+
+.auth-layout {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 1160px;
+  display: grid;
+  grid-template-columns: 1.08fr 0.92fr;
+  gap: 28px;
+  align-items: stretch;
+}
+
+.auth-showcase {
+  padding: 36px;
+  border: 1px solid rgba(230, 234, 240, 0.75);
+  border-radius: 28px;
+  background: linear-gradient(165deg, rgba(22, 63, 122, 0.96) 0%, rgba(13, 43, 89, 0.96) 58%, rgba(11, 37, 77, 0.98) 100%);
+  color: #fff;
+  box-shadow: 0 24px 65px rgba(16, 47, 93, 0.16);
+}
+
+.auth-showcase-logo-wrap {
+  margin-bottom: 28px;
+}
+
+.auth-showcase-logo {
+  width: 230px;
+  max-width: 100%;
+  display: block;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 18px;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.16);
+}
+
+.auth-showcase-copy h1 {
+  margin-bottom: 12px;
+  font-size: 2.35rem;
+  font-weight: 760;
+  letter-spacing: -0.04em;
+}
+
+.auth-showcase-copy p {
+  margin: 0;
+  max-width: 540px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.auth-kicker {
+  margin-bottom: 10px;
+  color: rgba(122, 233, 200, 0.92);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+}
+
+.auth-feature-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 30px;
+}
+
+.auth-feature-item {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.auth-feature-item strong {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 0.95rem;
+}
+
+.auth-feature-item div:last-child {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.auth-feature-icon {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: rgba(122, 233, 200, 0.18);
+  color: #9af1d3;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 460px;
+  padding: 34px;
+  border: 1px solid var(--domio-border);
+  border-radius: 22px;
+  background: var(--domio-surface);
+  box-shadow: 0 18px 45px rgba(26, 38, 64, 0.08);
+}
+
+.auth-card-modern {
+  max-width: none;
+  align-self: center;
+  padding: 34px;
+  border-radius: 28px;
+  backdrop-filter: blur(18px);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 24px 60px rgba(26, 38, 64, 0.10);
+}
+
+.auth-card-wide {
+  max-width: none;
+}
+
+.auth-inline-logo {
+  width: 120px;
+  max-width: 100%;
+  border-radius: 16px;
+}
+
+.auth-heading {
+  margin-bottom: 24px;
+}
+
+.auth-heading h1,
+.auth-heading h2 {
+  margin-bottom: 8px;
+  font-size: 1.95rem;
+  font-weight: 760;
+  letter-spacing: -0.035em;
+}
+
+.auth-heading p {
+  margin: 0;
+  color: var(--domio-muted);
+}
+
+.auth-form .form-label {
+  font-size: 0.86rem;
+  font-weight: 680;
+}
+
+.auth-form .form-control {
+  min-height: 52px;
+  border-color: var(--domio-border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.auth-form .form-control::placeholder {
+  color: #a0a7b4;
+}
+
+.auth-meta-note {
+  color: var(--domio-muted);
+  font-size: 0.8rem;
+}
+
+.auth-submit-btn {
+  min-height: 52px;
+  border-radius: 14px;
+  font-weight: 700;
+}
+
+.auth-security-note,
+.password-rules {
+  margin-top: 22px;
+  padding: 12px 14px;
+  border: 1px solid rgba(22, 63, 122, 0.08);
+  border-radius: 14px;
+  background: #f7f9fc;
+  color: var(--domio-muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.auth-security-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: #2f9e64;
+}
+
+.domio-welcome {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 28px;
+  border: 1px solid var(--domio-border);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 18px 40px rgba(26, 38, 64, 0.05);
+}
+
+.domio-welcome-main {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+
+.domio-welcome-logo-wrap {
+  flex: 0 0 auto;
+}
+
+.domio-welcome-logo {
+  width: 116px;
+  max-width: 100%;
+  display: block;
+}
+
+.domio-kicker {
+  margin-bottom: 5px;
+  color: var(--domio-primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.domio-welcome h1 {
+  margin-bottom: 8px;
+  font-size: 2rem;
+  font-weight: 760;
+  letter-spacing: -0.04em;
+}
+
+.domio-welcome p {
+  max-width: 720px;
+  margin: 0;
+  color: var(--domio-muted);
+}
+
+.domio-status-badge {
+  flex: 0 0 auto;
+  padding: 9px 12px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: var(--domio-primary);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.domio-module-card {
+  height: 100%;
+  padding: 24px;
+  border: 1px solid var(--domio-border);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 10px 25px rgba(26, 38, 64, 0.03);
+}
+
+.domio-module-card h2 {
+  margin: 16px 0 8px;
+  font-size: 1.08rem;
+  font-weight: 740;
+}
+
+.domio-module-card p {
+  min-height: 48px;
+  color: var(--domio-muted);
+  font-size: 0.9rem;
+}
+
+.domio-module-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: #eef2ff;
+  color: var(--domio-primary);
+  font-weight: 800;
+}
+
+@media (max-width: 991px) {
+  .auth-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-showcase {
+    order: 2;
+  }
+
+  .auth-card-modern {
+    order: 1;
+  }
+}
+
+@media (max-width: 700px) {
+  .auth-shell {
+    padding: 24px 14px;
+  }
+
+  .auth-showcase,
+  .auth-card,
+  .auth-card-modern {
+    padding: 24px;
+    border-radius: 20px;
+  }
+
+  .auth-showcase-copy h1 {
+    font-size: 1.9rem;
+  }
+
+  .domio-welcome {
+    flex-direction: column;
+  }
+
+  .domio-welcome-main {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .domio-brand-subtitle {
+    display: none;
+  }
+
+  .domio-brand-logo {
+    width: 44px;
+    height: 44px;
+  }
 }

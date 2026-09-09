@@ -12,7 +12,15 @@ public sealed class UserAccount
 
     public string NormalizedLoginName { get; set; } = string.Empty;
 
+    public string? PasswordHash { get; set; }
+
     public bool IsActive { get; set; } = true;
+
+    public int FailedLoginAttempts { get; set; }
+
+    public DateTime? LockoutEndUtc { get; set; }
+
+    public DateTime? PasswordChangedAtUtc { get; set; }
 
     public DateTime CreatedAtUtc { get; set; }
 
