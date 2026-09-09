@@ -35,10 +35,6 @@ public sealed record CreateUserRequest(
 
 public sealed record UpdateUserRequest(
     Guid UserId,
-    string FirstName,
-    string LastName,
-    string? DisplayName,
-    string? Phone,
     string Email,
     bool IsActive,
     int RoleDefinitionId);

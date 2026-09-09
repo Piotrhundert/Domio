@@ -1,0 +1,313 @@
+@model Domio.Web.Models.Profiles.EditProfileViewModel
+@{
+    ViewData["Title"] = "Edytuj profil";
+}
+
+<div class="users-page profile-page">
+    <div class="user-form-header">
+        <div>
+            <div class="users-kicker">M02.7 · EDYCJA PROFILU</div>
+            <h1>Edytuj profil</h1>
+            <p>
+                Dane profilu są oddzielone od loginu, hasła, roli
+                i statusu konta.
+            </p>
+        </div>
+
+        <a asp-action="Details"
+           asp-route-id="@Model.PersonId"
+           class="btn btn-outline-secondary">
+            Wróć do profilu
+        </a>
+    </div>
+
+    <form asp-action="Edit"
+          method="post"
+          class="user-form-card profile-form-card">
+
+        <input asp-for="PersonId" type="hidden" />
+
+        <div asp-validation-summary="ModelOnly"
+             class="text-danger mb-3 px-4 pt-4"></div>
+
+        <div class="user-form-section">
+            <h2>1. Dane osobowe</h2>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="FirstName" class="form-label"></label>
+                    <input asp-for="FirstName" class="form-control" />
+                    <span asp-validation-for="FirstName"
+                          class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="LastName" class="form-label"></label>
+                    <input asp-for="LastName" class="form-control" />
+                    <span asp-validation-for="LastName"
+                          class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="DisplayName" class="form-label"></label>
+                    <input asp-for="DisplayName"
+                           class="form-control"
+                           placeholder="Opcjonalnie" />
+                    <span asp-validation-for="DisplayName"
+                          class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="PersonTypeCode" class="form-label"></label>
+                    <select asp-for="PersonTypeCode"
+                            asp-items="Model.PersonTypes"
+                            class="form-select">
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="BirthDate" class="form-label"></label>
+                    <input asp-for="BirthDate"
+                           class="form-control"
+                           type="date" />
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="Pesel" class="form-label"></label>
+                    <input asp-for="Pesel"
+                           class="form-control"
+                           inputmode="numeric"
+                           autocomplete="off" />
+                    <div class="form-text">
+                        11 cyfr; Domio sprawdza cyfrę kontrolną.
+                    </div>
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="Nationality" class="form-label"></label>
+                    <input asp-for="Nationality" class="form-control" />
+                </div>
+            </div>
+        </div>
+
+        <div class="user-form-section">
+            <h2>2. Kontakt</h2>
+
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label asp-for="ContactEmail" class="form-label"></label>
+                    <input asp-for="ContactEmail" class="form-control" />
+                    <span asp-validation-for="ContactEmail"
+                          class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="Phone" class="form-label"></label>
+                    <input asp-for="Phone" class="form-control" />
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="PreferredContactMethodCode"
+                           class="form-label"></label>
+                    <select asp-for="PreferredContactMethodCode"
+                            asp-items="Model.PreferredContactMethods"
+                            class="form-select">
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="user-form-section">
+            <h2>3. Dokument tożsamości</h2>
+
+            <div class="profile-sensitive-note">
+                PESEL i numer dokumentu są danymi wrażliwymi z punktu widzenia
+                prywatności. Domio nie zapisuje ich wartości w audycie zmian.
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-md-4">
+                    <label asp-for="IdentityDocumentTypeCode"
+                           class="form-label"></label>
+                    <select asp-for="IdentityDocumentTypeCode"
+                            asp-items="Model.IdentityDocumentTypes"
+                            class="form-select">
+                    </select>
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="IdentityDocumentNumber"
+                           class="form-label"></label>
+                    <input asp-for="IdentityDocumentNumber"
+                           class="form-control"
+                           autocomplete="off" />
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="IdentityDocumentIssuingCountry"
+                           class="form-label"></label>
+                    <input asp-for="IdentityDocumentIssuingCountry"
+                           class="form-control" />
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="IdentityDocumentIssuedOn"
+                           class="form-label"></label>
+                    <input asp-for="IdentityDocumentIssuedOn"
+                           class="form-control"
+                           type="date" />
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="IdentityDocumentExpiresOn"
+                           class="form-label"></label>
+                    <input asp-for="IdentityDocumentExpiresOn"
+                           class="form-control"
+                           type="date" />
+                </div>
+            </div>
+        </div>
+
+        <div class="user-form-section">
+            <h2>4. Adres korespondencyjny</h2>
+
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label asp-for="CorrespondenceCountry"
+                           class="form-label"></label>
+                    <input asp-for="CorrespondenceCountry"
+                           class="form-control" />
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="CorrespondenceRegion"
+                           class="form-label"></label>
+                    <input asp-for="CorrespondenceRegion"
+                           class="form-control" />
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="CorrespondenceCity"
+                           class="form-label"></label>
+                    <input asp-for="CorrespondenceCity"
+                           class="form-control" />
+                </div>
+
+                <div class="col-md-3">
+                    <label asp-for="CorrespondencePostalCode"
+                           class="form-label"></label>
+                    <input asp-for="CorrespondencePostalCode"
+                           class="form-control" />
+                </div>
+
+                <div class="col-md-5">
+                    <label asp-for="CorrespondenceStreet"
+                           class="form-label"></label>
+                    <input asp-for="CorrespondenceStreet"
+                           class="form-control" />
+                </div>
+
+                <div class="col-md-2">
+                    <label asp-for="CorrespondenceBuildingNumber"
+                           class="form-label"></label>
+                    <input asp-for="CorrespondenceBuildingNumber"
+                           class="form-control" />
+                </div>
+
+                <div class="col-md-2">
+                    <label asp-for="CorrespondenceUnitNumber"
+                           class="form-label"></label>
+                    <input asp-for="CorrespondenceUnitNumber"
+                           class="form-control" />
+                </div>
+
+                <div class="col-12">
+                    <label asp-for="CorrespondenceNotes"
+                           class="form-label"></label>
+                    <textarea asp-for="CorrespondenceNotes"
+                              class="form-control"
+                              rows="2"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="user-form-section">
+            <h2>5. Osoba kontaktowa</h2>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="EmergencyContactFirstName"
+                           class="form-label"></label>
+                    <input asp-for="EmergencyContactFirstName"
+                           class="form-control" />
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="EmergencyContactLastName"
+                           class="form-label"></label>
+                    <input asp-for="EmergencyContactLastName"
+                           class="form-control" />
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="EmergencyContactRelation"
+                           class="form-label"></label>
+                    <input asp-for="EmergencyContactRelation"
+                           class="form-control"
+                           placeholder="np. małżonek, rodzic, siostra" />
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="EmergencyContactPhone"
+                           class="form-label"></label>
+                    <input asp-for="EmergencyContactPhone"
+                           class="form-control" />
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="EmergencyContactEmail"
+                           class="form-label"></label>
+                    <input asp-for="EmergencyContactEmail"
+                           class="form-control" />
+                    <span asp-validation-for="EmergencyContactEmail"
+                          class="text-danger small"></span>
+                </div>
+
+                <div class="col-12">
+                    <label asp-for="EmergencyContactNotes"
+                           class="form-label"></label>
+                    <textarea asp-for="EmergencyContactNotes"
+                              class="form-control"
+                              rows="2"></textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="user-form-section">
+            <h2>6. Informacje dodatkowe</h2>
+
+            <label asp-for="Notes" class="form-label"></label>
+            <textarea asp-for="Notes"
+                      class="form-control"
+                      rows="5"
+                      placeholder="Opcjonalne informacje o osobie"></textarea>
+        </div>
+
+        <div class="user-form-actions">
+            <a asp-action="Details"
+               asp-route-id="@Model.PersonId"
+               class="btn btn-outline-secondary">
+                Anuluj
+            </a>
+
+            <button type="submit"
+                    class="btn btn-primary">
+                Zapisz profil
+            </button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

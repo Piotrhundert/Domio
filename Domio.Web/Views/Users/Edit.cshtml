@@ -2,7 +2,7 @@
 @using Domio.Domain.Users
 @model Domio.Web.Models.Users.EditUserViewModel
 @{
-    ViewData["Title"] = "Edytuj użytkownika";
+    ViewData["Title"] = "Konto i dostęp";
 
     var canAssignRole =
         User.HasClaim(
@@ -14,25 +14,39 @@
             DomioClaimTypes.Permission,
             SystemPermissions.UsersDisable);
 
-    var canViewRoles =
+    var canViewProfile =
         User.HasClaim(
             DomioClaimTypes.Permission,
-            SystemPermissions.RolesView);
+            SystemPermissions.ProfileViewAll);
 }
 
 <div class="users-page">
     <div class="user-form-header">
         <div>
-            <div class="users-kicker">M02.6 · EDYCJA Z KONTROLĄ UPRAWNIEŃ</div>
-            <h1>Edytuj użytkownika</h1>
+            <div class="users-kicker">M02.7 · KONTO I DOSTĘP</div>
+            <h1>Konto i dostęp</h1>
             <p>
-                Dostępne pola administracyjne zależą od PermissionCode
-                przypisanych do Twojej roli.
+                @Model.DisplayName — tutaj zarządzasz wyłącznie kontem,
+                rolą i dostępem. Dane osobowe są w oddzielnym profilu.
             </p>
         </div>
-        <a asp-action="Index" class="btn btn-outline-secondary">
-            Wróć
-        </a>
+
+        <div class="users-header-actions">
+            @if (canViewProfile)
+            {
+                <a asp-controller="Profiles"
+                   asp-action="Details"
+                   asp-route-id="@Model.PersonId"
+                   class="btn btn-outline-primary">
+                    Profil osoby
+                </a>
+            }
+
+            <a asp-action="Index"
+               class="btn btn-outline-secondary">
+                Wróć
+            </a>
+        </div>
     </div>
 
     <form asp-action="Edit"
@@ -40,65 +54,52 @@
           class="user-form-card">
 
         <input asp-for="UserId" type="hidden" />
+        <input asp-for="PersonId" type="hidden" />
+        <input asp-for="DisplayName" type="hidden" />
         <input asp-for="RoleNamePl" type="hidden" />
 
         <div asp-validation-summary="ModelOnly"
              class="text-danger mb-3"></div>
 
         <div class="user-form-section">
-            <h2>Dane osoby</h2>
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label asp-for="FirstName" class="form-label"></label>
-                    <input asp-for="FirstName" class="form-control" />
-                    <span asp-validation-for="FirstName"
-                          class="text-danger small"></span>
-                </div>
-                <div class="col-md-6">
-                    <label asp-for="LastName" class="form-label"></label>
-                    <input asp-for="LastName" class="form-control" />
-                    <span asp-validation-for="LastName"
-                          class="text-danger small"></span>
-                </div>
-                <div class="col-md-6">
-                    <label asp-for="DisplayName" class="form-label"></label>
-                    <input asp-for="DisplayName" class="form-control" />
-                    <span asp-validation-for="DisplayName"
-                          class="text-danger small"></span>
-                </div>
-                <div class="col-md-6">
-                    <label asp-for="Phone" class="form-label"></label>
-                    <input asp-for="Phone" class="form-control" />
-                    <span asp-validation-for="Phone"
-                          class="text-danger small"></span>
-                </div>
-            </div>
-        </div>
+            <h2>Konto logowania</h2>
 
-        <div class="user-form-section">
-            <h2>Konto i rola</h2>
             <div class="row g-3">
                 <div class="col-md-6">
                     <div class="user-role-readonly">
-                        <span>Login</span>
-                        <strong>@Model.LoginName</strong>
+                        <span>Użytkownik</span>
+                        <strong>@Model.DisplayName</strong>
                         <small>
-                            Login jest nadany automatycznie i nie zmienia się
-                            po edycji imienia lub nazwiska.
+                            Imię, nazwisko i inne dane zmieniasz w profilu.
                         </small>
                     </div>
                 </div>
 
                 <div class="col-md-6">
-                    <label asp-for="Email" class="form-label"></label>
+                    <div class="user-role-readonly">
+                        <span>Login</span>
+                        <strong>@Model.LoginName</strong>
+                        <small>
+                            Login pozostaje stały po utworzeniu konta.
+                        </small>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="Email"
+                           class="form-label"></label>
                     <input asp-for="Email"
                            class="form-control"
                            autocomplete="off" />
                     <span asp-validation-for="Email"
                           class="text-danger small"></span>
+                    <div class="form-text">
+                        To adres konta logowania, niezależny od
+                        e-maila kontaktowego w profilu.
+                    </div>
                 </div>
 
-                <div class="col-12">
+                <div class="col-md-6">
                     @if (canAssignRole)
                     {
                         <label asp-for="RoleDefinitionId"
@@ -109,9 +110,6 @@
                         </select>
                         <span asp-validation-for="RoleDefinitionId"
                               class="text-danger small"></span>
-                        <div class="form-text">
-                            Zmiana wymaga Users.AssignRole i jest audytowana.
-                        </div>
                     }
                     else
                     {
@@ -121,21 +119,8 @@
                             <span>Rola</span>
                             <strong>@Model.RoleNamePl</strong>
                             <small>
-                                Nie masz uprawnienia Users.AssignRole,
-                                dlatego rola jest tylko do podglądu.
+                                Brak uprawnienia Users.AssignRole.
                             </small>
-                        </div>
-                    }
-
-                    @if (canViewRoles)
-                    {
-                        <div class="mt-2">
-                            <a asp-controller="Roles"
-                               asp-action="Index"
-                               asp-route-roleId="@Model.RoleDefinitionId"
-                               class="small">
-                                Zobacz opis tej roli i jej uprawnienia
-                            </a>
                         </div>
                     }
                 </div>
@@ -150,7 +135,8 @@
                                    class="form-check-label"></label>
                         </div>
                         <div class="form-text">
-                            Wyłączenie aktywnego konta wymaga Users.Disable.
+                            Wyłączenie konta blokuje logowanie,
+                            ale nie dezaktywuje i nie usuwa osoby ani jej profilu.
                         </div>
                     }
                     else
@@ -162,9 +148,6 @@
                             <strong>
                                 @(Model.IsActive ? "Aktywne" : "Nieaktywne")
                             </strong>
-                            <small>
-                                Nie masz uprawnienia Users.Disable.
-                            </small>
                         </div>
                     }
                 </div>
@@ -172,11 +155,13 @@
         </div>
 
         <div class="user-form-actions">
-            <a asp-action="Index" class="btn btn-outline-secondary">
+            <a asp-action="Index"
+               class="btn btn-outline-secondary">
                 Anuluj
             </a>
-            <button type="submit" class="btn btn-primary">
-                Zapisz zmiany
+            <button type="submit"
+                    class="btn btn-primary">
+                Zapisz konto i dostęp
             </button>
         </div>
     </form>

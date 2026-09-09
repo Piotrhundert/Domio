@@ -181,10 +181,8 @@ public sealed class UserManagementService(
                     "Nie można utworzyć konta dla nieaktywnej osoby.");
             }
 
-            person.Email = email;
-            person.Phone =
-                NormalizeOptional(request.Phone) ?? person.Phone;
-            person.UpdatedAtUtc = now;
+            // Konto logowania jest oddzielone od profilu osoby.
+            // Utworzenie konta nie nadpisuje danych kontaktowych profilu.
         }
         else
         {
@@ -196,10 +194,9 @@ public sealed class UserManagementService(
                 Id = Guid.NewGuid(),
                 FirstName = request.FirstName!.Trim(),
                 LastName = request.LastName!.Trim(),
-                DisplayName =
-                    NormalizeOptional(request.DisplayName),
-                Email = email,
-                Phone = NormalizeOptional(request.Phone),
+                DisplayName = null,
+                Email = null,
+                Phone = null,
                 IsActive = true,
                 CreatedAtUtc = now,
                 UpdatedAtUtc = now
@@ -299,8 +296,6 @@ public sealed class UserManagementService(
             SystemPermissions.UsersEdit,
             cancellationToken);
 
-        ValidateName(request.FirstName, nameof(request.FirstName));
-        ValidateName(request.LastName, nameof(request.LastName));
         ValidateEmail(request.Email);
 
         if (request.UserId == actorUserId &&
@@ -316,11 +311,6 @@ public sealed class UserManagementService(
                 cancellationToken)
             ?? throw new InvalidOperationException(
                 "Konto użytkownika nie istnieje.");
-
-        var person = await dbContext.People
-            .SingleAsync(
-                x => x.Id == account.PersonId,
-                cancellationToken);
 
         var currentRole = await dbContext.RoleDefinitions
             .SingleAsync(
@@ -401,14 +391,11 @@ public sealed class UserManagementService(
 
         var oldValues = JsonSerializer.Serialize(new
         {
-            person.FirstName,
-            person.LastName,
-            person.DisplayName,
-            PersonEmail = person.Email,
-            person.Phone,
-            account.LoginName,
-            AccountEmail = account.Email,
-            account.IsActive
+            account.Email,
+            account.IsActive,
+            RoleId = currentRole.Id,
+            RoleCode = currentRole.Code,
+            RoleNamePl = currentRole.NamePl
         });
 
         await using var transaction =
@@ -417,15 +404,6 @@ public sealed class UserManagementService(
 
         var now = DateTime.UtcNow;
         var email = request.Email.Trim();
-
-        person.FirstName = request.FirstName.Trim();
-        person.LastName = request.LastName.Trim();
-        person.DisplayName =
-            NormalizeOptional(request.DisplayName);
-        person.Email = email;
-        person.Phone = NormalizeOptional(request.Phone);
-        person.IsActive = request.IsActive;
-        person.UpdatedAtUtc = now;
 
         account.Email = email;
         account.NormalizedEmail = normalizedEmail;
@@ -463,24 +441,21 @@ public sealed class UserManagementService(
 
         await auditService.WriteAsync(
             new AuditEntry(
-                EventType: "M02.4.UserUpdated",
+                EventType: "M02.7.UserAccountUpdated",
                 EntityType: "UserAccount",
                 EntityId: account.Id.ToString(),
                 ActorId: actorUserId.ToString(),
                 CorrelationId: correlationId,
                 Description:
-                    "Uprawniony użytkownik zmienił dane konta.",
+                    "Zmieniono wyłącznie dane konta i dostępu. Profil osoby pozostaje oddzielnym obszarem.",
                 OldValuesJson: oldValues,
                 NewValuesJson: JsonSerializer.Serialize(new
                 {
-                    person.FirstName,
-                    person.LastName,
-                    person.DisplayName,
-                    PersonEmail = person.Email,
-                    person.Phone,
-                    account.LoginName,
-                    AccountEmail = account.Email,
-                    account.IsActive
+                    account.Email,
+                    account.IsActive,
+                    RoleId = requestedRole.Id,
+                    RoleCode = requestedRole.Code,
+                    RoleNamePl = requestedRole.NamePl
                 })),
             cancellationToken);
 

@@ -8,23 +8,9 @@ public sealed class EditUserViewModel
     [Required]
     public Guid UserId { get; set; }
 
-    [Required(ErrorMessage = "Podaj imię.")]
-    [MaxLength(100)]
-    [Display(Name = "Imię")]
-    public string FirstName { get; set; } = string.Empty;
+    public Guid PersonId { get; set; }
 
-    [Required(ErrorMessage = "Podaj nazwisko.")]
-    [MaxLength(100)]
-    [Display(Name = "Nazwisko")]
-    public string LastName { get; set; } = string.Empty;
-
-    [MaxLength(200)]
-    [Display(Name = "Nazwa wyświetlana")]
-    public string? DisplayName { get; set; }
-
-    [MaxLength(50)]
-    [Display(Name = "Telefon")]
-    public string? Phone { get; set; }
+    public string DisplayName { get; set; } = string.Empty;
 
     public string LoginName { get; set; } = string.Empty;
 

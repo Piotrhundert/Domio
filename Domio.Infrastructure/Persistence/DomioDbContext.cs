@@ -16,6 +16,7 @@ public sealed class DomioDbContext : DbContext
     public DbSet<DatabaseMetadataRecord> DatabaseMetadata => Set<DatabaseMetadataRecord>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<Person> People => Set<Person>();
+    public DbSet<PersonProfile> PersonProfiles => Set<PersonProfile>();
     public DbSet<RoleDefinition> RoleDefinitions => Set<RoleDefinition>();
     public DbSet<UserAccount> UserAccounts => Set<UserAccount>();
 
@@ -34,9 +35,9 @@ public sealed class DomioDbContext : DbContext
             entity.HasData(new SchemaVersionRecord
             {
                 Id = 1,
-                Version = 6,
+                Version = 7,
                 UpdatedAtUtc = new DateTime(
-                    2026, 9, 9, 7, 13, 0, DateTimeKind.Utc)
+                    2026, 9, 9, 8, 41, 0, DateTimeKind.Utc)
             });
         });
 
@@ -76,11 +77,78 @@ public sealed class DomioDbContext : DbContext
             entity.Property(x => x.DisplayName).HasMaxLength(200);
             entity.Property(x => x.Email).HasMaxLength(254);
             entity.Property(x => x.Phone).HasMaxLength(50);
+            entity.Property(x => x.PersonTypeCode).HasMaxLength(50);
+            entity.Property(x => x.Notes).HasMaxLength(2000);
             entity.Property(x => x.IsActive).IsRequired();
             entity.Property(x => x.CreatedAtUtc).IsRequired();
             entity.Property(x => x.UpdatedAtUtc).IsRequired();
+            entity.Property(x => x.ArchivedAtUtc);
             entity.HasIndex(x => x.LastName);
             entity.HasIndex(x => x.Email);
+            entity.HasIndex(x => x.PersonTypeCode);
+        });
+
+        modelBuilder.Entity<PersonProfile>(entity =>
+        {
+            entity.ToTable("PersonProfiles");
+            entity.HasKey(x => x.PersonId);
+
+            entity.Property(x => x.BirthDate);
+            entity.Property(x => x.Pesel).HasMaxLength(11);
+            entity.Property(x => x.Nationality).HasMaxLength(100);
+
+            entity.Property(x => x.IdentityDocumentTypeCode)
+                .HasMaxLength(50);
+            entity.Property(x => x.IdentityDocumentNumber)
+                .HasMaxLength(100);
+            entity.Property(x => x.IdentityDocumentIssuingCountry)
+                .HasMaxLength(100);
+            entity.Property(x => x.IdentityDocumentIssuedOn);
+            entity.Property(x => x.IdentityDocumentExpiresOn);
+
+            entity.Property(x => x.PreferredContactMethodCode)
+                .HasMaxLength(50);
+
+            entity.Property(x => x.CorrespondenceCountry)
+                .HasMaxLength(100);
+            entity.Property(x => x.CorrespondenceRegion)
+                .HasMaxLength(100);
+            entity.Property(x => x.CorrespondenceCity)
+                .HasMaxLength(100);
+            entity.Property(x => x.CorrespondencePostalCode)
+                .HasMaxLength(20);
+            entity.Property(x => x.CorrespondenceStreet)
+                .HasMaxLength(150);
+            entity.Property(x => x.CorrespondenceBuildingNumber)
+                .HasMaxLength(30);
+            entity.Property(x => x.CorrespondenceUnitNumber)
+                .HasMaxLength(30);
+            entity.Property(x => x.CorrespondenceNotes)
+                .HasMaxLength(500);
+
+            entity.Property(x => x.EmergencyContactFirstName)
+                .HasMaxLength(100);
+            entity.Property(x => x.EmergencyContactLastName)
+                .HasMaxLength(100);
+            entity.Property(x => x.EmergencyContactRelation)
+                .HasMaxLength(100);
+            entity.Property(x => x.EmergencyContactPhone)
+                .HasMaxLength(50);
+            entity.Property(x => x.EmergencyContactEmail)
+                .HasMaxLength(254);
+            entity.Property(x => x.EmergencyContactNotes)
+                .HasMaxLength(500);
+
+            entity.Property(x => x.CreatedAtUtc).IsRequired();
+            entity.Property(x => x.UpdatedAtUtc).IsRequired();
+
+            entity.HasIndex(x => x.Pesel)
+                .IsUnique();
+
+            entity.HasOne<Person>()
+                .WithOne()
+                .HasForeignKey<PersonProfile>(x => x.PersonId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<RoleDefinition>(entity =>

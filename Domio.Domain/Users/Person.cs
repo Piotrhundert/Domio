@@ -14,9 +14,15 @@ public sealed class Person
 
     public string? Phone { get; set; }
 
+    public string? PersonTypeCode { get; set; }
+
+    public string? Notes { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     public DateTime CreatedAtUtc { get; set; }
 
     public DateTime UpdatedAtUtc { get; set; }
+
+    public DateTime? ArchivedAtUtc { get; set; }
 }

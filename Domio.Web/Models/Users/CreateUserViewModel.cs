@@ -15,14 +15,6 @@ public sealed class CreateUserViewModel
     [Display(Name = "Nazwisko")]
     public string LastName { get; set; } = string.Empty;
 
-    [MaxLength(200)]
-    [Display(Name = "Nazwa wyświetlana")]
-    public string? DisplayName { get; set; }
-
-    [MaxLength(50)]
-    [Display(Name = "Telefon")]
-    public string? Phone { get; set; }
-
     [Required(ErrorMessage = "Podaj adres e-mail.")]
     [EmailAddress(ErrorMessage = "Podaj poprawny adres e-mail.")]
     [MaxLength(254)]

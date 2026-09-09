@@ -68,11 +68,11 @@ public sealed class UsersController(
         {
             await userManagementService.CreateUserAsync(
                 new CreateUserRequest(
-                    ExistingPersonId: null,
+                    null,
                     model.FirstName,
                     model.LastName,
-                    model.DisplayName,
-                    model.Phone,
+                    null,
+                    null,
                     model.Email,
                     model.Password,
                     model.RoleDefinitionId),
@@ -98,7 +98,7 @@ public sealed class UsersController(
         }
 
         TempData["UsersMessage"] =
-            "Użytkownik został utworzony. Login został nadany automatycznie.";
+            "Użytkownik został utworzony. Login został nadany automatycznie. Pozostałe dane możesz uzupełnić w profilu.";
 
         return RedirectToAction(nameof(Index));
     }
@@ -126,9 +126,9 @@ public sealed class UsersController(
                 new CreatePersonRequest(
                     model.FirstName,
                     model.LastName,
-                    model.DisplayName,
-                    model.Email,
-                    model.Phone),
+                    null,
+                    null,
+                    null),
                 GetCurrentUserId(),
                 HttpContext.TraceIdentifier,
                 cancellationToken);
@@ -143,7 +143,7 @@ public sealed class UsersController(
         }
 
         TempData["UsersMessage"] =
-            "Osoba została utworzona bez konta logowania.";
+            "Osoba została utworzona bez konta logowania. Pełne dane możesz uzupełnić w jej profilu.";
 
         return RedirectToAction(nameof(Index));
     }
@@ -225,10 +225,10 @@ public sealed class UsersController(
             await userManagementService.CreateUserAsync(
                 new CreateUserRequest(
                     model.PersonId,
-                    FirstName: null,
-                    LastName: null,
-                    DisplayName: null,
-                    Phone: null,
+                    null,
+                    null,
+                    null,
+                    null,
                     model.Email,
                     model.Password,
                     model.RoleDefinitionId),
@@ -283,10 +283,11 @@ public sealed class UsersController(
             new EditUserViewModel
             {
                 UserId = data.UserId,
-                FirstName = data.FirstName,
-                LastName = data.LastName,
-                DisplayName = data.DisplayName,
-                Phone = data.Phone,
+                PersonId = data.PersonId,
+                DisplayName =
+                    string.IsNullOrWhiteSpace(data.DisplayName)
+                        ? $"{data.FirstName} {data.LastName}".Trim()
+                        : data.DisplayName,
                 LoginName = data.LoginName,
                 Email = data.Email ?? string.Empty,
                 IsActive = data.IsActive,
@@ -319,6 +320,11 @@ public sealed class UsersController(
             await userManagementService.GetCreateOptionsAsync(
                 cancellationToken);
 
+        model.PersonId = current.PersonId;
+        model.DisplayName =
+            string.IsNullOrWhiteSpace(current.DisplayName)
+                ? $"{current.FirstName} {current.LastName}".Trim()
+                : current.DisplayName;
         model.LoginName = current.LoginName;
         model.RoleNamePl = current.RoleNamePl;
         model.Roles = BuildRoleItems(
@@ -335,10 +341,6 @@ public sealed class UsersController(
             await userManagementService.UpdateUserAsync(
                 new UpdateUserRequest(
                     model.UserId,
-                    model.FirstName,
-                    model.LastName,
-                    model.DisplayName,
-                    model.Phone,
                     model.Email,
                     model.IsActive,
                     model.RoleDefinitionId),

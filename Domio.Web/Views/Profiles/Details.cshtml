@@ -1,0 +1,307 @@
+@using Domio.Application.Authorization
+@using Domio.Domain.Users
+@model Domio.Application.Profiles.PersonProfileData
+@{
+    ViewData["Title"] = $"Profil - {Model.DisplayName}";
+
+    var contactPersonName =
+        string.Join(
+            " ",
+            new[]
+            {
+                Model.EmergencyContactFirstName,
+                Model.EmergencyContactLastName
+            }
+            .Where(x => !string.IsNullOrWhiteSpace(x)));
+
+    string Show(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? "—"
+            : value;
+
+    string Date(DateTime? value) =>
+        value.HasValue
+            ? value.Value.ToString("dd.MM.yyyy")
+            : "—";
+
+    var canEditAccount =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.UsersEdit);
+
+    var initials =
+        string.Join(
+            string.Empty,
+            Model.DisplayName
+                .Split(
+                    ' ',
+                    StringSplitOptions.RemoveEmptyEntries)
+                .Take(2)
+                .Select(x => x[0]))
+            .ToUpperInvariant();
+}
+
+<div class="users-page profile-page">
+    <div class="users-page-header">
+        <div>
+            <div class="users-kicker">M02.7 · PROFIL OSOBY</div>
+            <h1>@Model.DisplayName</h1>
+            <p>
+                Profil osoby jest oddzielony od konta logowania i uprawnień.
+            </p>
+        </div>
+
+        <div class="users-header-actions">
+            @if (Model.CanEdit)
+            {
+                <a asp-action="Edit"
+                   asp-route-id="@Model.PersonId"
+                   class="btn btn-primary">
+                    Edytuj profil
+                </a>
+            }
+
+            @if (Model.UserId.HasValue && canEditAccount)
+            {
+                <a asp-controller="Users"
+                   asp-action="Edit"
+                   asp-route-id="@Model.UserId"
+                   class="btn btn-outline-secondary">
+                    Konto i dostęp
+                </a>
+            }
+        </div>
+    </div>
+
+    @if (TempData["ProfileMessage"] is string message)
+    {
+        <div class="alert alert-success mb-4" role="alert">
+            @message
+        </div>
+    }
+
+    <section class="profile-hero-card">
+        <div class="profile-avatar-large">
+            @initials
+        </div>
+
+        <div class="profile-hero-main">
+            <span>Osoba</span>
+            <strong>@Model.DisplayName</strong>
+            <div class="profile-hero-meta">
+                <span>
+                    Typ:
+                    <b>@(Model.PersonTypeNamePl ?? "Nie określono")</b>
+                </span>
+                <span>
+                    Wiek:
+                    <b>@(Model.Age?.ToString() ?? "—")</b>
+                </span>
+                <span>
+                    Status osoby:
+                    <b>@(Model.IsPersonActive ? "Aktywna" : "Nieaktywna")</b>
+                </span>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Model.RoleNamePl))
+        {
+            <span class="users-role-badge">
+                @Model.RoleNamePl
+            </span>
+        }
+    </section>
+
+    <div class="profile-section-grid">
+        <section class="profile-card">
+            <div class="profile-card-heading">
+                <div>
+                    <span>01</span>
+                    <h2>Dane osobowe</h2>
+                </div>
+            </div>
+
+            <dl class="profile-data-list">
+                <div><dt>Imię</dt><dd>@Model.FirstName</dd></div>
+                <div><dt>Nazwisko</dt><dd>@Model.LastName</dd></div>
+                <div><dt>Nazwa wyświetlana</dt><dd>@Model.DisplayName</dd></div>
+                <div><dt>Data urodzenia</dt><dd>@Date(Model.BirthDate)</dd></div>
+                <div><dt>Wiek</dt><dd>@(Model.Age?.ToString() ?? "—")</dd></div>
+                <div><dt>PESEL</dt><dd class="profile-sensitive">@Show(Model.Pesel)</dd></div>
+                <div><dt>Narodowość</dt><dd>@Show(Model.Nationality)</dd></div>
+                <div><dt>Typ osoby</dt><dd>@(Model.PersonTypeNamePl ?? "—")</dd></div>
+            </dl>
+        </section>
+
+        <section class="profile-card">
+            <div class="profile-card-heading">
+                <div>
+                    <span>02</span>
+                    <h2>Kontakt</h2>
+                </div>
+            </div>
+
+            <dl class="profile-data-list">
+                <div><dt>E-mail kontaktowy</dt><dd>@Show(Model.ContactEmail)</dd></div>
+                <div><dt>Telefon</dt><dd>@Show(Model.Phone)</dd></div>
+                <div><dt>Preferowany kontakt</dt><dd>@(Model.PreferredContactMethodNamePl ?? "—")</dd></div>
+            </dl>
+        </section>
+
+        <section class="profile-card">
+            <div class="profile-card-heading">
+                <div>
+                    <span>03</span>
+                    <h2>Dokument tożsamości</h2>
+                </div>
+            </div>
+
+            <dl class="profile-data-list">
+                <div><dt>Typ dokumentu</dt><dd>@(Model.IdentityDocumentTypeNamePl ?? "—")</dd></div>
+                <div><dt>Numer dokumentu</dt><dd class="profile-sensitive">@Show(Model.IdentityDocumentNumber)</dd></div>
+                <div><dt>Kraj wydania</dt><dd>@Show(Model.IdentityDocumentIssuingCountry)</dd></div>
+                <div><dt>Data wydania</dt><dd>@Date(Model.IdentityDocumentIssuedOn)</dd></div>
+                <div><dt>Data ważności</dt><dd>@Date(Model.IdentityDocumentExpiresOn)</dd></div>
+            </dl>
+        </section>
+
+        <section class="profile-card">
+            <div class="profile-card-heading">
+                <div>
+                    <span>04</span>
+                    <h2>Adres korespondencyjny</h2>
+                </div>
+            </div>
+
+            <dl class="profile-data-list">
+                <div><dt>Kraj</dt><dd>@Show(Model.CorrespondenceCountry)</dd></div>
+                <div><dt>Województwo / region</dt><dd>@Show(Model.CorrespondenceRegion)</dd></div>
+                <div><dt>Miejscowość</dt><dd>@Show(Model.CorrespondenceCity)</dd></div>
+                <div><dt>Kod pocztowy</dt><dd>@Show(Model.CorrespondencePostalCode)</dd></div>
+                <div><dt>Ulica</dt><dd>@Show(Model.CorrespondenceStreet)</dd></div>
+                <div>
+                    <dt>Numer</dt>
+                    <dd>
+                        @Show(
+                            string.Join(
+                                "/",
+                                new[]
+                                {
+                                    Model.CorrespondenceBuildingNumber,
+                                    Model.CorrespondenceUnitNumber
+                                }
+                                .Where(x => !string.IsNullOrWhiteSpace(x))))
+                    </dd>
+                </div>
+                <div class="profile-data-wide">
+                    <dt>Uwagi</dt>
+                    <dd>@Show(Model.CorrespondenceNotes)</dd>
+                </div>
+            </dl>
+        </section>
+
+        <section class="profile-card">
+            <div class="profile-card-heading">
+                <div>
+                    <span>05</span>
+                    <h2>Osoba kontaktowa</h2>
+                </div>
+            </div>
+
+            <dl class="profile-data-list">
+                <div><dt>Imię i nazwisko</dt><dd>@Show(contactPersonName)</dd></div>
+                <div><dt>Relacja</dt><dd>@Show(Model.EmergencyContactRelation)</dd></div>
+                <div><dt>Telefon</dt><dd>@Show(Model.EmergencyContactPhone)</dd></div>
+                <div><dt>E-mail</dt><dd>@Show(Model.EmergencyContactEmail)</dd></div>
+                <div class="profile-data-wide">
+                    <dt>Dodatkowe informacje</dt>
+                    <dd>@Show(Model.EmergencyContactNotes)</dd>
+                </div>
+            </dl>
+        </section>
+
+        <section class="profile-card">
+            <div class="profile-card-heading">
+                <div>
+                    <span>06</span>
+                    <h2>Konto i bezpieczeństwo</h2>
+                </div>
+            </div>
+
+            @if (Model.UserId.HasValue)
+            {
+                <dl class="profile-data-list">
+                    <div><dt>Login</dt><dd>@Show(Model.LoginName)</dd></div>
+                    <div><dt>E-mail konta</dt><dd>@Show(Model.AccountEmail)</dd></div>
+                    <div><dt>Rola</dt><dd>@Show(Model.RoleNamePl)</dd></div>
+                    <div>
+                        <dt>Status konta</dt>
+                        <dd>@(Model.IsAccountActive == true ? "Aktywne" : "Nieaktywne")</dd>
+                    </div>
+                    <div>
+                        <dt>Ostatnie logowanie</dt>
+                        <dd>
+                            @(Model.LastLoginAtUtc.HasValue
+                                ? Model.LastLoginAtUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                                : "Jeszcze nie")
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>Zmiana hasła</dt>
+                        <dd>
+                            @(Model.PasswordChangedAtUtc.HasValue
+                                ? Model.PasswordChangedAtUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                                : "—")
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>Blokada do</dt>
+                        <dd>
+                            @(Model.LockoutEndUtc.HasValue
+                                ? Model.LockoutEndUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                                : "Brak")
+                        </dd>
+                    </div>
+                </dl>
+            }
+            else
+            {
+                <div class="permission-empty">
+                    Ta osoba nie ma konta logowania.
+                </div>
+            }
+        </section>
+    </div>
+
+    <section class="profile-card mt-4">
+        <div class="profile-card-heading">
+            <div>
+                <span>07</span>
+                <h2>Notatki i historia profilu</h2>
+            </div>
+        </div>
+
+        <dl class="profile-data-list">
+            <div class="profile-data-wide">
+                <dt>Notatki</dt>
+                <dd>@Show(Model.Notes)</dd>
+            </div>
+            <div>
+                <dt>Utworzono osobę</dt>
+                <dd>@Model.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</dd>
+            </div>
+            <div>
+                <dt>Ostatnia zmiana profilu</dt>
+                <dd>@Model.UpdatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</dd>
+            </div>
+            <div>
+                <dt>Data archiwizacji</dt>
+                <dd>
+                    @(Model.ArchivedAtUtc.HasValue
+                        ? Model.ArchivedAtUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                        : "Nie zarchiwizowano")
+                </dd>
+            </div>
+        </dl>
+    </section>
+</div>

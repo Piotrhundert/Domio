@@ -43,6 +43,11 @@ public static class SystemPermissions
     public const string RolesView = "Roles.View";
     public const string RolesEdit = "Roles.Edit";
 
+    public const string ProfileViewOwn = "Profile.ViewOwn";
+    public const string ProfileEditOwn = "Profile.EditOwn";
+    public const string ProfileViewAll = "Profile.ViewAll";
+    public const string ProfileEditAll = "Profile.EditAll";
+
     public const string FinancePersonalViewOwn =
         "Finance.Personal.ViewOwn";
     public const string FinancePersonalManageOwn =
@@ -164,6 +169,39 @@ public static class SystemPermissions
             "Użytkownicy i role",
             "Edycja ról i uprawnień",
             "Pozwala zmieniać nazwę i opis roli oraz zestaw przypisanych PermissionCode. Kod roli pozostaje niezmienny, aby nie uszkodzić reguł systemowych.",
+            "Krytyczne",
+            PermissionScopes.All),
+
+        P(
+            ProfileViewOwn,
+            "M02",
+            "Profil użytkownika",
+            "Podgląd własnego profilu",
+            "Pozwala użytkownikowi oglądać własny profil osoby, w tym dane osobowe, kontaktowe, adres korespondencyjny, dokument tożsamości i osobę kontaktową. Nie daje dostępu do profili innych osób.",
+            "Wysokie",
+            PermissionScopes.Own),
+        P(
+            ProfileEditOwn,
+            "M02",
+            "Profil użytkownika",
+            "Edycja własnego profilu",
+            "Pozwala użytkownikowi uzupełniać i zmieniać dane we własnym profilu. Nie pozwala zmieniać roli, loginu, statusu konta ani profili innych osób.",
+            "Wysokie",
+            PermissionScopes.Own),
+        P(
+            ProfileViewAll,
+            "M02",
+            "Profil użytkownika",
+            "Podgląd wszystkich profili",
+            "Pozwala oglądać pełne profile osób zapisanych w Domio, również osób bez konta logowania. Uprawnienie obejmuje dane identyfikacyjne i kontaktowe, dlatego powinno być nadawane świadomie.",
+            "Krytyczne",
+            PermissionScopes.All),
+        P(
+            ProfileEditAll,
+            "M02",
+            "Profil użytkownika",
+            "Edycja wszystkich profili",
+            "Pozwala uzupełniać i zmieniać profile wszystkich osób zapisanych w Domio. Nie zastępuje uprawnień do zarządzania kontem logowania, rolą ani blokadą konta.",
             "Krytyczne",
             PermissionScopes.All),
 
@@ -428,9 +466,9 @@ public static class SystemRolePermissionMatrix
             SystemRoles.TenantCode =>
                 BuildTenant(),
             SystemRoles.GuestCode =>
-                Array.Empty<RolePermissionGrant>(),
+                BuildGuest(),
             SystemRoles.ChildCode =>
-                Array.Empty<RolePermissionGrant>(),
+                BuildChild(),
             _ =>
                 Array.Empty<RolePermissionGrant>()
         };
@@ -451,6 +489,12 @@ public static class SystemRolePermissionMatrix
     private static IReadOnlyList<RolePermissionGrant>
         BuildHouseholdMember() =>
     [
+        new(
+            SystemPermissions.ProfileViewOwn,
+            PermissionScopes.Own),
+        new(
+            SystemPermissions.ProfileEditOwn,
+            PermissionScopes.Own),
         new(
             SystemPermissions.HouseholdSettingsView,
             PermissionScopes.All),
@@ -484,6 +528,12 @@ public static class SystemRolePermissionMatrix
         BuildTenant() =>
     [
         new(
+            SystemPermissions.ProfileViewOwn,
+            PermissionScopes.Own),
+        new(
+            SystemPermissions.ProfileEditOwn,
+            PermissionScopes.Own),
+        new(
             SystemPermissions.PropertyView,
             PermissionScopes.OwnRoom),
         new(
@@ -497,6 +547,25 @@ public static class SystemRolePermissionMatrix
             PermissionScopes.Agreement),
         new(
             SystemPermissions.SettlementsViewOwn,
+            PermissionScopes.Own)
+    ];
+
+    private static IReadOnlyList<RolePermissionGrant>
+        BuildGuest() =>
+    [
+        new(
+            SystemPermissions.ProfileViewOwn,
+            PermissionScopes.Own),
+        new(
+            SystemPermissions.ProfileEditOwn,
+            PermissionScopes.Own)
+    ];
+
+    private static IReadOnlyList<RolePermissionGrant>
+        BuildChild() =>
+    [
+        new(
+            SystemPermissions.ProfileViewOwn,
             PermissionScopes.Own)
     ];
 }

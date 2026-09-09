@@ -10,6 +10,14 @@
         User.HasClaim(
             DomioClaimTypes.Permission,
             SystemPermissions.RolesView);
+
+    var canViewOwnProfile =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.ProfileViewOwn) ||
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.ProfileViewAll);
 }
 <!DOCTYPE html>
 <html lang="pl">
@@ -58,6 +66,15 @@
                                 @User.FindFirst(DomioClaimTypes.RoleName)?.Value
                             </div>
                         </div>
+
+                        @if (canViewOwnProfile)
+                        {
+                            <a asp-controller="Profiles"
+                               asp-action="My"
+                               class="btn btn-outline-primary btn-sm">
+                                Mój profil
+                            </a>
+                        }
 
                         <form asp-controller="Account"
                               asp-action="Logout"
@@ -143,7 +160,7 @@
     <footer class="domio-footer">
         <div class="container-fluid px-4 d-flex flex-column flex-md-row justify-content-between gap-2">
             <span>Domio · domowe centrum zarządzania</span>
-            <span>M02.6 · RBAC i egzekwowanie PermissionCode</span>
+            <span>M02.7 · profile użytkowników</span>
         </div>
     </footer>
 

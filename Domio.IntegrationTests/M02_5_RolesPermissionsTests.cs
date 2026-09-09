@@ -224,7 +224,7 @@ public sealed class M02_5_RolesPermissionsTests
                     .Select(x => x.Version)
                     .SingleAsync();
 
-            Assert.Equal(6, schemaVersion);
+            Assert.True(schemaVersion >= 6);
         }
         finally
         {

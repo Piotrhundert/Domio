@@ -146,10 +146,6 @@ public sealed class M02_4_UserManagementTests
             await management.UpdateUserAsync(
                 new UpdateUserRequest(
                     linkedUserId,
-                    "Anna",
-                    "Nowak",
-                    "Ania Nowak",
-                    "501501501",
                     "anna.nowak@example.test",
                     false,
                     SystemRoles.HouseholdMemberId),
@@ -162,22 +158,30 @@ public sealed class M02_4_UserManagementTests
 
             Assert.NotNull(edited);
             Assert.Equal(
-                "Nowak",
+                "Domownik",
                 edited!.LastName);
             Assert.Equal(
                 "Anna_Domownik",
                 edited.LoginName);
+            Assert.Equal(
+                "anna.nowak@example.test",
+                edited.Email);
             Assert.False(edited.IsActive);
+
+            var preservedPerson =
+                await dbContext.People
+                    .AsNoTracking()
+                    .SingleAsync(
+                        x => x.Id == personOnlyId);
+
+            Assert.True(
+                preservedPerson.IsActive);
 
             var selfDisable =
                 await Assert.ThrowsAsync<InvalidOperationException>(
                     () => management.UpdateUserAsync(
                         new UpdateUserRequest(
                             admin.UserId,
-                            "Jan",
-                            "Administrator",
-                            null,
-                            null,
                             "admin@example.test",
                             false,
                             SystemRoles.AdministratorId),

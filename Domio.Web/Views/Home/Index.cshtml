@@ -16,6 +16,14 @@
         User.HasClaim(
             DomioClaimTypes.Permission,
             SystemPermissions.RolesView);
+
+    var canViewOwnProfile =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.ProfileViewOwn) ||
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.ProfileViewAll);
 }
 
 <div class="container-fluid px-4 py-4">
@@ -31,17 +39,49 @@
                 <h1>Witaj, @User.Identity?.Name</h1>
                 <p>
                     Jesteś zalogowany jako <strong>@role</strong>.
-                    Dostęp do funkcji jest teraz egzekwowany na podstawie
-                    przypisanych PermissionCode, a nie wyłącznie nazwy roli.
+                    Konto, dostęp i profil osoby są teraz rozdzielone.
                 </p>
             </div>
         </div>
+
         <div class="domio-status-badge">
-            M02.6 · RBAC aktywne
+            M02.7 · Profil użytkownika
         </div>
     </div>
 
     <div class="row g-3 mt-2">
+        <div class="col-md-4">
+            @if (canViewOwnProfile)
+            {
+                <a asp-controller="Profiles"
+                   asp-action="My"
+                   class="domio-module-card domio-module-card-link">
+                    <div class="domio-module-icon">P</div>
+                    <h2>Mój profil</h2>
+                    <p>
+                        Dane osobowe, kontakt, adres, dokument
+                        i osoba kontaktowa.
+                    </p>
+                    <span class="badge text-bg-primary">
+                        Otwórz profil
+                    </span>
+                </a>
+            }
+            else
+            {
+                <div class="domio-module-card">
+                    <div class="domio-module-icon">P</div>
+                    <h2>Mój profil</h2>
+                    <p>
+                        Twoja rola nie ma dostępu do profilu.
+                    </p>
+                    <span class="badge text-bg-light">
+                        Brak dostępu
+                    </span>
+                </div>
+            }
+        </div>
+
         <div class="col-md-4">
             @if (canViewUsers)
             {
@@ -51,8 +91,7 @@
                     <div class="domio-module-icon">U</div>
                     <h2>Użytkownicy</h2>
                     <p>
-                        Dostęp przyznany przez
-                        <code>@SystemPermissions.UsersView</code>.
+                        Osoby, konta i dostęp.
                     </p>
                     <span class="badge text-bg-primary">
                         Otwórz panel
@@ -65,8 +104,7 @@
                     <div class="domio-module-icon">U</div>
                     <h2>Użytkownicy</h2>
                     <p>
-                        Twoja rola nie ma uprawnienia
-                        <code>@SystemPermissions.UsersView</code>.
+                        Brak uprawnienia Users.View.
                     </p>
                     <span class="badge text-bg-light">
                         Brak dostępu
@@ -84,7 +122,7 @@
                     <div class="domio-module-icon">R</div>
                     <h2>Role i uprawnienia</h2>
                     <p>
-                        Podgląd macierzy ról i PermissionCode.
+                        Macierz PermissionCode, w tym prawa do profili.
                     </p>
                     <span class="badge text-bg-primary">
                         Otwórz panel
@@ -97,27 +135,13 @@
                     <div class="domio-module-icon">R</div>
                     <h2>Role i uprawnienia</h2>
                     <p>
-                        Brak uprawnienia
-                        <code>@SystemPermissions.RolesView</code>.
+                        Brak uprawnienia Roles.View.
                     </p>
                     <span class="badge text-bg-light">
                         Brak dostępu
                     </span>
                 </div>
             }
-        </div>
-
-        <div class="col-md-4">
-            <div class="domio-module-card">
-                <div class="domio-module-icon">F</div>
-                <h2>Kolejny moduł</h2>
-                <p>
-                    Po G02 przejdziemy do M03 — finansów osobistych.
-                </p>
-                <span class="badge text-bg-light">
-                    Po G02
-                </span>
-            </div>
         </div>
     </div>
 </div>

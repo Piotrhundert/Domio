@@ -13,6 +13,40 @@ public static class PermissionEnforcement
             string permissionCode,
             CancellationToken cancellationToken = default)
     {
+        var grant =
+            await GetUserGrantAsync(
+                dbContext,
+                userId,
+                permissionCode,
+                cancellationToken);
+
+        if (grant is null)
+        {
+            throw new UnauthorizedAccessException(
+                $"Brak wymaganego uprawnienia: {permissionCode}.");
+        }
+
+        return grant;
+    }
+
+    public static async Task<bool> HasUserAsync(
+        DomioDbContext dbContext,
+        Guid userId,
+        string permissionCode,
+        CancellationToken cancellationToken = default) =>
+        await GetUserGrantAsync(
+            dbContext,
+            userId,
+            permissionCode,
+            cancellationToken) is not null;
+
+    private static async Task<RolePermissionGrant?>
+        GetUserGrantAsync(
+            DomioDbContext dbContext,
+            Guid userId,
+            string permissionCode,
+            CancellationToken cancellationToken)
+    {
         ArgumentNullException.ThrowIfNull(dbContext);
 
         if (string.IsNullOrWhiteSpace(permissionCode))
@@ -40,27 +74,17 @@ public static class PermissionEnforcement
 
         if (accessRow is null)
         {
-            throw new UnauthorizedAccessException(
-                "Konto wykonujące operację nie jest aktywne.");
+            return null;
         }
 
-        var grant =
-            RolePermissionConfigurationCodec
-                .Resolve(
-                    accessRow.Code,
-                    accessRow.PermissionConfigurationJson)
-                .SingleOrDefault(
-                    x => string.Equals(
-                        x.PermissionCode,
-                        permissionCode,
-                        StringComparison.Ordinal));
-
-        if (grant is null)
-        {
-            throw new UnauthorizedAccessException(
-                $"Brak wymaganego uprawnienia: {permissionCode}.");
-        }
-
-        return grant;
+        return RolePermissionConfigurationCodec
+            .Resolve(
+                accessRow.Code,
+                accessRow.PermissionConfigurationJson)
+            .SingleOrDefault(
+                x => string.Equals(
+                    x.PermissionCode,
+                    permissionCode,
+                    StringComparison.Ordinal));
     }
 }

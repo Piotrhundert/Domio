@@ -9,10 +9,15 @@
             DomioClaimTypes.Permission,
             SystemPermissions.UsersCreate);
 
-    var canEdit =
+    var canEditAccount =
         User.HasClaim(
             DomioClaimTypes.Permission,
             SystemPermissions.UsersEdit);
+
+    var canViewAllProfiles =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.ProfileViewAll);
 
     var canViewRoles =
         User.HasClaim(
@@ -23,11 +28,11 @@
 <div class="users-page">
     <div class="users-page-header">
         <div>
-            <div class="users-kicker">M02.6 · UŻYTKOWNICY I RBAC</div>
+            <div class="users-kicker">M02.7 · UŻYTKOWNICY I PROFILE</div>
             <h1>Użytkownicy</h1>
             <p>
-                Widok i dostępne operacje wynikają z PermissionCode
-                przypisanych do aktualnej roli.
+                Profil osoby oraz konto logowania są teraz dwoma
+                oddzielnymi obszarami.
             </p>
         </div>
 
@@ -77,15 +82,17 @@
             <div>
                 <h2>Konta użytkowników</h2>
                 <p>
-                    Sam podgląd wymaga Users.View.
-                    Edycja kont jest pokazywana tylko przy Users.Edit.
+                    „Profil” służy danym osoby, a „Konto i dostęp”
+                    loginowi, e-mailowi konta, roli i statusowi.
                 </p>
             </div>
         </div>
 
         @if (Model.Users.Count == 0)
         {
-            <div class="users-empty">Brak kont użytkowników.</div>
+            <div class="users-empty">
+                Brak kont użytkowników.
+            </div>
         }
         else
         {
@@ -98,29 +105,30 @@
                             <th>Rola</th>
                             <th>Status</th>
                             <th>Ostatnie logowanie</th>
-                            @if (canEdit)
-                            {
-                                <th></th>
-                            }
+                            <th></th>
                         </tr>
                     </thead>
+
                     <tbody>
                     @foreach (var user in Model.Users)
                     {
-                        var initials = string.Join(
-                            string.Empty,
-                            user.DisplayName
-                                .Split(
-                                    ' ',
-                                    StringSplitOptions.RemoveEmptyEntries)
-                                .Take(2)
-                                .Select(x => x[0]))
-                            .ToUpperInvariant();
+                        var initials =
+                            string.Join(
+                                string.Empty,
+                                user.DisplayName
+                                    .Split(
+                                        ' ',
+                                        StringSplitOptions.RemoveEmptyEntries)
+                                    .Take(2)
+                                    .Select(x => x[0]))
+                                .ToUpperInvariant();
 
                         <tr>
                             <td>
                                 <div class="users-person">
-                                    <div class="users-avatar">@initials</div>
+                                    <div class="users-avatar">
+                                        @initials
+                                    </div>
                                     <div>
                                         <div class="users-person-name">
                                             @user.DisplayName
@@ -132,16 +140,25 @@
                                     </div>
                                 </div>
                             </td>
+
                             <td>
-                                <div class="users-login">@user.LoginName</div>
+                                <div class="users-login">
+                                    @user.LoginName
+                                </div>
                                 @if (!string.IsNullOrWhiteSpace(user.Email))
                                 {
-                                    <div class="users-person-meta">@user.Email</div>
+                                    <div class="users-person-meta">
+                                        @user.Email
+                                    </div>
                                 }
                             </td>
+
                             <td>
-                                <span class="users-role-badge">@user.RoleNamePl</span>
+                                <span class="users-role-badge">
+                                    @user.RoleNamePl
+                                </span>
                             </td>
+
                             <td>
                                 @if (!user.IsActive)
                                 {
@@ -162,26 +179,42 @@
                                     </span>
                                 }
                             </td>
+
                             <td>
                                 @if (user.LastLoginAtUtc is null)
                                 {
-                                    <span class="text-secondary">Jeszcze nie</span>
+                                    <span class="text-secondary">
+                                        Jeszcze nie
+                                    </span>
                                 }
                                 else
                                 {
                                     @(user.LastLoginAtUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm"))
                                 }
                             </td>
-                            @if (canEdit)
-                            {
-                                <td class="text-end">
-                                    <a asp-action="Edit"
-                                       asp-route-id="@user.UserId"
-                                       class="btn btn-sm btn-outline-secondary">
-                                        Edytuj
-                                    </a>
-                                </td>
-                            }
+
+                            <td class="text-end">
+                                <div class="users-row-actions">
+                                    @if (canViewAllProfiles)
+                                    {
+                                        <a asp-controller="Profiles"
+                                           asp-action="Details"
+                                           asp-route-id="@user.PersonId"
+                                           class="btn btn-sm btn-outline-primary">
+                                            Profil
+                                        </a>
+                                    }
+
+                                    @if (canEditAccount)
+                                    {
+                                        <a asp-action="Edit"
+                                           asp-route-id="@user.UserId"
+                                           class="btn btn-sm btn-outline-secondary">
+                                            Konto i dostęp
+                                        </a>
+                                    }
+                                </div>
+                            </td>
                         </tr>
                     }
                     </tbody>
@@ -195,8 +228,7 @@
             <div>
                 <h2>Osoby bez konta logowania</h2>
                 <p>
-                    Konto dla istniejącej osoby można utworzyć tylko
-                    z uprawnieniem Users.Create.
+                    Profil może istnieć niezależnie od konta.
                 </p>
             </div>
         </div>
@@ -214,22 +246,19 @@
                     <thead>
                         <tr>
                             <th>Osoba</th>
-                            <th>E-mail</th>
-                            <th>Telefon</th>
                             <th>Status</th>
-                            @if (canCreate)
-                            {
-                                <th></th>
-                            }
+                            <th></th>
                         </tr>
                     </thead>
+
                     <tbody>
                     @foreach (var person in Model.PeopleWithoutAccount)
                     {
                         <tr>
-                            <td><strong>@person.DisplayName</strong></td>
-                            <td>@(person.Email ?? "—")</td>
-                            <td>@(person.Phone ?? "—")</td>
+                            <td>
+                                <strong>@person.DisplayName</strong>
+                            </td>
+
                             <td>
                                 @if (person.IsActive)
                                 {
@@ -244,19 +273,29 @@
                                     </span>
                                 }
                             </td>
-                            @if (canCreate)
-                            {
-                                <td class="text-end">
-                                    @if (person.IsActive)
+
+                            <td class="text-end">
+                                <div class="users-row-actions">
+                                    @if (canViewAllProfiles)
+                                    {
+                                        <a asp-controller="Profiles"
+                                           asp-action="Details"
+                                           asp-route-id="@person.PersonId"
+                                           class="btn btn-sm btn-outline-primary">
+                                            Profil
+                                        </a>
+                                    }
+
+                                    @if (canCreate && person.IsActive)
                                     {
                                         <a asp-action="CreateForPerson"
                                            asp-route-id="@person.PersonId"
-                                           class="btn btn-sm btn-outline-primary">
+                                           class="btn btn-sm btn-outline-secondary">
                                             Utwórz konto
                                         </a>
                                     }
-                                </td>
-                            }
+                                </div>
+                            </td>
                         </tr>
                     }
                     </tbody>
@@ -272,8 +311,7 @@
                 <div>
                     <h2>Role w Domio</h2>
                     <p>
-                        Masz uprawnienie Roles.View — możesz otworzyć
-                        szczegółową macierz ról i praw.
+                        Szczegóły uprawnień są dostępne w osobnym panelu ról.
                     </p>
                 </div>
             </div>
@@ -299,6 +337,7 @@
                                 Przypisane konta:
                                 <strong>@role.AssignedUsers</strong>
                             </span>
+
                             <a asp-controller="Roles"
                                asp-action="Index"
                                asp-route-roleId="@role.Id"

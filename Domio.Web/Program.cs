@@ -224,7 +224,7 @@ if (isDevelopmentOrTest)
         return Results.Ok(new
         {
             module = "M02",
-            package = "M02.6",
+            package = "M02.7",
             count = roles.Count,
             roles
         });
@@ -243,7 +243,7 @@ if (isDevelopmentOrTest)
         return Results.Ok(new
         {
             module = "M02",
-            package = "M02.6",
+            package = "M02.7",
             user = httpContext.User.Identity?.Name,
             role =
                 httpContext.User
@@ -357,7 +357,7 @@ app.MapGet("/health", async (
                 : "Unhealthy",
             application = "Domio",
             module = "M02",
-            package = "M02.6",
+            package = "M02.7",
             environment =
                 app.Environment.EnvironmentName,
             correlationId =
