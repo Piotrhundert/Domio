@@ -267,6 +267,10 @@ public sealed class UsersController(
             return NotFound();
         }
 
+        var options =
+            await userManagementService.GetCreateOptionsAsync(
+                cancellationToken);
+
         return View(
             new EditUserViewModel
             {
@@ -278,7 +282,11 @@ public sealed class UsersController(
                 LoginName = data.LoginName,
                 Email = data.Email ?? string.Empty,
                 IsActive = data.IsActive,
-                RoleNamePl = data.RoleNamePl
+                RoleDefinitionId = data.RoleDefinitionId,
+                RoleNamePl = data.RoleNamePl,
+                Roles = BuildRoleItems(
+                    options.Roles,
+                    data.RoleDefinitionId)
             });
     }
 
@@ -298,8 +306,15 @@ public sealed class UsersController(
             return NotFound();
         }
 
-        model.RoleNamePl = current.RoleNamePl;
+        var options =
+            await userManagementService.GetCreateOptionsAsync(
+                cancellationToken);
+
         model.LoginName = current.LoginName;
+        model.RoleNamePl = current.RoleNamePl;
+        model.Roles = BuildRoleItems(
+            options.Roles,
+            model.RoleDefinitionId);
 
         if (!ModelState.IsValid)
         {
@@ -316,7 +331,8 @@ public sealed class UsersController(
                     model.DisplayName,
                     model.Phone,
                     model.Email,
-                    model.IsActive),
+                    model.IsActive,
+                    model.RoleDefinitionId),
                 GetCurrentUserId(),
                 HttpContext.TraceIdentifier,
                 cancellationToken);
@@ -339,7 +355,9 @@ public sealed class UsersController(
         }
 
         TempData["UsersMessage"] =
-            "Dane użytkownika zostały zapisane.";
+            current.RoleDefinitionId != model.RoleDefinitionId
+                ? "Dane użytkownika i rola zostały zapisane."
+                : "Dane użytkownika zostały zapisane.";
 
         return RedirectToAction(nameof(Index));
     }

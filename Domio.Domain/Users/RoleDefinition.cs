@@ -11,4 +11,6 @@ public sealed class RoleDefinition
     public string DescriptionPl { get; set; } = string.Empty;
 
     public bool IsSystem { get; set; }
+
+    public string? PermissionConfigurationJson { get; set; }
 }

@@ -1,0 +1,235 @@
+@model Domio.Web.Models.Roles.EditRoleViewModel
+@{
+    ViewData["Title"] = $"Edytuj rolę - {Model.NamePl}";
+}
+
+<div class="users-page role-edit-page">
+    <div class="user-form-header">
+        <div>
+            <div class="users-kicker">M02.5 · EDYCJA WYBRANEJ ROLI</div>
+            <h1>Edytujesz rolę: @Model.NamePl</h1>
+            <p>
+                Na tym ekranie wyświetlana jest tylko jedna wybrana rola.
+                Kod techniczny <strong>@Model.Code</strong> pozostaje stały.
+            </p>
+        </div>
+
+        <a asp-action="Index"
+           class="btn btn-outline-secondary">
+            ← Wróć do wszystkich ról
+        </a>
+    </div>
+
+    <div class="selected-role-banner">
+        <div class="selected-role-icon">
+            @Model.NamePl.Substring(0, 1).ToUpperInvariant()
+        </div>
+        <div class="selected-role-info">
+            <span>Aktualnie edytowana rola</span>
+            <strong>@Model.NamePl</strong>
+            <small>@Model.Code</small>
+        </div>
+
+        @if (Model.UsesDefaultPermissions)
+        {
+            <span class="permission-default-badge">
+                Macierz domyślna
+            </span>
+        }
+        else
+        {
+            <span class="permission-custom-badge">
+                Konfiguracja własna
+            </span>
+        }
+    </div>
+
+    @if (TempData["RolesMessage"] is string message)
+    {
+        <div class="alert alert-success mb-4" role="alert">
+            @message
+        </div>
+    }
+
+    @if (TempData["RolesError"] is string error)
+    {
+        <div class="alert alert-danger mb-4" role="alert">
+            @error
+        </div>
+    }
+
+    <form asp-action="Edit"
+          method="post"
+          class="user-form-card role-editor-form">
+
+        <input asp-for="RoleId" type="hidden" />
+        <input asp-for="Code" type="hidden" />
+
+        <div asp-validation-summary="ModelOnly"
+             class="text-danger mb-3 px-4 pt-4"></div>
+
+        <div class="user-form-section">
+            <h2>Dane wybranej roli</h2>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="NamePl"
+                           class="form-label"></label>
+                    <input asp-for="NamePl"
+                           class="form-control" />
+                    <span asp-validation-for="NamePl"
+                          class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">
+                        Kod techniczny
+                    </label>
+                    <input value="@Model.Code"
+                           class="form-control"
+                           disabled />
+                    <div class="form-text">
+                        Kod jest stały, ponieważ używają go reguły bezpieczeństwa Domio.
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <label asp-for="DescriptionPl"
+                           class="form-label"></label>
+                    <textarea asp-for="DescriptionPl"
+                              class="form-control"
+                              rows="4"></textarea>
+                    <span asp-validation-for="DescriptionPl"
+                          class="text-danger small"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="user-form-section">
+            <div class="role-permissions-edit-heading">
+                <div>
+                    <h2>Uprawnienia roli: @Model.NamePl</h2>
+                    <p>
+                        Poniższa lista dotyczy wyłącznie aktualnie edytowanej roli.
+                        Zaznacz dostępne funkcje oraz ich zakres danych.
+                    </p>
+                </div>
+            </div>
+
+            @for (var i = 0; i < Model.Permissions.Count; i++)
+            {
+                var permission = Model.Permissions[i];
+                var newModule =
+                    i == 0 ||
+                    Model.Permissions[i - 1].ModuleCode != permission.ModuleCode;
+
+                @if (newModule)
+                {
+                    <div class="permission-edit-module-heading">
+                        <span>@permission.ModuleCode</span>
+                        <strong>@permission.ModuleNamePl</strong>
+                    </div>
+                }
+
+                <div class="permission-edit-row">
+                    <input asp-for="Permissions[i].Code"
+                           type="hidden" />
+
+                    <div class="permission-edit-check">
+                        <input asp-for="Permissions[i].IsAssigned"
+                               class="form-check-input"
+                               disabled="@permission.IsProtected" />
+
+                        @if (permission.IsProtected)
+                        {
+                            <input type="hidden"
+                                   name="Permissions[@i].IsAssigned"
+                                   value="true" />
+                        }
+                    </div>
+
+                    <div class="permission-edit-content">
+                        <div class="permission-title-line">
+                            <strong>@permission.NamePl</strong>
+                            <code>@permission.Code</code>
+                            <span class="risk-badge">
+                                Ryzyko: @permission.RiskLevel
+                            </span>
+                            @if (permission.IsProtected)
+                            {
+                                <span class="permission-protected-badge">
+                                    Wymagane dla Administratora
+                                </span>
+                            }
+                        </div>
+
+                        <p>
+                            @permission.DescriptionPl
+                        </p>
+                    </div>
+
+                    <div class="permission-edit-scope">
+                        @if (permission.ScopeOptions.Count > 1)
+                        {
+                            <label class="form-label">
+                                Zakres
+                            </label>
+                            <select asp-for="Permissions[i].ScopeCode"
+                                    asp-items="permission.ScopeOptions"
+                                    class="form-select form-select-sm">
+                            </select>
+                        }
+                        else
+                        {
+                            <input asp-for="Permissions[i].ScopeCode"
+                                   type="hidden" />
+                            <span class="permission-scope">
+                                @permission.ScopeOptions[0].Text
+                            </span>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="user-form-actions">
+            <a asp-action="Index"
+               class="btn btn-outline-secondary">
+                Anuluj
+            </a>
+
+            <button type="submit"
+                    class="btn btn-primary">
+                Zapisz rolę „@Model.NamePl”
+            </button>
+        </div>
+    </form>
+
+    <div class="role-reset-panel mt-4">
+        <div>
+            <strong>
+                Przywróć domyślne uprawnienia tylko dla roli „@Model.NamePl”
+            </strong>
+            <p>
+                Usuwa ręczną konfigurację tej jednej roli i przywraca jej
+                bazową macierz uprawnień Domio.
+            </p>
+        </div>
+
+        <form asp-action="ResetPermissions"
+              method="post">
+            <input type="hidden"
+                   name="id"
+                   value="@Model.RoleId" />
+            <button type="submit"
+                    class="btn btn-outline-secondary"
+                    onclick="return confirm('Przywrócić domyślne uprawnienia roli @Model.NamePl?');">
+                Przywróć domyślne
+            </button>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,10 +1,13 @@
+using System.Security.Claims;
 using Domio.Application.Auditing;
+using Domio.Application.Authorization;
 using Domio.Application.Diagnostics;
 using Domio.Application.Maintenance;
 using Domio.Infrastructure;
 using Domio.Infrastructure.Persistence;
 using Domio.Web.Errors;
 using Domio.Web.Middleware;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -32,6 +35,87 @@ builder.Services
             CookieSecurePolicy.SameAsRequest;
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
         options.SlidingExpiration = true;
+
+        options.Events.OnValidatePrincipal =
+            async context =>
+            {
+                var userIdValue =
+                    context.Principal?
+                        .FindFirst(ClaimTypes.NameIdentifier)?
+                        .Value;
+
+                if (!Guid.TryParse(
+                        userIdValue,
+                        out var userId))
+                {
+                    context.RejectPrincipal();
+                    await context.HttpContext.SignOutAsync(
+                        CookieAuthenticationDefaults
+                            .AuthenticationScheme);
+                    return;
+                }
+
+                var accessService =
+                    context.HttpContext.RequestServices
+                        .GetRequiredService<IUserAccessService>();
+
+                var access =
+                    await accessService.GetAsync(
+                        userId,
+                        context.HttpContext
+                            .RequestAborted);
+
+                if (access is null)
+                {
+                    context.RejectPrincipal();
+                    await context.HttpContext.SignOutAsync(
+                        CookieAuthenticationDefaults
+                            .AuthenticationScheme);
+                    return;
+                }
+
+                var claims = new List<Claim>
+                {
+                    new(
+                        ClaimTypes.NameIdentifier,
+                        access.UserId.ToString()),
+                    new(
+                        ClaimTypes.Name,
+                        access.DisplayName),
+                    new(
+                        ClaimTypes.Role,
+                        access.RoleCode),
+                    new(
+                        "domio_login",
+                        access.LoginName),
+                    new(
+                        "domio_person_id",
+                        access.PersonId.ToString()),
+                    new(
+                        "domio_role_name",
+                        access.RoleNamePl)
+                };
+
+                foreach (var permission in access.Permissions)
+                {
+                    claims.Add(
+                        new Claim(
+                            "domio_permission",
+                            permission.Code));
+
+                    claims.Add(
+                        new Claim(
+                            "domio_permission_scope",
+                            $"{permission.Code}|{permission.ScopeCode}"));
+                }
+
+                context.ReplacePrincipal(
+                    new ClaimsPrincipal(
+                        new ClaimsIdentity(
+                            claims,
+                            CookieAuthenticationDefaults
+                                .AuthenticationScheme)));
+            };
     });
 
 builder.Services.AddAuthorization(options =>
@@ -126,7 +210,7 @@ if (isDevelopmentOrTest)
         return Results.Ok(new
         {
             module = "M02",
-            package = "M02.4",
+            package = "M02.5",
             count = roles.Count,
             roles
         });
@@ -226,7 +310,7 @@ app.MapGet("/health", async (
                 : "Unhealthy",
             application = "Domio",
             module = "M02",
-            package = "M02.4",
+            package = "M02.5",
             environment =
                 app.Environment.EnvironmentName,
             correlationId =

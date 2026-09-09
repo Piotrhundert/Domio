@@ -16,7 +16,7 @@ partial class DomioDbContextModelSnapshot : ModelSnapshot
         modelBuilder
             .HasAnnotation("ProductVersion", "10.0.11");
 
-        AddUserAccountEmail.BuildModel(modelBuilder);
+        AddRolePermissionConfiguration.BuildModel(modelBuilder);
 #pragma warning restore 612, 618
     }
 }

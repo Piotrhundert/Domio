@@ -34,9 +34,9 @@ public sealed class DomioDbContext : DbContext
             entity.HasData(new SchemaVersionRecord
             {
                 Id = 1,
-                Version = 5,
+                Version = 6,
                 UpdatedAtUtc = new DateTime(
-                    2026, 9, 9, 6, 28, 0, DateTimeKind.Utc)
+                    2026, 9, 9, 7, 13, 0, DateTimeKind.Utc)
             });
         });
 
@@ -92,6 +92,8 @@ public sealed class DomioDbContext : DbContext
             entity.Property(x => x.NamePl).HasMaxLength(100).IsRequired();
             entity.Property(x => x.DescriptionPl).HasMaxLength(1000).IsRequired();
             entity.Property(x => x.IsSystem).IsRequired();
+            entity.Property(x => x.PermissionConfigurationJson)
+                .HasMaxLength(16000);
             entity.HasIndex(x => x.Code).IsUnique();
 
             entity.HasData(

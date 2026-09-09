@@ -6,11 +6,10 @@
 <div class="users-page">
     <div class="user-form-header">
         <div>
-            <div class="users-kicker">M02.4 · EDYCJA KONTA</div>
+            <div class="users-kicker">M02.5 · EDYCJA KONTA I ROLI</div>
             <h1>Edytuj użytkownika</h1>
             <p>
-                Zmieniasz podstawowe dane osoby oraz dane konta.
-                Aktualna rola: <strong>@Model.RoleNamePl</strong>.
+                Zmieniasz podstawowe dane osoby, aktywność konta oraz rolę.
             </p>
         </div>
         <a asp-action="Index" class="btn btn-outline-secondary">
@@ -59,18 +58,19 @@
         </div>
 
         <div class="user-form-section">
-            <h2>Konto</h2>
+            <h2>Konto i rola</h2>
             <div class="row g-3">
                 <div class="col-md-6">
                     <div class="user-role-readonly">
                         <span>Login</span>
                         <strong>@Model.LoginName</strong>
                         <small>
-                            Login jest nadawany automatycznie podczas tworzenia konta
-                            i nie zmienia się przy późniejszej edycji imienia lub nazwiska.
+                            Login jest nadany automatycznie i nie zmienia się
+                            po edycji imienia lub nazwiska.
                         </small>
                     </div>
                 </div>
+
                 <div class="col-md-6">
                     <label asp-for="Email" class="form-label"></label>
                     <input asp-for="Email"
@@ -79,15 +79,29 @@
                     <span asp-validation-for="Email"
                           class="text-danger small"></span>
                 </div>
+
                 <div class="col-12">
-                    <div class="user-role-readonly">
-                        <span>Rola</span>
-                        <strong>@Model.RoleNamePl</strong>
-                        <small>
-                            Zmiana roli będzie dostępna w M02.5 i zostanie objęta osobnym audytem.
-                        </small>
+                    <label asp-for="RoleDefinitionId"
+                           class="form-label"></label>
+                    <select asp-for="RoleDefinitionId"
+                            asp-items="Model.Roles"
+                            class="form-select">
+                    </select>
+                    <span asp-validation-for="RoleDefinitionId"
+                          class="text-danger small"></span>
+                    <div class="form-text">
+                        Zmiana roli jest audytowana i zaczyna obowiązywać
+                        przy następnym żądaniu użytkownika — bez restartu aplikacji.
+                    </div>
+                    <div class="mt-2">
+                        <a asp-controller="Roles"
+                           asp-action="Index"
+                           class="small">
+                            Zobacz pełny opis ról i uprawnień
+                        </a>
                     </div>
                 </div>
+
                 <div class="col-12">
                     <div class="form-check form-switch user-active-switch">
                         <input asp-for="IsActive"

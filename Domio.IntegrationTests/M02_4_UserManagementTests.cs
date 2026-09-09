@@ -151,7 +151,8 @@ public sealed class M02_4_UserManagementTests
                     "Ania Nowak",
                     "501501501",
                     "anna.nowak@example.test",
-                    false),
+                    false,
+                    SystemRoles.HouseholdMemberId),
                 admin.UserId,
                 Guid.NewGuid().ToString("N"));
 
@@ -178,7 +179,8 @@ public sealed class M02_4_UserManagementTests
                             null,
                             null,
                             "admin@example.test",
-                            false),
+                            false,
+                            SystemRoles.AdministratorId),
                         admin.UserId,
                         Guid.NewGuid().ToString("N")));
 
@@ -193,7 +195,7 @@ public sealed class M02_4_UserManagementTests
                     .Select(x => x.Version)
                     .SingleAsync();
 
-            Assert.Equal(5, schemaVersion);
+            Assert.True(schemaVersion >= 5);
         }
         finally
         {

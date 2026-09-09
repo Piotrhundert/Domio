@@ -40,7 +40,8 @@ public sealed record UpdateUserRequest(
     string? DisplayName,
     string? Phone,
     string Email,
-    bool IsActive);
+    bool IsActive,
+    int RoleDefinitionId);
 
 public sealed record UserEditData(
     Guid UserId,

@@ -303,6 +303,49 @@ public sealed class UserManagementService(
                 x => x.Id == account.PersonId,
                 cancellationToken);
 
+        var currentRole = await dbContext.RoleDefinitions
+            .SingleAsync(
+                x => x.Id == account.RoleDefinitionId,
+                cancellationToken);
+
+        var requestedRole = await dbContext.RoleDefinitions
+            .SingleOrDefaultAsync(
+                x => x.Id == request.RoleDefinitionId,
+                cancellationToken)
+            ?? throw new InvalidOperationException(
+                "Wybrana rola nie istnieje.");
+
+        var roleChanged =
+            currentRole.Id != requestedRole.Id;
+
+        if (roleChanged &&
+            request.UserId == actorUserId &&
+            currentRole.Code == SystemRoles.AdministratorCode &&
+            requestedRole.Code != SystemRoles.AdministratorCode)
+        {
+            throw new InvalidOperationException(
+                "Nie można odebrać roli Administrator własnemu kontu.");
+        }
+
+        if (roleChanged &&
+            currentRole.Code == SystemRoles.AdministratorCode &&
+            requestedRole.Code != SystemRoles.AdministratorCode)
+        {
+            var activeAdministrators =
+                await dbContext.UserAccounts.CountAsync(
+                    x =>
+                        x.IsActive &&
+                        x.RoleDefinitionId ==
+                            SystemRoles.AdministratorId,
+                    cancellationToken);
+
+            if (activeAdministrators <= 1)
+            {
+                throw new InvalidOperationException(
+                    "Nie można odebrać roli ostatniemu aktywnemu Administratorowi.");
+            }
+        }
+
         var normalizedEmail =
             NormalizeEmail(request.Email);
 
@@ -327,6 +370,10 @@ public sealed class UserManagementService(
             account.IsActive
         });
 
+        await using var transaction =
+            await dbContext.Database.BeginTransactionAsync(
+                cancellationToken);
+
         var now = DateTime.UtcNow;
         var email = request.Email.Trim();
 
@@ -342,9 +389,36 @@ public sealed class UserManagementService(
         account.Email = email;
         account.NormalizedEmail = normalizedEmail;
         account.IsActive = request.IsActive;
+        account.RoleDefinitionId = requestedRole.Id;
         account.UpdatedAtUtc = now;
 
         await dbContext.SaveChangesAsync(cancellationToken);
+
+        if (roleChanged)
+        {
+            await auditService.WriteAsync(
+                new AuditEntry(
+                    EventType: "M02.5.UserRoleChanged",
+                    EntityType: "UserAccount",
+                    EntityId: account.Id.ToString(),
+                    ActorId: actorUserId.ToString(),
+                    CorrelationId: correlationId,
+                    Description:
+                        "Administrator zmienił rolę użytkownika.",
+                    OldValuesJson: JsonSerializer.Serialize(new
+                    {
+                        RoleId = currentRole.Id,
+                        RoleCode = currentRole.Code,
+                        RoleNamePl = currentRole.NamePl
+                    }),
+                    NewValuesJson: JsonSerializer.Serialize(new
+                    {
+                        RoleId = requestedRole.Id,
+                        RoleCode = requestedRole.Code,
+                        RoleNamePl = requestedRole.NamePl
+                    })),
+                cancellationToken);
+        }
 
         await auditService.WriteAsync(
             new AuditEntry(
@@ -368,6 +442,8 @@ public sealed class UserManagementService(
                     account.IsActive
                 })),
             cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
     }
 
     private async Task<string> GenerateUniqueLoginAsync(

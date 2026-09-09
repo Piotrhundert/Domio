@@ -1,0 +1,220 @@
+@model Domio.Application.Users.RolePermissionsOverview
+@{
+    ViewData["Title"] = "Role i uprawnienia";
+
+    var selectedRoleId =
+        ViewData["SelectedRoleId"] is int value
+            ? value
+            : Model.Roles.FirstOrDefault()?.Id ?? 0;
+
+    var selectedRole =
+        Model.Roles.FirstOrDefault(
+            x => x.Id == selectedRoleId);
+}
+
+<div class="users-page roles-single-page">
+    <div class="users-page-header">
+        <div>
+            <div class="users-kicker">M02.5 · ROLE I UPRAWNIENIA</div>
+            <h1>Role i uprawnienia</h1>
+            <p>
+                Wybierz jedną rolę. Na stronie zobaczysz wyłącznie
+                jej opis oraz przypisane uprawnienia.
+            </p>
+        </div>
+
+        <a asp-controller="Users"
+           asp-action="Index"
+           class="btn btn-outline-secondary">
+            Użytkownicy
+        </a>
+    </div>
+
+    @if (TempData["RolesMessage"] is string message)
+    {
+        <div class="alert alert-success mb-4" role="alert">
+            @message
+        </div>
+    }
+
+    @if (Model.Roles.Count == 0 || selectedRole is null)
+    {
+        <div class="users-panel">
+            <div class="users-empty">
+                Brak ról do wyświetlenia.
+            </div>
+        </div>
+    }
+    else
+    {
+        <section class="role-selector-panel">
+            <div>
+                <span class="role-selector-label">
+                    Wybierz rolę do podglądu
+                </span>
+                <strong>
+                    Aktualnie: @selectedRole.NamePl
+                </strong>
+            </div>
+
+            <form asp-action="Index"
+                  method="get"
+                  class="role-selector-form">
+                <select name="roleId"
+                        class="form-select"
+                        onchange="this.form.submit()">
+                    @foreach (var role in Model.Roles)
+                    {
+                        if (role.Id == selectedRole.Id)
+                        {
+                            <option value="@role.Id" selected>
+                                @role.NamePl
+                            </option>
+                        }
+                        else
+                        {
+                            <option value="@role.Id">
+                                @role.NamePl
+                            </option>
+                        }
+                    }
+                </select>
+
+                <noscript>
+                    <button type="submit"
+                            class="btn btn-primary">
+                        Pokaż rolę
+                    </button>
+                </noscript>
+            </form>
+        </section>
+
+        <article class="role-permission-card role-single-card">
+            <div class="role-card-editor-header">
+                <div class="role-permission-summary-main">
+                    <div class="role-icon role-icon-large">
+                        @selectedRole.NamePl.Substring(0, 1).ToUpperInvariant()
+                    </div>
+                    <div>
+                        <div class="selected-role-caption">
+                            Wybrana rola
+                        </div>
+                        <h2>@selectedRole.NamePl</h2>
+                        <div class="role-code">
+                            @selectedRole.Code
+                        </div>
+                    </div>
+                </div>
+
+                <div class="role-editor-actions">
+                    @if (selectedRole.UsesDefaultPermissions)
+                    {
+                        <span class="permission-default-badge">
+                            Macierz domyślna
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="permission-custom-badge">
+                            Konfiguracja zmieniona
+                        </span>
+                    }
+
+                    <a asp-action="Edit"
+                       asp-route-id="@selectedRole.Id"
+                       class="btn btn-primary">
+                        Edytuj tę rolę
+                    </a>
+                </div>
+            </div>
+
+            <div class="role-permission-body">
+                <div class="selected-role-description">
+                    <span>Opis roli</span>
+                    <p>@selectedRole.DescriptionPl</p>
+                </div>
+
+                <div class="role-single-stats">
+                    <div>
+                        <span>Przypisane konta</span>
+                        <strong>@selectedRole.AssignedUsers</strong>
+                    </div>
+                    <div>
+                        <span>Aktywne uprawnienia</span>
+                        <strong>@selectedRole.Permissions.Count</strong>
+                    </div>
+                </div>
+
+                @if (selectedRole.Permissions.Count == 0)
+                {
+                    <div class="permission-empty">
+                        Ta rola nie ma obecnie żadnych uprawnień domenowych.
+                        Kliknij „Edytuj tę rolę”, aby nadać uprawnienia.
+                    </div>
+                }
+                else
+                {
+                    @foreach (var module in selectedRole.Permissions
+                        .GroupBy(x => new
+                        {
+                            x.ModuleCode,
+                            x.ModuleNamePl
+                        }))
+                    {
+                        <div class="permission-module-group">
+                            <div class="permission-module-heading">
+                                <span>@module.Key.ModuleCode</span>
+                                <strong>
+                                    @module.Key.ModuleNamePl
+                                </strong>
+                            </div>
+
+                            <div class="permission-list">
+                                @foreach (var permission in module)
+                                {
+                                    <div class="permission-row permission-row-detailed">
+                                        <div class="permission-main">
+                                            <div class="permission-title-line">
+                                                <strong>
+                                                    @permission.NamePl
+                                                </strong>
+                                                <code>
+                                                    @permission.Code
+                                                </code>
+                                            </div>
+
+                                            <div class="permission-description">
+                                                @permission.DescriptionPl
+                                            </div>
+
+                                            <div class="permission-meta-line">
+                                                <span>
+                                                    Moduł:
+                                                    <strong>
+                                                        @permission.ModuleCode
+                                                        ·
+                                                        @permission.ModuleNamePl
+                                                    </strong>
+                                                </span>
+                                                <span>
+                                                    Ryzyko:
+                                                    <strong>
+                                                        @permission.RiskLevel
+                                                    </strong>
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <span class="permission-scope">
+                                            @permission.ScopeNamePl
+                                        </span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+        </article>
+    }
+</div>

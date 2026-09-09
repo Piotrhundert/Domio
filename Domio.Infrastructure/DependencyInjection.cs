@@ -1,10 +1,12 @@
 using Domio.Application.Auditing;
 using Domio.Application.Authentication;
+using Domio.Application.Authorization;
 using Domio.Application.Diagnostics;
 using Domio.Application.Maintenance;
 using Domio.Application.Users;
 using Domio.Infrastructure.Auditing;
 using Domio.Infrastructure.Authentication;
+using Domio.Infrastructure.Authorization;
 using Domio.Infrastructure.Diagnostics;
 using Domio.Infrastructure.Maintenance;
 using Domio.Infrastructure.Persistence;
@@ -46,6 +48,9 @@ public static class DependencyInjection
             IAccountAuthenticationService,
             AccountAuthenticationService>();
         services.AddScoped<
+            IUserAccessService,
+            UserAccessService>();
+        services.AddScoped<
             IDatabaseDiagnosticsService,
             DatabaseDiagnosticsService>();
         services.AddScoped<
@@ -57,6 +62,9 @@ public static class DependencyInjection
         services.AddScoped<
             IUserManagementService,
             UserManagementService>();
+        services.AddScoped<
+            IRoleDirectoryService,
+            RoleDirectoryService>();
 
         return services;
     }
