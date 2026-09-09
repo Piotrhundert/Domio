@@ -25,13 +25,18 @@ public sealed class AccountController(
                 "Home");
         }
 
+        var hasUsers =
+            await authenticationService.HasAnyUserAsync(
+                cancellationToken);
+
         if (environment.IsDevelopment() &&
-            !await authenticationService.HasAnyUserAsync(
-                cancellationToken))
+            !hasUsers)
         {
             return RedirectToAction(
                 nameof(Initialize));
         }
+
+        ViewData["HasExistingUsers"] = hasUsers;
 
         return View(
             new LoginViewModel
@@ -47,6 +52,10 @@ public sealed class AccountController(
         LoginViewModel model,
         CancellationToken cancellationToken = default)
     {
+        ViewData["HasExistingUsers"] =
+            await authenticationService.HasAnyUserAsync(
+                cancellationToken);
+
         if (!ModelState.IsValid)
         {
             return View(model);
@@ -120,6 +129,30 @@ public sealed class AccountController(
         return RedirectToAction(
             "Index",
             "Home");
+    }
+
+    [AllowAnonymous]
+    [HttpGet]
+    public async Task<IActionResult> ForgotPassword(
+        CancellationToken cancellationToken = default)
+    {
+        var hasUsers =
+            await authenticationService.HasAnyUserAsync(
+                cancellationToken);
+
+        if (!hasUsers)
+        {
+            if (environment.IsDevelopment())
+            {
+                return RedirectToAction(
+                    nameof(Initialize));
+            }
+
+            return RedirectToAction(
+                nameof(Login));
+        }
+
+        return View();
     }
 
     [AllowAnonymous]

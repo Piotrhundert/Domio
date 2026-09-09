@@ -1,6 +1,8 @@
 @model Domio.Web.Models.Account.LoginViewModel
 @{
     ViewData["Title"] = "Logowanie";
+    var hasExistingUsers =
+        ViewData["HasExistingUsers"] as bool? ?? false;
 }
 
 <div class="auth-shell auth-shell-modern">
@@ -79,17 +81,29 @@
                           class="text-danger small"></span>
                 </div>
 
-                <div class="mb-3">
-                    <label asp-for="Password" class="form-label"></label>
+                <div class="mb-2">
+                    <div class="d-flex justify-content-between align-items-center gap-2">
+                        <label asp-for="Password" class="form-label mb-0"></label>
+
+                        @if (hasExistingUsers)
+                        {
+                            <a asp-controller="Account"
+                               asp-action="ForgotPassword"
+                               class="auth-forgot-link">
+                                Nie pamiętasz hasła?
+                            </a>
+                        }
+                    </div>
+
                     <input asp-for="Password"
-                           class="form-control form-control-lg"
+                           class="form-control form-control-lg mt-2"
                            autocomplete="current-password"
                            placeholder="Wpisz hasło" />
                     <span asp-validation-for="Password"
                           class="text-danger small"></span>
                 </div>
 
-                <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+                <div class="d-flex justify-content-between align-items-center my-4 flex-wrap gap-2">
                     <div class="form-check">
                         <input asp-for="RememberMe"
                                class="form-check-input" />
