@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Domio.Application.Users;
+using Domio.Domain.Users;
 using Domio.Web.Models.Users;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -7,11 +8,11 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace Domio.Web.Controllers;
 
-[Authorize(Roles = "Administrator")]
 public sealed class UsersController(
     IUserDirectoryService userDirectoryService,
     IUserManagementService userManagementService) : Controller
 {
+    [Authorize(Policy = SystemPermissions.UsersView)]
     [HttpGet]
     public async Task<IActionResult> Index(
         CancellationToken cancellationToken = default)
@@ -23,6 +24,7 @@ public sealed class UsersController(
         return View(overview);
     }
 
+    [Authorize(Policy = SystemPermissions.UsersCreate)]
     [HttpGet]
     public async Task<IActionResult> Create(
         CancellationToken cancellationToken = default)
@@ -38,6 +40,7 @@ public sealed class UsersController(
             });
     }
 
+    [Authorize(Policy = SystemPermissions.UsersCreate)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(
@@ -100,10 +103,12 @@ public sealed class UsersController(
         return RedirectToAction(nameof(Index));
     }
 
+    [Authorize(Policy = SystemPermissions.UsersCreate)]
     [HttpGet]
     public IActionResult CreatePerson() =>
         View(new CreatePersonViewModel());
 
+    [Authorize(Policy = SystemPermissions.UsersCreate)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreatePerson(
@@ -143,6 +148,7 @@ public sealed class UsersController(
         return RedirectToAction(nameof(Index));
     }
 
+    [Authorize(Policy = SystemPermissions.UsersCreate)]
     [HttpGet]
     public async Task<IActionResult> CreateForPerson(
         Guid id,
@@ -170,6 +176,7 @@ public sealed class UsersController(
             });
     }
 
+    [Authorize(Policy = SystemPermissions.UsersCreate)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> CreateForPerson(
@@ -252,6 +259,7 @@ public sealed class UsersController(
         return RedirectToAction(nameof(Index));
     }
 
+    [Authorize(Policy = SystemPermissions.UsersEdit)]
     [HttpGet]
     public async Task<IActionResult> Edit(
         Guid id,
@@ -290,6 +298,7 @@ public sealed class UsersController(
             });
     }
 
+    [Authorize(Policy = SystemPermissions.UsersEdit)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(
@@ -352,6 +361,10 @@ public sealed class UsersController(
                 exception.Message);
 
             return View(model);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
         }
 
         TempData["UsersMessage"] =

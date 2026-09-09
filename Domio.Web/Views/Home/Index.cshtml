@@ -1,6 +1,21 @@
+@using Domio.Application.Authorization
+@using Domio.Domain.Users
 @{
     ViewData["Title"] = "Start";
-    var role = User.FindFirst("domio_role_name")?.Value ?? "Użytkownik";
+
+    var role =
+        User.FindFirst(DomioClaimTypes.RoleName)?.Value
+        ?? "Użytkownik";
+
+    var canViewUsers =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.UsersView);
+
+    var canViewRoles =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.RolesView);
 }
 
 <div class="container-fluid px-4 py-4">
@@ -16,18 +31,19 @@
                 <h1>Witaj, @User.Identity?.Name</h1>
                 <p>
                     Jesteś zalogowany jako <strong>@role</strong>.
-                    Moduł użytkowników, ról i katalog PermissionCode jest rozwijany krok po kroku.
+                    Dostęp do funkcji jest teraz egzekwowany na podstawie
+                    przypisanych PermissionCode, a nie wyłącznie nazwy roli.
                 </p>
             </div>
         </div>
         <div class="domio-status-badge">
-            M02.5 · Role i uprawnienia
+            M02.6 · RBAC aktywne
         </div>
     </div>
 
     <div class="row g-3 mt-2">
         <div class="col-md-4">
-            @if (User.IsInRole("Administrator"))
+            @if (canViewUsers)
             {
                 <a asp-controller="Users"
                    asp-action="Index"
@@ -35,7 +51,8 @@
                     <div class="domio-module-icon">U</div>
                     <h2>Użytkownicy</h2>
                     <p>
-                        Konta, osoby, role i uprawnienia.
+                        Dostęp przyznany przez
+                        <code>@SystemPermissions.UsersView</code>.
                     </p>
                     <span class="badge text-bg-primary">
                         Otwórz panel
@@ -48,7 +65,40 @@
                     <div class="domio-module-icon">U</div>
                     <h2>Użytkownicy</h2>
                     <p>
-                        Panel dostępny dla administratora.
+                        Twoja rola nie ma uprawnienia
+                        <code>@SystemPermissions.UsersView</code>.
+                    </p>
+                    <span class="badge text-bg-light">
+                        Brak dostępu
+                    </span>
+                </div>
+            }
+        </div>
+
+        <div class="col-md-4">
+            @if (canViewRoles)
+            {
+                <a asp-controller="Roles"
+                   asp-action="Index"
+                   class="domio-module-card domio-module-card-link">
+                    <div class="domio-module-icon">R</div>
+                    <h2>Role i uprawnienia</h2>
+                    <p>
+                        Podgląd macierzy ról i PermissionCode.
+                    </p>
+                    <span class="badge text-bg-primary">
+                        Otwórz panel
+                    </span>
+                </a>
+            }
+            else
+            {
+                <div class="domio-module-card">
+                    <div class="domio-module-icon">R</div>
+                    <h2>Role i uprawnienia</h2>
+                    <p>
+                        Brak uprawnienia
+                        <code>@SystemPermissions.RolesView</code>.
                     </p>
                     <span class="badge text-bg-light">
                         Brak dostępu
@@ -60,22 +110,13 @@
         <div class="col-md-4">
             <div class="domio-module-card">
                 <div class="domio-module-icon">F</div>
-                <h2>Finanse</h2>
+                <h2>Kolejny moduł</h2>
                 <p>
-                    Finanse osobiste i gospodarstwa domowego.
+                    Po G02 przejdziemy do M03 — finansów osobistych.
                 </p>
-                <span class="badge text-bg-light">Wkrótce</span>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <div class="domio-module-card">
-                <div class="domio-module-icon">N</div>
-                <h2>Najem i media</h2>
-                <p>
-                    Umowy, liczniki, faktury i rozliczenia lokatorów.
-                </p>
-                <span class="badge text-bg-light">Wkrótce</span>
+                <span class="badge text-bg-light">
+                    Po G02
+                </span>
             </div>
         </div>
     </div>

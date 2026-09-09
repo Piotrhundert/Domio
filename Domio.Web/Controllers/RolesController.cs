@@ -8,10 +8,10 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace Domio.Web.Controllers;
 
-[Authorize(Roles = "Administrator")]
 public sealed class RolesController(
     IRoleDirectoryService roleDirectoryService) : Controller
 {
+    [Authorize(Policy = SystemPermissions.RolesView)]
     [HttpGet]
     public async Task<IActionResult> Index(
         int? roleId,
@@ -41,6 +41,7 @@ public sealed class RolesController(
         return View(overview);
     }
 
+    [Authorize(Policy = SystemPermissions.RolesEdit)]
     [HttpGet]
     public async Task<IActionResult> Edit(
         int id,
@@ -59,6 +60,7 @@ public sealed class RolesController(
         return View(BuildModel(data));
     }
 
+    [Authorize(Policy = SystemPermissions.RolesEdit)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(
@@ -119,6 +121,10 @@ public sealed class RolesController(
 
             return View(model);
         }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
 
         TempData["RolesMessage"] =
             "Rola i jej uprawnienia zostały zapisane.";
@@ -128,6 +134,7 @@ public sealed class RolesController(
             new { roleId = model.RoleId });
     }
 
+    [Authorize(Policy = SystemPermissions.RolesEdit)]
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ResetPermissions(
@@ -146,6 +153,10 @@ public sealed class RolesController(
         {
             TempData["RolesError"] =
                 exception.Message;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
         }
 
         TempData["RolesMessage"] ??=

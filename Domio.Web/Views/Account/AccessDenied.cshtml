@@ -10,12 +10,24 @@
         <img src="~/images/domio-logo.png"
              alt="Domio"
              class="auth-inline-logo mb-4" />
-        <div class="auth-kicker">BRAK DOSTĘPU</div>
-        <h1 class="h3 mb-3">Twoje konto nie ma uprawnień</h1>
-        <p class="text-secondary mb-4">
-            Nie możesz otworzyć tej części Domio. Wróć do strony głównej
-            lub skontaktuj się z administratorem systemu.
+
+        <div class="auth-kicker">RBAC · BRAK DOSTĘPU</div>
+
+        <h1 class="h3 mb-3">
+            Twoja rola nie ma wymaganego uprawnienia
+        </h1>
+
+        <p class="text-secondary mb-3">
+            Domio sprawdza dostęp na podstawie PermissionCode przypisanych
+            do aktualnej roli. Samo wpisanie adresu strony bez odpowiedniego
+            uprawnienia nie pozwala ominąć zabezpieczeń.
         </p>
+
+        <p class="small text-secondary mb-4">
+            Jeżeli dostęp powinien być przyznany, administrator może zmienić
+            uprawnienia Twojej roli w panelu „Role i uprawnienia”.
+        </p>
+
         <a asp-controller="Home"
            asp-action="Index"
            class="btn btn-primary auth-submit-btn">

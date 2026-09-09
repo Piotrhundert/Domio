@@ -1,3 +1,16 @@
+@using Domio.Application.Authorization
+@using Domio.Domain.Users
+@{
+    var canViewUsers =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.UsersView);
+
+    var canViewRoles =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.RolesView);
+}
 <!DOCTYPE html>
 <html lang="pl">
 <head>
@@ -42,7 +55,7 @@
                                 @User.Identity.Name
                             </div>
                             <div class="domio-user-role">
-                                @User.FindFirst("domio_role_name")?.Value
+                                @User.FindFirst(DomioClaimTypes.RoleName)?.Value
                             </div>
                         </div>
 
@@ -80,7 +93,7 @@
                         <span>Start</span>
                     </a>
 
-                    @if (User.IsInRole("Administrator"))
+                    @if (canViewUsers)
                     {
                         <a asp-controller="Users"
                            asp-action="Index"
@@ -88,7 +101,10 @@
                             <span class="domio-side-icon">U</span>
                             <span>Użytkownicy</span>
                         </a>
+                    }
 
+                    @if (canViewRoles)
+                    {
                         <a asp-controller="Roles"
                            asp-action="Index"
                            class="domio-side-link">
@@ -127,7 +143,7 @@
     <footer class="domio-footer">
         <div class="container-fluid px-4 d-flex flex-column flex-md-row justify-content-between gap-2">
             <span>Domio · domowe centrum zarządzania</span>
-            <span>Moduł M02 · użytkownicy, role i uprawnienia</span>
+            <span>M02.6 · RBAC i egzekwowanie PermissionCode</span>
         </div>
     </footer>
 

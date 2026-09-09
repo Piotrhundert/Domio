@@ -4,6 +4,7 @@ using Domio.Application.Auditing;
 using Domio.Application.Users;
 using Domio.Domain.Users;
 using Domio.Infrastructure.Authentication;
+using Domio.Infrastructure.Authorization;
 using Domio.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -58,6 +59,12 @@ public sealed class UserManagementService(
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.UsersCreate,
+            cancellationToken);
+
         ValidateName(request.FirstName, nameof(request.FirstName));
         ValidateName(request.LastName, nameof(request.LastName));
 
@@ -87,7 +94,7 @@ public sealed class UserManagementService(
                 ActorId: actorUserId.ToString(),
                 CorrelationId: correlationId,
                 Description:
-                    "Administrator utworzył osobę bez konta logowania.",
+                    "Uprawniony użytkownik utworzył osobę bez konta logowania.",
                 NewValuesJson: JsonSerializer.Serialize(new
                 {
                     person.FirstName,
@@ -109,6 +116,12 @@ public sealed class UserManagementService(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
+
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.UsersCreate,
+            cancellationToken);
 
         ValidateEmail(request.Email);
         PasswordSecurity.ValidatePassword(request.Password);
@@ -230,7 +243,7 @@ public sealed class UserManagementService(
                 ActorId: actorUserId.ToString(),
                 CorrelationId: correlationId,
                 Description:
-                    "Administrator utworzył konto użytkownika z automatycznie nadanym loginem.",
+                    "Uprawniony użytkownik utworzył konto z automatycznie nadanym loginem.",
                 NewValuesJson: JsonSerializer.Serialize(new
                 {
                     account.PersonId,
@@ -280,6 +293,12 @@ public sealed class UserManagementService(
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.UsersEdit,
+            cancellationToken);
+
         ValidateName(request.FirstName, nameof(request.FirstName));
         ValidateName(request.LastName, nameof(request.LastName));
         ValidateEmail(request.Email);
@@ -317,6 +336,28 @@ public sealed class UserManagementService(
 
         var roleChanged =
             currentRole.Id != requestedRole.Id;
+
+        if (roleChanged)
+        {
+            await PermissionEnforcement.EnsureUserHasAsync(
+                dbContext,
+                actorUserId,
+                SystemPermissions.UsersAssignRole,
+                cancellationToken);
+        }
+
+        var disablingActiveAccount =
+            account.IsActive &&
+            !request.IsActive;
+
+        if (disablingActiveAccount)
+        {
+            await PermissionEnforcement.EnsureUserHasAsync(
+                dbContext,
+                actorUserId,
+                SystemPermissions.UsersDisable,
+                cancellationToken);
+        }
 
         if (roleChanged &&
             request.UserId == actorUserId &&
@@ -404,7 +445,7 @@ public sealed class UserManagementService(
                     ActorId: actorUserId.ToString(),
                     CorrelationId: correlationId,
                     Description:
-                        "Administrator zmienił rolę użytkownika.",
+                        "Uprawniony użytkownik zmienił rolę użytkownika.",
                     OldValuesJson: JsonSerializer.Serialize(new
                     {
                         RoleId = currentRole.Id,
@@ -428,7 +469,7 @@ public sealed class UserManagementService(
                 ActorId: actorUserId.ToString(),
                 CorrelationId: correlationId,
                 Description:
-                    "Administrator zmienił dane konta użytkownika.",
+                    "Uprawniony użytkownik zmienił dane konta.",
                 OldValuesJson: oldValues,
                 NewValuesJson: JsonSerializer.Serialize(new
                 {

@@ -1,28 +1,49 @@
+@using Domio.Application.Authorization
+@using Domio.Domain.Users
 @model Domio.Application.Users.UserDirectoryOverview
 @{
     ViewData["Title"] = "Użytkownicy";
+
+    var canCreate =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.UsersCreate);
+
+    var canEdit =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.UsersEdit);
+
+    var canViewRoles =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.RolesView);
 }
 
 <div class="users-page">
     <div class="users-page-header">
         <div>
-            <div class="users-kicker">M02.4 · UŻYTKOWNICY I OSOBY</div>
+            <div class="users-kicker">M02.6 · UŻYTKOWNICY I RBAC</div>
             <h1>Użytkownicy</h1>
             <p>
-                Tworzenie osób i kont, edycja podstawowych danych oraz podgląd ról.
+                Widok i dostępne operacje wynikają z PermissionCode
+                przypisanych do aktualnej roli.
             </p>
         </div>
 
-        <div class="users-header-actions">
-            <a asp-action="CreatePerson"
-               class="btn btn-outline-primary">
-                + Dodaj osobę
-            </a>
-            <a asp-action="Create"
-               class="btn btn-primary">
-                + Dodaj użytkownika
-            </a>
-        </div>
+        @if (canCreate)
+        {
+            <div class="users-header-actions">
+                <a asp-action="CreatePerson"
+                   class="btn btn-outline-primary">
+                    + Dodaj osobę
+                </a>
+                <a asp-action="Create"
+                   class="btn btn-primary">
+                    + Dodaj użytkownika
+                </a>
+            </div>
+        }
     </div>
 
     @if (TempData["UsersMessage"] is string message)
@@ -56,8 +77,8 @@
             <div>
                 <h2>Konta użytkowników</h2>
                 <p>
-                    Edycja obejmuje dane osoby, login, e-mail oraz aktywność konta.
-                    Zmianę roli uruchomimy w kolejnym kroku M02.
+                    Sam podgląd wymaga Users.View.
+                    Edycja kont jest pokazywana tylko przy Users.Edit.
                 </p>
             </div>
         </div>
@@ -77,7 +98,10 @@
                             <th>Rola</th>
                             <th>Status</th>
                             <th>Ostatnie logowanie</th>
-                            <th></th>
+                            @if (canEdit)
+                            {
+                                <th></th>
+                            }
                         </tr>
                     </thead>
                     <tbody>
@@ -148,13 +172,16 @@
                                     @(user.LastLoginAtUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm"))
                                 }
                             </td>
-                            <td class="text-end">
-                                <a asp-action="Edit"
-                                   asp-route-id="@user.UserId"
-                                   class="btn btn-sm btn-outline-secondary">
-                                    Edytuj
-                                </a>
-                            </td>
+                            @if (canEdit)
+                            {
+                                <td class="text-end">
+                                    <a asp-action="Edit"
+                                       asp-route-id="@user.UserId"
+                                       class="btn btn-sm btn-outline-secondary">
+                                        Edytuj
+                                    </a>
+                                </td>
+                            }
                         </tr>
                     }
                     </tbody>
@@ -168,8 +195,8 @@
             <div>
                 <h2>Osoby bez konta logowania</h2>
                 <p>
-                    Osoba może istnieć w Domio bez możliwości logowania.
-                    Konto można utworzyć później bez tworzenia duplikatu osoby.
+                    Konto dla istniejącej osoby można utworzyć tylko
+                    z uprawnieniem Users.Create.
                 </p>
             </div>
         </div>
@@ -190,7 +217,10 @@
                             <th>E-mail</th>
                             <th>Telefon</th>
                             <th>Status</th>
-                            <th></th>
+                            @if (canCreate)
+                            {
+                                <th></th>
+                            }
                         </tr>
                     </thead>
                     <tbody>
@@ -214,16 +244,19 @@
                                     </span>
                                 }
                             </td>
-                            <td class="text-end">
-                                @if (person.IsActive)
-                                {
-                                    <a asp-action="CreateForPerson"
-                                       asp-route-id="@person.PersonId"
-                                       class="btn btn-sm btn-outline-primary">
-                                        Utwórz konto
-                                    </a>
-                                }
-                            </td>
+                            @if (canCreate)
+                            {
+                                <td class="text-end">
+                                    @if (person.IsActive)
+                                    {
+                                        <a asp-action="CreateForPerson"
+                                           asp-route-id="@person.PersonId"
+                                           class="btn btn-sm btn-outline-primary">
+                                            Utwórz konto
+                                        </a>
+                                    }
+                                </td>
+                            }
                         </tr>
                     }
                     </tbody>
@@ -232,44 +265,50 @@
         }
     </section>
 
-    <section class="users-panel mt-4">
-        <div class="users-panel-heading">
-            <div>
-                <h2>Role w Domio</h2>
-                <p>Polskie nazwy ról oraz opis ich przeznaczenia.</p>
+    @if (canViewRoles)
+    {
+        <section class="users-panel mt-4">
+            <div class="users-panel-heading">
+                <div>
+                    <h2>Role w Domio</h2>
+                    <p>
+                        Masz uprawnienie Roles.View — możesz otworzyć
+                        szczegółową macierz ról i praw.
+                    </p>
+                </div>
             </div>
-        </div>
 
-        <div class="role-grid">
-            @foreach (var role in Model.Roles)
-            {
-                <article class="role-card">
-                    <div class="role-card-top">
-                        <div class="role-icon">
-                            @role.NamePl.Substring(0, 1).ToUpperInvariant()
+            <div class="role-grid">
+                @foreach (var role in Model.Roles)
+                {
+                    <article class="role-card">
+                        <div class="role-card-top">
+                            <div class="role-icon">
+                                @role.NamePl.Substring(0, 1).ToUpperInvariant()
+                            </div>
+                            <div>
+                                <h3>@role.NamePl</h3>
+                                <div class="role-code">@role.Code</div>
+                            </div>
                         </div>
-                        <div>
-                            <h3>@role.NamePl</h3>
-                            <div class="role-code">@role.Code</div>
-                        </div>
-                    </div>
 
-                    <p>@role.DescriptionPl</p>
+                        <p>@role.DescriptionPl</p>
 
-                    <div class="role-footer">
-                        <span>
-                            Przypisane konta:
-                            <strong>@role.AssignedUsers</strong>
-                        </span>
-                        @if (role.IsSystem)
-                        {
-                            <span class="role-system-badge">
-                                Rola systemowa
+                        <div class="role-footer">
+                            <span>
+                                Przypisane konta:
+                                <strong>@role.AssignedUsers</strong>
                             </span>
-                        }
-                    </div>
-                </article>
-            }
-        </div>
-    </section>
+                            <a asp-controller="Roles"
+                               asp-action="Index"
+                               asp-route-roleId="@role.Id"
+                               class="small">
+                                Szczegóły
+                            </a>
+                        </div>
+                    </article>
+                }
+            </div>
+        </section>
+    }
 </div>

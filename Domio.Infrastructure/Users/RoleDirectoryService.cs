@@ -182,6 +182,12 @@ public sealed class RoleDirectoryService(
     {
         ArgumentNullException.ThrowIfNull(request);
 
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.RolesEdit,
+            cancellationToken);
+
         ValidateRoleText(
             request.NamePl,
             "Nazwa roli",
@@ -319,6 +325,12 @@ public sealed class RoleDirectoryService(
         string correlationId,
         CancellationToken cancellationToken = default)
     {
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.RolesEdit,
+            cancellationToken);
+
         var role = await dbContext.RoleDefinitions
             .SingleOrDefaultAsync(
                 x => x.Id == roleId,

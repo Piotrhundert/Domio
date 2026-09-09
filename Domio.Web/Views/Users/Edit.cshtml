@@ -1,15 +1,33 @@
+@using Domio.Application.Authorization
+@using Domio.Domain.Users
 @model Domio.Web.Models.Users.EditUserViewModel
 @{
     ViewData["Title"] = "Edytuj użytkownika";
+
+    var canAssignRole =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.UsersAssignRole);
+
+    var canDisable =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.UsersDisable);
+
+    var canViewRoles =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.RolesView);
 }
 
 <div class="users-page">
     <div class="user-form-header">
         <div>
-            <div class="users-kicker">M02.5 · EDYCJA KONTA I ROLI</div>
+            <div class="users-kicker">M02.6 · EDYCJA Z KONTROLĄ UPRAWNIEŃ</div>
             <h1>Edytuj użytkownika</h1>
             <p>
-                Zmieniasz podstawowe dane osoby, aktywność konta oraz rolę.
+                Dostępne pola administracyjne zależą od PermissionCode
+                przypisanych do Twojej roli.
             </p>
         </div>
         <a asp-action="Index" class="btn btn-outline-secondary">
@@ -81,37 +99,74 @@
                 </div>
 
                 <div class="col-12">
-                    <label asp-for="RoleDefinitionId"
-                           class="form-label"></label>
-                    <select asp-for="RoleDefinitionId"
-                            asp-items="Model.Roles"
-                            class="form-select">
-                    </select>
-                    <span asp-validation-for="RoleDefinitionId"
-                          class="text-danger small"></span>
-                    <div class="form-text">
-                        Zmiana roli jest audytowana i zaczyna obowiązywać
-                        przy następnym żądaniu użytkownika — bez restartu aplikacji.
-                    </div>
-                    <div class="mt-2">
-                        <a asp-controller="Roles"
-                           asp-action="Index"
-                           class="small">
-                            Zobacz pełny opis ról i uprawnień
-                        </a>
-                    </div>
+                    @if (canAssignRole)
+                    {
+                        <label asp-for="RoleDefinitionId"
+                               class="form-label"></label>
+                        <select asp-for="RoleDefinitionId"
+                                asp-items="Model.Roles"
+                                class="form-select">
+                        </select>
+                        <span asp-validation-for="RoleDefinitionId"
+                              class="text-danger small"></span>
+                        <div class="form-text">
+                            Zmiana wymaga Users.AssignRole i jest audytowana.
+                        </div>
+                    }
+                    else
+                    {
+                        <input asp-for="RoleDefinitionId"
+                               type="hidden" />
+                        <div class="user-role-readonly">
+                            <span>Rola</span>
+                            <strong>@Model.RoleNamePl</strong>
+                            <small>
+                                Nie masz uprawnienia Users.AssignRole,
+                                dlatego rola jest tylko do podglądu.
+                            </small>
+                        </div>
+                    }
+
+                    @if (canViewRoles)
+                    {
+                        <div class="mt-2">
+                            <a asp-controller="Roles"
+                               asp-action="Index"
+                               asp-route-roleId="@Model.RoleDefinitionId"
+                               class="small">
+                                Zobacz opis tej roli i jej uprawnienia
+                            </a>
+                        </div>
+                    }
                 </div>
 
                 <div class="col-12">
-                    <div class="form-check form-switch user-active-switch">
+                    @if (canDisable)
+                    {
+                        <div class="form-check form-switch user-active-switch">
+                            <input asp-for="IsActive"
+                                   class="form-check-input" />
+                            <label asp-for="IsActive"
+                                   class="form-check-label"></label>
+                        </div>
+                        <div class="form-text">
+                            Wyłączenie aktywnego konta wymaga Users.Disable.
+                        </div>
+                    }
+                    else
+                    {
                         <input asp-for="IsActive"
-                               class="form-check-input" />
-                        <label asp-for="IsActive"
-                               class="form-check-label"></label>
-                    </div>
-                    <div class="form-text">
-                        Wyłączenie konta blokuje nowe logowanie, ale nie usuwa osoby ani historii.
-                    </div>
+                               type="hidden" />
+                        <div class="user-role-readonly">
+                            <span>Status konta</span>
+                            <strong>
+                                @(Model.IsActive ? "Aktywne" : "Nieaktywne")
+                            </strong>
+                            <small>
+                                Nie masz uprawnienia Users.Disable.
+                            </small>
+                        </div>
+                    }
                 </div>
             </div>
         </div>

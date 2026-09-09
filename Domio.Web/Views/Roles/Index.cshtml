@@ -1,3 +1,5 @@
+@using Domio.Application.Authorization
+@using Domio.Domain.Users
 @model Domio.Application.Users.RolePermissionsOverview
 @{
     ViewData["Title"] = "Role i uprawnienia";
@@ -10,24 +12,37 @@
     var selectedRole =
         Model.Roles.FirstOrDefault(
             x => x.Id == selectedRoleId);
+
+    var canEditRoles =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.RolesEdit);
+
+    var canViewUsers =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.UsersView);
 }
 
 <div class="users-page roles-single-page">
     <div class="users-page-header">
         <div>
-            <div class="users-kicker">M02.5 · ROLE I UPRAWNIENIA</div>
+            <div class="users-kicker">M02.6 · ROLE I RBAC</div>
             <h1>Role i uprawnienia</h1>
             <p>
-                Wybierz jedną rolę. Na stronie zobaczysz wyłącznie
-                jej opis oraz przypisane uprawnienia.
+                Wybierz jedną rolę. Możliwość jej edycji wynika z
+                PermissionCode Roles.Edit.
             </p>
         </div>
 
-        <a asp-controller="Users"
-           asp-action="Index"
-           class="btn btn-outline-secondary">
-            Użytkownicy
-        </a>
+        @if (canViewUsers)
+        {
+            <a asp-controller="Users"
+               asp-action="Index"
+               class="btn btn-outline-secondary">
+                Użytkownicy
+            </a>
+        }
     </div>
 
     @if (TempData["RolesMessage"] is string message)
@@ -120,11 +135,14 @@
                         </span>
                     }
 
-                    <a asp-action="Edit"
-                       asp-route-id="@selectedRole.Id"
-                       class="btn btn-primary">
-                        Edytuj tę rolę
-                    </a>
+                    @if (canEditRoles)
+                    {
+                        <a asp-action="Edit"
+                           asp-route-id="@selectedRole.Id"
+                           class="btn btn-primary">
+                            Edytuj tę rolę
+                        </a>
+                    }
                 </div>
             </div>
 
@@ -149,7 +167,12 @@
                 {
                     <div class="permission-empty">
                         Ta rola nie ma obecnie żadnych uprawnień domenowych.
-                        Kliknij „Edytuj tę rolę”, aby nadać uprawnienia.
+                        @if (canEditRoles)
+                        {
+                            <span>
+                                Kliknij „Edytuj tę rolę”, aby nadać uprawnienia.
+                            </span>
+                        }
                     </div>
                 }
                 else

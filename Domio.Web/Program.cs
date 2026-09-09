@@ -3,6 +3,7 @@ using Domio.Application.Auditing;
 using Domio.Application.Authorization;
 using Domio.Application.Diagnostics;
 using Domio.Application.Maintenance;
+using Domio.Domain.Users;
 using Domio.Infrastructure;
 using Domio.Infrastructure.Persistence;
 using Domio.Web.Errors;
@@ -86,13 +87,13 @@ builder.Services
                         ClaimTypes.Role,
                         access.RoleCode),
                     new(
-                        "domio_login",
+                        DomioClaimTypes.Login,
                         access.LoginName),
                     new(
-                        "domio_person_id",
+                        DomioClaimTypes.PersonId,
                         access.PersonId.ToString()),
                     new(
-                        "domio_role_name",
+                        DomioClaimTypes.RoleName,
                         access.RoleNamePl)
                 };
 
@@ -100,12 +101,12 @@ builder.Services
                 {
                     claims.Add(
                         new Claim(
-                            "domio_permission",
+                            DomioClaimTypes.Permission,
                             permission.Code));
 
                     claims.Add(
                         new Claim(
-                            "domio_permission_scope",
+                            DomioClaimTypes.PermissionScope,
                             $"{permission.Code}|{permission.ScopeCode}"));
                 }
 
@@ -124,6 +125,19 @@ builder.Services.AddAuthorization(options =>
         new AuthorizationPolicyBuilder()
             .RequireAuthenticatedUser()
             .Build();
+
+    foreach (var permission in SystemPermissions.All)
+    {
+        options.AddPolicy(
+            permission.Code,
+            policy =>
+            {
+                policy.RequireAuthenticatedUser();
+                policy.RequireClaim(
+                    DomioClaimTypes.Permission,
+                    permission.Code);
+            });
+    }
 });
 
 builder.Services.AddProblemDetails();
@@ -210,11 +224,44 @@ if (isDevelopmentOrTest)
         return Results.Ok(new
         {
             module = "M02",
-            package = "M02.5",
+            package = "M02.6",
             count = roles.Count,
             roles
         });
     });
+
+    app.MapGet("/dev/m02/access", (
+        HttpContext httpContext) =>
+    {
+        var permissions =
+            httpContext.User
+                .FindAll(DomioClaimTypes.PermissionScope)
+                .Select(x => x.Value)
+                .OrderBy(x => x)
+                .ToArray();
+
+        return Results.Ok(new
+        {
+            module = "M02",
+            package = "M02.6",
+            user = httpContext.User.Identity?.Name,
+            role =
+                httpContext.User
+                    .FindFirst(DomioClaimTypes.RoleName)?
+                    .Value,
+            permissions
+        });
+    }).RequireAuthorization();
+
+    app.MapGet(
+        "/dev/m02/rbac/users-view",
+        () => Results.Ok(new
+        {
+            status = "Allowed",
+            permission = SystemPermissions.UsersView
+        }))
+        .RequireAuthorization(
+            SystemPermissions.UsersView);
 
     app.MapPost("/dev/database/backup", async (
         HttpContext httpContext,
@@ -310,7 +357,7 @@ app.MapGet("/health", async (
                 : "Unhealthy",
             application = "Domio",
             module = "M02",
-            package = "M02.5",
+            package = "M02.6",
             environment =
                 app.Environment.EnvironmentName,
             correlationId =
