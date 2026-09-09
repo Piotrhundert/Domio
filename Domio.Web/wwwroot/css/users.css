@@ -1,0 +1,387 @@
+.domio-app-shell {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  min-height: calc(100vh - 130px);
+}
+
+.domio-sidebar {
+  border-right: 1px solid var(--domio-border);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(16px);
+}
+
+.domio-side-nav {
+  position: sticky;
+  top: 92px;
+  display: grid;
+  gap: 6px;
+  padding: 22px 14px;
+}
+
+.domio-side-link {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 44px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  color: var(--domio-text);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.domio-side-link:hover {
+  color: var(--domio-primary);
+  background: rgba(22, 63, 122, 0.06);
+}
+
+.domio-side-link.is-disabled {
+  color: #a2a8b2;
+  cursor: default;
+}
+
+.domio-side-link.is-disabled:hover {
+  color: #a2a8b2;
+  background: transparent;
+}
+
+.domio-side-icon {
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9px;
+  background: #eef3fb;
+  color: var(--domio-primary);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.domio-side-section {
+  margin: 16px 12px 4px;
+  color: #9aa1ad;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.domio-main-with-sidebar {
+  min-width: 0;
+}
+
+.domio-module-card-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
+}
+
+.domio-module-card-link:hover {
+  color: inherit;
+  transform: translateY(-2px);
+  border-color: rgba(22, 63, 122, 0.18);
+  box-shadow: 0 16px 34px rgba(26, 38, 64, 0.08);
+}
+
+.users-page {
+  padding: 30px;
+}
+
+.users-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 22px;
+}
+
+.users-page-header h1 {
+  margin: 4px 0 6px;
+  font-size: 2rem;
+  font-weight: 780;
+  letter-spacing: -0.04em;
+}
+
+.users-page-header p {
+  margin: 0;
+  color: var(--domio-muted);
+}
+
+.users-kicker {
+  color: var(--domio-primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.users-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 20px;
+}
+
+.users-summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px 20px;
+  border: 1px solid var(--domio-border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.88);
+}
+
+.users-summary-card span {
+  color: var(--domio-muted);
+  font-size: 0.8rem;
+}
+
+.users-summary-card strong {
+  font-size: 1.65rem;
+  font-weight: 780;
+}
+
+.users-panel {
+  overflow: hidden;
+  border: 1px solid var(--domio-border);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 12px 28px rgba(26, 38, 64, 0.04);
+}
+
+.users-panel-heading {
+  padding: 20px 22px;
+  border-bottom: 1px solid var(--domio-border);
+}
+
+.users-panel-heading h2 {
+  margin: 0 0 5px;
+  font-size: 1.08rem;
+  font-weight: 760;
+}
+
+.users-panel-heading p {
+  margin: 0;
+  color: var(--domio-muted);
+  font-size: 0.84rem;
+}
+
+.users-table thead th {
+  padding: 13px 18px;
+  border-bottom-color: var(--domio-border);
+  color: #7a8290;
+  background: #fafbfc;
+  font-size: 0.73rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.users-table tbody td {
+  padding: 15px 18px;
+  border-bottom-color: #eef1f5;
+}
+
+.users-person {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.users-avatar {
+  display: inline-flex;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #163f7a, #12a8b5);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.users-person-name {
+  font-weight: 720;
+}
+
+.users-person-meta {
+  margin-top: 2px;
+  color: var(--domio-muted);
+  font-size: 0.74rem;
+}
+
+.users-login {
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
+  font-size: 0.84rem;
+}
+
+.users-role-badge,
+.users-status,
+.role-system-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.users-role-badge {
+  padding: 6px 9px;
+  background: #edf3ff;
+  color: #244f95;
+}
+
+.users-status {
+  padding: 6px 9px;
+}
+
+.users-status-active {
+  background: #eaf8f0;
+  color: #247548;
+}
+
+.users-status-inactive {
+  background: #f1f2f4;
+  color: #69717d;
+}
+
+.users-status-locked {
+  background: #fff1ec;
+  color: #a3492c;
+}
+
+.users-empty {
+  padding: 36px;
+  color: var(--domio-muted);
+  text-align: center;
+}
+
+.role-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 18px;
+}
+
+.role-card {
+  padding: 18px;
+  border: 1px solid var(--domio-border);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.role-card-top {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.role-icon {
+  display: inline-flex;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  background: #edf3ff;
+  color: var(--domio-primary);
+  font-weight: 800;
+}
+
+.role-card h3 {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 760;
+}
+
+.role-code {
+  margin-top: 2px;
+  color: #9aa1ad;
+  font-size: 0.7rem;
+}
+
+.role-card p {
+  margin: 14px 0;
+  color: var(--domio-muted);
+  font-size: 0.84rem;
+  line-height: 1.55;
+}
+
+.role-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--domio-muted);
+  font-size: 0.75rem;
+}
+
+.role-system-badge {
+  padding: 5px 8px;
+  background: #f2f5f8;
+  color: #68717d;
+}
+
+@media (max-width: 1000px) {
+  .domio-app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .domio-sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--domio-border);
+  }
+
+  .domio-side-nav {
+    position: static;
+    display: flex;
+    overflow-x: auto;
+    padding: 10px 14px;
+  }
+
+  .domio-side-section {
+    display: none;
+  }
+
+  .domio-side-link {
+    flex: 0 0 auto;
+  }
+
+  .users-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  .users-page {
+    padding: 20px 14px;
+  }
+
+  .users-page-header {
+    flex-direction: column;
+  }
+
+  .users-summary-grid,
+  .role-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .role-footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

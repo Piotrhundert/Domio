@@ -1,0 +1,189 @@
+@model Domio.Application.Users.UserDirectoryOverview
+@{
+    ViewData["Title"] = "Użytkownicy";
+}
+
+<div class="users-page">
+    <div class="users-page-header">
+        <div>
+            <div class="users-kicker">M02 · UŻYTKOWNICY I ROLE</div>
+            <h1>Użytkownicy</h1>
+            <p>
+                Podgląd osób posiadających konto w Domio oraz katalog ról systemowych.
+            </p>
+        </div>
+
+        <button type="button"
+                class="btn btn-primary"
+                disabled
+                title="Dodawanie użytkowników zostanie uruchomione w M02.4.">
+            + Dodaj użytkownika
+        </button>
+    </div>
+
+    <div class="users-summary-grid">
+        <div class="users-summary-card">
+            <span>Wszystkie konta</span>
+            <strong>@Model.TotalUsers</strong>
+        </div>
+        <div class="users-summary-card">
+            <span>Aktywne</span>
+            <strong>@Model.ActiveUsers</strong>
+        </div>
+        <div class="users-summary-card">
+            <span>Zablokowane</span>
+            <strong>@Model.LockedUsers</strong>
+        </div>
+        <div class="users-summary-card">
+            <span>Role systemowe</span>
+            <strong>@Model.Roles.Count</strong>
+        </div>
+    </div>
+
+    <section class="users-panel">
+        <div class="users-panel-heading">
+            <div>
+                <h2>Lista użytkowników</h2>
+                <p>
+                    Na tym etapie panel jest tylko do podglądu.
+                    Dodawanie i edycja kont pojawią się w kolejnych krokach M02.
+                </p>
+            </div>
+        </div>
+
+        @if (Model.Users.Count == 0)
+        {
+            <div class="users-empty">
+                Brak kont użytkowników.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table users-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Użytkownik</th>
+                            <th>Login</th>
+                            <th>Rola</th>
+                            <th>Status</th>
+                            <th>Ostatnie logowanie</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var user in Model.Users)
+                    {
+                        var initials = string.Join(
+                            string.Empty,
+                            user.DisplayName
+                                .Split(
+                                    ' ',
+                                    StringSplitOptions.RemoveEmptyEntries)
+                                .Take(2)
+                                .Select(x => x[0]))
+                            .ToUpperInvariant();
+
+                        <tr>
+                            <td>
+                                <div class="users-person">
+                                    <div class="users-avatar">@initials</div>
+                                    <div>
+                                        <div class="users-person-name">
+                                            @user.DisplayName
+                                        </div>
+                                        <div class="users-person-meta">
+                                            Utworzono:
+                                            @(user.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy"))
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="users-login">@user.LoginName</span>
+                            </td>
+                            <td>
+                                <span class="users-role-badge">
+                                    @user.RoleNamePl
+                                </span>
+                            </td>
+                            <td>
+                                @if (!user.IsActive)
+                                {
+                                    <span class="users-status users-status-inactive">
+                                        Nieaktywne
+                                    </span>
+                                }
+                                else if (user.IsLocked)
+                                {
+                                    <span class="users-status users-status-locked">
+                                        Zablokowane
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="users-status users-status-active">
+                                        Aktywne
+                                    </span>
+                                }
+                            </td>
+                            <td>
+                                @if (user.LastLoginAtUtc is null)
+                                {
+                                    <span class="text-secondary">Jeszcze nie</span>
+                                }
+                                else
+                                {
+                                    @(user.LastLoginAtUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm"))
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <section class="users-panel mt-4">
+        <div class="users-panel-heading">
+            <div>
+                <h2>Role w Domio</h2>
+                <p>
+                    Polskie nazwy ról oraz opis ich przeznaczenia.
+                </p>
+            </div>
+        </div>
+
+        <div class="role-grid">
+            @foreach (var role in Model.Roles)
+            {
+                <article class="role-card">
+                    <div class="role-card-top">
+                        <div class="role-icon">
+                            @role.NamePl.Substring(0, 1).ToUpperInvariant()
+                        </div>
+                        <div>
+                            <h3>@role.NamePl</h3>
+                            <div class="role-code">@role.Code</div>
+                        </div>
+                    </div>
+
+                    <p>@role.DescriptionPl</p>
+
+                    <div class="role-footer">
+                        <span>
+                            Przypisane konta:
+                            <strong>@role.AssignedUsers</strong>
+                        </span>
+                        @if (role.IsSystem)
+                        {
+                            <span class="role-system-badge">
+                                Rola systemowa
+                            </span>
+                        }
+                    </div>
+                </article>
+            }
+        </div>
+    </section>
+</div>

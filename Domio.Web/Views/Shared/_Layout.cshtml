@@ -12,6 +12,9 @@
           href="~/css/site.css"
           asp-append-version="true" />
     <link rel="stylesheet"
+          href="~/css/users.css"
+          asp-append-version="true" />
+    <link rel="stylesheet"
           href="~/Domio.Web.styles.css"
           asp-append-version="true" />
 </head>
@@ -65,9 +68,54 @@
         </nav>
     </header>
 
-    <main role="main" class="domio-main">
-        @RenderBody()
-    </main>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <div class="domio-app-shell">
+            <aside class="domio-sidebar">
+                <nav class="domio-side-nav">
+                    <a asp-controller="Home"
+                       asp-action="Index"
+                       class="domio-side-link">
+                        <span class="domio-side-icon">S</span>
+                        <span>Start</span>
+                    </a>
+
+                    @if (User.IsInRole("Administrator"))
+                    {
+                        <a asp-controller="Users"
+                           asp-action="Index"
+                           class="domio-side-link">
+                            <span class="domio-side-icon">U</span>
+                            <span>Użytkownicy</span>
+                        </a>
+                    }
+
+                    <div class="domio-side-section">Moduły</div>
+
+                    <span class="domio-side-link is-disabled">
+                        <span class="domio-side-icon">F</span>
+                        <span>Finanse</span>
+                    </span>
+
+                    <span class="domio-side-link is-disabled">
+                        <span class="domio-side-icon">N</span>
+                        <span>Najem i media</span>
+                    </span>
+                </nav>
+            </aside>
+
+            <main role="main"
+                  class="domio-main domio-main-with-sidebar">
+                @RenderBody()
+            </main>
+        </div>
+    }
+    else
+    {
+        <main role="main" class="domio-main">
+            @RenderBody()
+        </main>
+    }
 
     <footer class="domio-footer">
         <div class="container-fluid px-4 d-flex flex-column flex-md-row justify-content-between gap-2">

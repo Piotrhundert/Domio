@@ -16,25 +16,45 @@
                 <h1>Witaj, @User.Identity?.Name</h1>
                 <p>
                     Jesteś zalogowany jako <strong>@role</strong>.
-                    Fundament aplikacji jest gotowy, a moduł użytkowników jest właśnie uruchamiany.
+                    Moduł użytkowników jest już dostępny z lewego menu.
                 </p>
             </div>
         </div>
         <div class="domio-status-badge">
-            M02 · Użytkownicy i role
+            M02.3 · Panel użytkowników
         </div>
     </div>
 
     <div class="row g-3 mt-2">
         <div class="col-md-4">
-            <div class="domio-module-card">
-                <div class="domio-module-icon">U</div>
-                <h2>Użytkownicy</h2>
-                <p>
-                    Konta, osoby, role i uprawnienia.
-                </p>
-                <span class="badge text-bg-primary">W realizacji</span>
-            </div>
+            @if (User.IsInRole("Administrator"))
+            {
+                <a asp-controller="Users"
+                   asp-action="Index"
+                   class="domio-module-card domio-module-card-link">
+                    <div class="domio-module-icon">U</div>
+                    <h2>Użytkownicy</h2>
+                    <p>
+                        Konta, osoby, role i uprawnienia.
+                    </p>
+                    <span class="badge text-bg-primary">
+                        Otwórz panel
+                    </span>
+                </a>
+            }
+            else
+            {
+                <div class="domio-module-card">
+                    <div class="domio-module-icon">U</div>
+                    <h2>Użytkownicy</h2>
+                    <p>
+                        Panel dostępny dla administratora.
+                    </p>
+                    <span class="badge text-bg-light">
+                        Brak dostępu
+                    </span>
+                </div>
+            }
         </div>
 
         <div class="col-md-4">

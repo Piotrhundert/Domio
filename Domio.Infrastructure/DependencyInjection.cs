@@ -2,11 +2,13 @@ using Domio.Application.Auditing;
 using Domio.Application.Authentication;
 using Domio.Application.Diagnostics;
 using Domio.Application.Maintenance;
+using Domio.Application.Users;
 using Domio.Infrastructure.Auditing;
 using Domio.Infrastructure.Authentication;
 using Domio.Infrastructure.Diagnostics;
 using Domio.Infrastructure.Maintenance;
 using Domio.Infrastructure.Persistence;
+using Domio.Infrastructure.Users;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -49,6 +51,9 @@ public static class DependencyInjection
         services.AddScoped<
             IDatabaseMaintenanceService,
             DatabaseMaintenanceService>();
+        services.AddScoped<
+            IUserDirectoryService,
+            UserDirectoryService>();
 
         return services;
     }
