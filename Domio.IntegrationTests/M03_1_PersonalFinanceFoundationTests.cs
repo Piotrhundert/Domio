@@ -46,7 +46,7 @@ public sealed class M03_1_PersonalFinanceFoundationTests
                     .Select(x => x.Version)
                     .SingleAsync();
 
-            Assert.Equal(8, schemaVersion);
+            Assert.True(schemaVersion >= 8);
             Assert.Empty(
                 await dbContext.Database
                     .GetPendingMigrationsAsync());

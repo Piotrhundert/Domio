@@ -1,0 +1,440 @@
+@using Domio.Application.Authorization
+@using Domio.Domain.PersonalFinance
+@using Domio.Domain.Users
+@model Domio.Application.PersonalFinance.PersonalFinanceOverview
+@{
+    ViewData["Title"] = "Finanse osobiste";
+
+    var canManage =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.FinancePersonalManageOwn);
+
+    var accountNames =
+        Model.Accounts.ToDictionary(
+            x => x.AccountId,
+            x => x.Name);
+
+    var plannedOccurrences =
+        Model.RecurringOccurrences
+            .Where(x =>
+                x.StatusCode ==
+                PersonalRecurringOccurrenceStatuses.Planned)
+            .OrderBy(x => x.PlannedDateUtc)
+            .Take(12)
+            .ToArray();
+}
+
+<div class="finance-page">
+    <div class="finance-page-header">
+        <div>
+            <div class="finance-kicker">
+                M03.4 · FINANSE OSOBISTE
+            </div>
+            <h1>Moje finanse</h1>
+            <p>
+                Prywatne konta i operacje należą wyłącznie
+                do zalogowanego użytkownika.
+            </p>
+        </div>
+
+        @if (canManage)
+        {
+            <div class="finance-header-actions">
+                <a asp-action="AddOperation"
+                   class="btn btn-outline-primary">
+                    + Dodaj operację
+                </a>
+
+                <a asp-action="CreateAccount"
+                   class="btn btn-primary">
+                    + Dodaj konto
+                </a>
+            </div>
+        }
+    </div>
+
+    @if (TempData["PersonalFinanceMessage"] is string message)
+    {
+        <div class="alert alert-success mb-4"
+             role="alert">
+            @message
+        </div>
+    }
+
+    <div class="finance-privacy-note">
+        <div class="finance-privacy-icon">
+            P
+        </div>
+        <div>
+            <strong>Twoje finanse są prywatne.</strong>
+            <span>
+                Domio nie pokazuje tych kont innym domownikom
+                ani Administratorowi jako cudzych finansów.
+            </span>
+        </div>
+    </div>
+
+    <section class="finance-section">
+        <div class="finance-section-heading">
+            <div>
+                <span class="finance-section-number">
+                    01
+                </span>
+                <div>
+                    <h2>Moje konta</h2>
+                    <p>
+                        Saldo jest wyliczane z zapisanej historii
+                        operacji, a nie przechowywane jako osobna
+                        nadpisywana wartość.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        @if (Model.Accounts.Count == 0)
+        {
+            <div class="finance-empty">
+                <div class="finance-empty-icon">
+                    +
+                </div>
+                <h3>Nie masz jeszcze konta finansowego</h3>
+                <p>
+                    Zacznij od utworzenia konta bankowego,
+                    oszczędnościowego albo gotówkowego.
+                </p>
+
+                @if (canManage)
+                {
+                    <a asp-action="CreateAccount"
+                       class="btn btn-primary">
+                        Utwórz pierwsze konto
+                    </a>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="finance-account-grid">
+                @foreach (var account in Model.Accounts)
+                {
+                    <article class="finance-account-card">
+                        <div class="finance-account-top">
+                            <div>
+                                <span class="finance-account-type">
+                                    @account.AccountTypeNamePl
+                                </span>
+                                <h3>@account.Name</h3>
+                            </div>
+
+                            @if (account.IsActive)
+                            {
+                                <span class="finance-status-active">
+                                    Aktywne
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="finance-status-inactive">
+                                    Nieaktywne
+                                </span>
+                            }
+                        </div>
+
+                        <div class="finance-balance">
+                            <span>Saldo</span>
+                            <strong>
+                                @account.Balance.ToString("N2")
+                                <small>@account.CurrencyCode</small>
+                            </strong>
+                        </div>
+
+                        @if (canManage && account.IsActive)
+                        {
+                            <a asp-action="AddOperation"
+                               asp-route-accountId="@account.AccountId"
+                               class="finance-account-action">
+                                Dodaj przychód lub wydatek →
+                            </a>
+                        }
+                    </article>
+                }
+            </div>
+        }
+    </section>
+
+    <section class="finance-section mt-4">
+        <div class="finance-section-heading">
+            <div>
+                <span class="finance-section-number">
+                    02
+                </span>
+                <div>
+                    <h2>Reguły cykliczne</h2>
+                    <p>
+                        Wynagrodzenie lub subskrypcję definiujesz raz.
+                        Domio generuje planowane wystąpienia bez
+                        automatycznego księgowania.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        @if (Model.RecurringRules.Count == 0)
+        {
+            <div class="finance-empty finance-empty-compact">
+                Nie masz jeszcze reguł cyklicznych.
+            </div>
+        }
+        else
+        {
+            <div class="finance-recurring-rule-grid">
+                @foreach (var rule in Model.RecurringRules)
+                {
+                    <article class="finance-recurring-rule-card">
+                        <div>
+                            <span class="finance-account-type">
+                                @rule.KindNamePl · @rule.CategoryNamePl
+                            </span>
+                            <h3>@rule.Name</h3>
+                            <p>
+                                @rule.FrequencyNamePl
+                                · od
+                                @rule.StartDateUtc.ToLocalTime().ToString("dd.MM.yyyy")
+                            </p>
+                        </div>
+
+                        <div class="finance-recurring-rule-amount">
+                            @rule.PlannedAmount.ToString("N2")
+                            <small>@rule.CurrencyCode</small>
+                        </div>
+
+                        <div class="finance-recurring-rule-meta">
+                            <span>
+                                Konto: <strong>@rule.AccountName</strong>
+                            </span>
+
+                            @if (!string.IsNullOrWhiteSpace(rule.Counterparty))
+                            {
+                                <span>
+                                    Płatnik/usługodawca:
+                                    <strong>@rule.Counterparty</strong>
+                                </span>
+                            }
+                        </div>
+
+                        @if (canManage && rule.IsActive)
+                        {
+                            <div class="finance-recurring-actions">
+                                <a asp-action="EditRecurring"
+                                   asp-route-id="@rule.RuleId"
+                                   class="btn btn-sm btn-outline-primary">
+                                    Edytuj
+                                </a>
+
+                                <a asp-action="DeleteRecurring"
+                                   asp-route-id="@rule.RuleId"
+                                   class="btn btn-sm btn-outline-danger">
+                                    Usuń / zakończ
+                                </a>
+                            </div>
+                        }
+                    </article>
+                }
+            </div>
+        }
+    </section>
+
+    <section class="finance-section mt-4">
+        <div class="finance-section-heading">
+            <div>
+                <span class="finance-section-number">
+                    03
+                </span>
+                <div>
+                    <h2>Planowane wystąpienia</h2>
+                    <p>
+                        To plan na kolejne okresy.
+                        Po terminie możesz potwierdzić rzeczywisty wpływ
+                        albo płatność. Dopiero wtedy zmieni się saldo konta.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        @if (plannedOccurrences.Length == 0)
+        {
+            <div class="finance-empty finance-empty-compact">
+                Brak planowanych wystąpień.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table finance-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Reguła</th>
+                            <th>Konto</th>
+                            <th>Rodzaj</th>
+                            <th>Status</th>
+                            <th class="text-end">Planowana kwota</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var occurrence in plannedOccurrences)
+                    {
+                        <tr>
+                            <td>
+                                @(occurrence.PlannedDateUtc
+                                    .ToLocalTime()
+                                    .ToString("dd.MM.yyyy"))
+                            </td>
+                            <td>
+                                <strong>@occurrence.RuleName</strong>
+                                <div class="finance-row-meta">
+                                    @occurrence.CategoryNamePl
+                                </div>
+                            </td>
+                            <td>@occurrence.AccountName</td>
+                            <td>
+                                <span class="finance-kind">
+                                    @occurrence.KindNamePl
+                                </span>
+                            </td>
+                            <td>
+                                @if (occurrence.PlannedDateUtc.Date < DateTime.UtcNow.Date)
+                                {
+                                    <span class="finance-status-overdue">
+                                        Termin minął
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="finance-status-planned">
+                                        Planowane
+                                    </span>
+                                }
+                            </td>
+                            <td class="text-end">
+                                <strong>
+                                    @occurrence.PlannedAmount.ToString("N2")
+                                    @occurrence.CurrencyCode
+                                </strong>
+                            </td>
+                            <td class="text-end">
+                                @if (canManage)
+                                {
+                                    <a asp-action="ConfirmRecurring"
+                                       asp-route-id="@occurrence.OccurrenceId"
+                                       class="btn btn-sm btn-outline-primary">
+                                        @(occurrence.KindCode == PersonalTransactionKinds.Income
+                                            ? "Potwierdź wpływ"
+                                            : "Potwierdź płatność")
+                                    </a>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+
+    <section class="finance-section mt-4">
+        <div class="finance-section-heading">
+            <div>
+                <span class="finance-section-number">
+                    04
+                </span>
+                <div>
+                    <h2>Ostatnie operacje</h2>
+                    <p>
+                        Na tym etapie M03.2 rejestrujemy
+                        przychody i wydatki. Transfery,
+                        korekty i reguły cykliczne dojdą
+                        w kolejnych paczkach M03.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        @if (Model.RecentTransactions.Count == 0)
+        {
+            <div class="finance-empty finance-empty-compact">
+                Brak zapisanych operacji.
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table finance-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Konto</th>
+                            <th>Rodzaj</th>
+                            <th>Opis</th>
+                            <th class="text-end">Kwota</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var transaction in Model.RecentTransactions)
+                    {
+                        var accountName =
+                            accountNames.TryGetValue(
+                                transaction.AccountId,
+                                out var value)
+                                ? value
+                                : "Konto";
+
+                        var accountCurrency =
+                            Model.Accounts
+                                .FirstOrDefault(
+                                    x =>
+                                        x.AccountId ==
+                                        transaction.AccountId)?
+                                .CurrencyCode
+                            ?? string.Empty;
+
+                        var isExpense =
+                            transaction.Amount < 0;
+
+                        <tr>
+                            <td>
+                                @(transaction.OccurredAtUtc
+                                    .ToLocalTime()
+                                    .ToString("dd.MM.yyyy"))
+                            </td>
+                            <td>
+                                <strong>@accountName</strong>
+                            </td>
+                            <td>
+                                <span class="finance-kind">
+                                    @transaction.KindNamePl
+                                </span>
+                            </td>
+                            <td>
+                                @(string.IsNullOrWhiteSpace(
+                                    transaction.Description)
+                                    ? "—"
+                                    : transaction.Description)
+                            </td>
+                            <td class="text-end">
+                                <span class="finance-amount @(isExpense ? "is-expense" : "is-income")">
+                                    @(transaction.Amount > 0 ? "+" : "")
+                                    @transaction.Amount.ToString("N2")
+                                    @accountCurrency
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>

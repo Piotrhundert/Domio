@@ -18,6 +18,11 @@
         User.HasClaim(
             DomioClaimTypes.Permission,
             SystemPermissions.ProfileViewAll);
+
+    var canViewPersonalFinance =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.FinancePersonalViewOwn);
 }
 <!DOCTYPE html>
 <html lang="pl">
@@ -34,6 +39,9 @@
           asp-append-version="true" />
     <link rel="stylesheet"
           href="~/css/users.css"
+          asp-append-version="true" />
+    <link rel="stylesheet"
+          href="~/css/personal-finance.css"
           asp-append-version="true" />
     <link rel="stylesheet"
           href="~/Domio.Web.styles.css"
@@ -132,9 +140,19 @@
 
                     <div class="domio-side-section">Moduły</div>
 
+                    @if (canViewPersonalFinance)
+                    {
+                        <a asp-controller="PersonalFinance"
+                           asp-action="Index"
+                           class="domio-side-link">
+                            <span class="domio-side-icon">F</span>
+                            <span>Finanse osobiste</span>
+                        </a>
+                    }
+
                     <span class="domio-side-link is-disabled">
-                        <span class="domio-side-icon">F</span>
-                        <span>Finanse</span>
+                        <span class="domio-side-icon">D</span>
+                        <span>Finanse domu</span>
                     </span>
 
                     <span class="domio-side-link is-disabled">
@@ -160,7 +178,7 @@
     <footer class="domio-footer">
         <div class="container-fluid px-4 d-flex flex-column flex-md-row justify-content-between gap-2">
             <span>Domio · domowe centrum zarządzania</span>
-            <span>M02.7 · profile użytkowników</span>
+            <span>M03.4 · finanse osobiste — edycja i potwierdzanie cykli</span>
         </div>
     </footer>
 

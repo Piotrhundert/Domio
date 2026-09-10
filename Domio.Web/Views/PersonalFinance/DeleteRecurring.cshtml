@@ -1,0 +1,80 @@
+@model Domio.Web.Models.PersonalFinance.DeletePersonalRecurringRuleViewModel
+@{
+    ViewData["Title"] = "Usuń operację cykliczną";
+}
+
+<div class="finance-page finance-form-page">
+    <div class="finance-page-header">
+        <div>
+            <div class="finance-kicker">
+                M03.4 · ZAKOŃCZENIE REGUŁY
+            </div>
+            <h1>Usunąć operację cykliczną?</h1>
+            <p>
+                W Domio usunięcie reguły nie kasuje historii finansowej.
+            </p>
+        </div>
+
+        <a asp-action="Index"
+           class="btn btn-outline-secondary">
+            Wróć
+        </a>
+    </div>
+
+    <div class="finance-form-card">
+        <div class="finance-delete-summary">
+            <div>
+                <span>Nazwa</span>
+                <strong>@Model.Name</strong>
+            </div>
+            <div>
+                <span>Konto</span>
+                <strong>@Model.AccountName</strong>
+            </div>
+            <div>
+                <span>Rodzaj</span>
+                <strong>@Model.KindNamePl</strong>
+            </div>
+            <div>
+                <span>Planowana kwota</span>
+                <strong>
+                    @Model.PlannedAmount.ToString("N2")
+                    @Model.CurrencyCode
+                </strong>
+            </div>
+            <div>
+                <span>Częstotliwość</span>
+                <strong>@Model.FrequencyNamePl</strong>
+            </div>
+        </div>
+
+        <div class="finance-delete-warning">
+            <strong>Co się stanie?</strong>
+            <span>
+                Reguła zostanie zakończona i nie wygeneruje
+                kolejnych przyszłych pozycji. Wcześniejsze
+                wystąpienia oraz zaksięgowane operacje pozostaną
+                w historii.
+            </span>
+        </div>
+
+        <form asp-action="DeleteRecurringConfirmed"
+              method="post">
+            <input type="hidden"
+                   name="ruleId"
+                   value="@Model.RuleId" />
+
+            <div class="finance-form-actions">
+                <a asp-action="Index"
+                   class="btn btn-outline-secondary">
+                    Anuluj
+                </a>
+
+                <button type="submit"
+                        class="btn btn-danger">
+                    Usuń / zakończ regułę
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

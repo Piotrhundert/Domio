@@ -20,6 +20,10 @@ public sealed class DomioDbContext : DbContext
         Set<PersonalFinancialAccount>();
     public DbSet<PersonalFinancialTransaction> PersonalFinancialTransactions =>
         Set<PersonalFinancialTransaction>();
+    public DbSet<PersonalRecurringRule> PersonalRecurringRules =>
+        Set<PersonalRecurringRule>();
+    public DbSet<PersonalRecurringOccurrence> PersonalRecurringOccurrences =>
+        Set<PersonalRecurringOccurrence>();
     public DbSet<Person> People => Set<Person>();
     public DbSet<PersonProfile> PersonProfiles => Set<PersonProfile>();
     public DbSet<RoleDefinition> RoleDefinitions => Set<RoleDefinition>();
@@ -40,9 +44,9 @@ public sealed class DomioDbContext : DbContext
             entity.HasData(new SchemaVersionRecord
             {
                 Id = 1,
-                Version = 8,
+                Version = 10,
                 UpdatedAtUtc = new DateTime(
-                    2026, 9, 10, 6, 58, 0, DateTimeKind.Utc)
+                    2026, 9, 10, 8, 15, 0, DateTimeKind.Utc)
             });
         });
 
@@ -150,6 +154,93 @@ public sealed class DomioDbContext : DbContext
             entity.HasOne<PersonalFinancialTransaction>()
                 .WithMany()
                 .HasForeignKey(x => x.CorrectsTransactionId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PersonalRecurringRule>(entity =>
+        {
+            entity.ToTable("PersonalRecurringRules");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.KindCode).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.Name).HasMaxLength(160).IsRequired();
+            entity.Property(x => x.PlannedAmountMinor).IsRequired();
+            entity.Property(x => x.CurrencyCode).HasMaxLength(3).IsRequired();
+            entity.Property(x => x.FrequencyCode).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.CategoryCode).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.Counterparty).HasMaxLength(200);
+            entity.Property(x => x.StartDateUtc).IsRequired();
+            entity.Property(x => x.EndDateUtc);
+            entity.Property(x => x.IsActive).IsRequired();
+            entity.Property(x => x.CreatedAtUtc).IsRequired();
+            entity.Property(x => x.UpdatedAtUtc).IsRequired();
+
+            entity.HasIndex(x => x.OwnerPersonId);
+            entity.HasIndex(x => x.AccountId);
+            entity.HasIndex(x => new { x.OwnerPersonId, x.IsActive });
+
+            entity.HasOne<Person>()
+                .WithMany()
+                .HasForeignKey(x => x.OwnerPersonId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<PersonalFinancialAccount>()
+                .WithMany()
+                .HasForeignKey(x => x.AccountId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<UserAccount>()
+                .WithMany()
+                .HasForeignKey(x => x.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PersonalRecurringOccurrence>(entity =>
+        {
+            entity.ToTable("PersonalRecurringOccurrences");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.PeriodKey).HasMaxLength(30).IsRequired();
+            entity.Property(x => x.PlannedDateUtc).IsRequired();
+            entity.Property(x => x.PlannedAmountMinor).IsRequired();
+            entity.Property(x => x.CurrencyCode).HasMaxLength(3).IsRequired();
+            entity.Property(x => x.AccountId);
+            entity.Property(x => x.AccountName).HasMaxLength(120);
+            entity.Property(x => x.KindCode).HasMaxLength(50);
+            entity.Property(x => x.RuleName).HasMaxLength(160);
+            entity.Property(x => x.CategoryCode).HasMaxLength(50);
+            entity.Property(x => x.Counterparty).HasMaxLength(200);
+            entity.Property(x => x.StatusCode).HasMaxLength(30).IsRequired();
+            entity.Property(x => x.ActualTransactionId);
+            entity.Property(x => x.ActualAmountMinor);
+            entity.Property(x => x.ActualDateUtc);
+            entity.Property(x => x.CreatedAtUtc).IsRequired();
+            entity.Property(x => x.UpdatedAtUtc).IsRequired();
+
+            entity.HasIndex(x => x.OwnerPersonId);
+            entity.HasIndex(x => x.RecurringRuleId);
+            entity.HasIndex(x => x.AccountId);
+            entity.HasIndex(x => x.PlannedDateUtc);
+            entity.HasIndex(x => x.ActualTransactionId);
+            entity.HasIndex(x => new { x.RecurringRuleId, x.PeriodKey })
+                .IsUnique();
+
+            entity.HasOne<PersonalRecurringRule>()
+                .WithMany()
+                .HasForeignKey(x => x.RecurringRuleId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<Person>()
+                .WithMany()
+                .HasForeignKey(x => x.OwnerPersonId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<PersonalFinancialAccount>()
+                .WithMany()
+                .HasForeignKey(x => x.AccountId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<PersonalFinancialTransaction>()
+                .WithMany()
+                .HasForeignKey(x => x.ActualTransactionId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
 

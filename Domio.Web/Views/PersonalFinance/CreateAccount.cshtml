@@ -1,0 +1,111 @@
+@model Domio.Web.Models.PersonalFinance.CreatePersonalAccountViewModel
+@{
+    ViewData["Title"] = "Dodaj konto";
+}
+
+<div class="finance-page finance-form-page">
+    <div class="finance-page-header">
+        <div>
+            <div class="finance-kicker">
+                M03.2 · NOWE KONTO
+            </div>
+            <h1>Dodaj prywatne konto</h1>
+            <p>
+                Konto będzie przypisane wyłącznie do Twojej osoby.
+            </p>
+        </div>
+
+        <a asp-action="Index"
+           class="btn btn-outline-secondary">
+            Wróć
+        </a>
+    </div>
+
+    <form asp-action="CreateAccount"
+          method="post"
+          class="finance-form-card">
+
+        <div asp-validation-summary="ModelOnly"
+             class="text-danger mb-3"></div>
+
+        <div class="finance-form-section">
+            <h2>Dane konta</h2>
+
+            <div class="row g-3">
+                <div class="col-md-7">
+                    <label asp-for="Name"
+                           class="form-label"></label>
+                    <input asp-for="Name"
+                           class="form-control"
+                           placeholder="np. Konto główne" />
+                    <span asp-validation-for="Name"
+                          class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-5">
+                    <label asp-for="AccountTypeCode"
+                           class="form-label"></label>
+                    <select asp-for="AccountTypeCode"
+                            asp-items="Model.AccountTypes"
+                            class="form-select">
+                    </select>
+                    <span asp-validation-for="AccountTypeCode"
+                          class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-5">
+                    <label asp-for="InitialBalance"
+                           class="form-label"></label>
+                    <div class="input-group">
+                        <input asp-for="InitialBalance"
+                               class="form-control"
+                               type="number"
+                               step="0.01"
+                               min="0" />
+                        <span class="input-group-text">
+                            saldo startowe
+                        </span>
+                    </div>
+                    <span asp-validation-for="InitialBalance"
+                          class="text-danger small"></span>
+                    <div class="form-text">
+                        Jeśli konto jest puste, wpisz 0.
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <label asp-for="CurrencyCode"
+                           class="form-label"></label>
+                    <input asp-for="CurrencyCode"
+                           class="form-control text-uppercase"
+                           maxlength="3"
+                           placeholder="PLN" />
+                    <span asp-validation-for="CurrencyCode"
+                          class="text-danger small"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="finance-form-info">
+            Saldo nie jest ręcznie nadpisywane.
+            Domio utworzy wpis „Saldo początkowe”,
+            a późniejsze saldo będzie wynikało z historii operacji.
+        </div>
+
+        <div class="finance-form-actions">
+            <a asp-action="Index"
+               class="btn btn-outline-secondary">
+                Anuluj
+            </a>
+
+            <button type="submit"
+                    class="btn btn-primary">
+                Utwórz konto
+            </button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

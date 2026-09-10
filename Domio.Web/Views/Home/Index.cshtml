@@ -24,6 +24,11 @@
         User.HasClaim(
             DomioClaimTypes.Permission,
             SystemPermissions.ProfileViewAll);
+
+    var canViewPersonalFinance =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.FinancePersonalViewOwn);
 }
 
 <div class="container-fluid px-4 py-4">
@@ -39,18 +44,52 @@
                 <h1>Witaj, @User.Identity?.Name</h1>
                 <p>
                     Jesteś zalogowany jako <strong>@role</strong>.
-                    Konto, dostęp i profil osoby są teraz rozdzielone.
+                    Moduł finansów osobistych jest dostępny
+                    wyłącznie w zakresie własnych danych.
                 </p>
             </div>
         </div>
 
         <div class="domio-status-badge">
-            M02.7 · Profil użytkownika
+            M03.4 · Potwierdzanie i edycja cykli
         </div>
     </div>
 
     <div class="row g-3 mt-2">
-        <div class="col-md-4">
+        <div class="col-md-6 col-xl-3">
+            @if (canViewPersonalFinance)
+            {
+                <a asp-controller="PersonalFinance"
+                   asp-action="Index"
+                   class="domio-module-card domio-module-card-link">
+                    <div class="domio-module-icon">F</div>
+                    <h2>Finanse osobiste</h2>
+                    <p>
+                        Prywatne konta, salda,
+                        przychody i wydatki.
+                    </p>
+                    <span class="badge text-bg-primary">
+                        Otwórz finanse
+                    </span>
+                </a>
+            }
+            else
+            {
+                <div class="domio-module-card">
+                    <div class="domio-module-icon">F</div>
+                    <h2>Finanse osobiste</h2>
+                    <p>
+                        Twoja rola nie ma dostępu
+                        do finansów osobistych.
+                    </p>
+                    <span class="badge text-bg-light">
+                        Brak dostępu
+                    </span>
+                </div>
+            }
+        </div>
+
+        <div class="col-md-6 col-xl-3">
             @if (canViewOwnProfile)
             {
                 <a asp-controller="Profiles"
@@ -59,8 +98,8 @@
                     <div class="domio-module-icon">P</div>
                     <h2>Mój profil</h2>
                     <p>
-                        Dane osobowe, kontakt, adres, dokument
-                        i osoba kontaktowa.
+                        Dane osobowe, kontakt, adres,
+                        dokument i osoba kontaktowa.
                     </p>
                     <span class="badge text-bg-primary">
                         Otwórz profil
@@ -82,7 +121,7 @@
             }
         </div>
 
-        <div class="col-md-4">
+        <div class="col-md-6 col-xl-3">
             @if (canViewUsers)
             {
                 <a asp-controller="Users"
@@ -113,7 +152,7 @@
             }
         </div>
 
-        <div class="col-md-4">
+        <div class="col-md-6 col-xl-3">
             @if (canViewRoles)
             {
                 <a asp-controller="Roles"
@@ -122,7 +161,8 @@
                     <div class="domio-module-icon">R</div>
                     <h2>Role i uprawnienia</h2>
                     <p>
-                        Macierz PermissionCode, w tym prawa do profili.
+                        Macierz PermissionCode
+                        i zakres dostępu.
                     </p>
                     <span class="badge text-bg-primary">
                         Otwórz panel

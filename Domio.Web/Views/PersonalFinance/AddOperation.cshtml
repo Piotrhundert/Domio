@@ -1,0 +1,219 @@
+@model Domio.Web.Models.PersonalFinance.AddPersonalOperationViewModel
+@{
+    ViewData["Title"] = "Dodaj operację";
+}
+
+<div class="finance-page finance-form-page">
+    <div class="finance-page-header">
+        <div>
+            <div class="finance-kicker">
+                M03.3 · NOWA OPERACJA
+            </div>
+            <h1>Dodaj przychód lub wydatek</h1>
+            <p>
+                Możesz dodać pojedynczą operację albo utworzyć
+                regułę cykliczną, np. wynagrodzenie lub subskrypcję.
+            </p>
+        </div>
+
+        <a asp-action="Index"
+           class="btn btn-outline-secondary">
+            Wróć
+        </a>
+    </div>
+
+    <form asp-action="AddOperation"
+          method="post"
+          class="finance-form-card">
+
+        <div asp-validation-summary="ModelOnly"
+             class="text-danger mb-3"></div>
+
+        <div class="finance-form-section">
+            <h2>Operacja</h2>
+
+            <div class="row g-3">
+                <div class="col-md-7">
+                    <label asp-for="AccountId"
+                           class="form-label"></label>
+                    <select asp-for="AccountId"
+                            asp-items="Model.Accounts"
+                            class="form-select">
+                    </select>
+                    <span asp-validation-for="AccountId"
+                          class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-5">
+                    <label asp-for="KindCode"
+                           class="form-label"></label>
+                    <select asp-for="KindCode"
+                            asp-items="Model.OperationKinds"
+                            class="form-select">
+                    </select>
+                    <span asp-validation-for="KindCode"
+                          class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-5">
+                    <label asp-for="Amount"
+                           class="form-label"></label>
+                    <input asp-for="Amount"
+                           class="form-control"
+                           type="number"
+                           step="0.01"
+                           min="0.01" />
+                    <span asp-validation-for="Amount"
+                          class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="OccurredOn"
+                           class="form-label"></label>
+                    <input asp-for="OccurredOn"
+                           type="date"
+                           class="form-control" />
+                    <span asp-validation-for="OccurredOn"
+                          class="text-danger small"></span>
+                </div>
+
+                <div class="col-12">
+                    <label asp-for="Description"
+                           class="form-label"></label>
+                    <textarea asp-for="Description"
+                              class="form-control"
+                              rows="3"
+                              placeholder="np. zakupy spożywcze, wynagrodzenie"></textarea>
+                    <span asp-validation-for="Description"
+                          class="text-danger small"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="finance-recurring-toggle">
+            <div>
+                <div class="form-check form-switch mb-1">
+                    <input asp-for="IsRecurring"
+                           class="form-check-input"
+                           id="recurring-toggle" />
+                    <label asp-for="IsRecurring"
+                           class="form-check-label fw-semibold"></label>
+                </div>
+                <span>
+                    Włącz dla wynagrodzenia, abonamentu,
+                    subskrypcji lub innej powtarzalnej płatności.
+                </span>
+            </div>
+        </div>
+
+        <div id="recurring-fields"
+             class="finance-form-section finance-recurring-fields">
+            <h2>Ustawienia cykliczne</h2>
+
+            <div class="finance-recurring-info">
+                Domio utworzy planowane wystąpienia.
+                <strong>Plan nie zmienia salda.</strong>
+                Rzeczywiste księgowanie dodamy w następnym kroku
+                przez potwierdzenie konkretnego wystąpienia.
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-md-7">
+                    <label asp-for="RecurringName"
+                           class="form-label"></label>
+                    <input asp-for="RecurringName"
+                           class="form-control"
+                           placeholder="np. Wynagrodzenie, Netflix" />
+                </div>
+
+                <div class="col-md-5">
+                    <label asp-for="FrequencyCode"
+                           class="form-label"></label>
+                    <select asp-for="FrequencyCode"
+                            asp-items="Model.RecurringFrequencies"
+                            class="form-select">
+                    </select>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="CategoryCode"
+                           class="form-label"></label>
+                    <select asp-for="CategoryCode"
+                            asp-items="Model.Categories"
+                            class="form-select">
+                    </select>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="Counterparty"
+                           class="form-label"></label>
+                    <input asp-for="Counterparty"
+                           class="form-control"
+                           placeholder="np. pracodawca, Netflix, operator" />
+                    <div class="form-text">
+                        Przy cyklicznym przychodzie płatnik
+                        jest wymagany.
+                    </div>
+                </div>
+
+                <div class="col-md-5">
+                    <label asp-for="RecurringEndOn"
+                           class="form-label"></label>
+                    <input asp-for="RecurringEndOn"
+                           type="date"
+                           class="form-control" />
+                    <div class="form-text">
+                        Opcjonalnie. Bez daty końca reguła
+                        pozostaje aktywna.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="finance-form-info">
+            Operacja pojedyncza księguje się od razu.
+            Operacja cykliczna tworzy tylko plan.
+            Wydatek pojedynczy większy niż saldo nadal
+            jest blokowany przez serwer.
+        </div>
+
+        <div class="finance-form-actions">
+            <a asp-action="Index"
+               class="btn btn-outline-secondary">
+                Anuluj
+            </a>
+
+            <button type="submit"
+                    class="btn btn-primary">
+                Zapisz operację
+            </button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        (() => {
+            const toggle =
+                document.getElementById("recurring-toggle");
+            const fields =
+                document.getElementById("recurring-fields");
+
+            const refresh = () => {
+                if (!toggle || !fields) {
+                    return;
+                }
+
+                fields.hidden = !toggle.checked;
+            };
+
+            toggle?.addEventListener(
+                "change",
+                refresh);
+
+            refresh();
+        })();
+    </script>
+}
