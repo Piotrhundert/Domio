@@ -1,5 +1,6 @@
 using Domio.Domain.Audit;
 using Domio.Domain.Common;
+using Domio.Domain.PersonalFinance;
 using Domio.Domain.Users;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,6 +16,10 @@ public sealed class DomioDbContext : DbContext
     public DbSet<SchemaVersionRecord> SchemaVersions => Set<SchemaVersionRecord>();
     public DbSet<DatabaseMetadataRecord> DatabaseMetadata => Set<DatabaseMetadataRecord>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<PersonalFinancialAccount> PersonalFinancialAccounts =>
+        Set<PersonalFinancialAccount>();
+    public DbSet<PersonalFinancialTransaction> PersonalFinancialTransactions =>
+        Set<PersonalFinancialTransaction>();
     public DbSet<Person> People => Set<Person>();
     public DbSet<PersonProfile> PersonProfiles => Set<PersonProfile>();
     public DbSet<RoleDefinition> RoleDefinitions => Set<RoleDefinition>();
@@ -35,9 +40,9 @@ public sealed class DomioDbContext : DbContext
             entity.HasData(new SchemaVersionRecord
             {
                 Id = 1,
-                Version = 7,
+                Version = 8,
                 UpdatedAtUtc = new DateTime(
-                    2026, 9, 9, 8, 41, 0, DateTimeKind.Utc)
+                    2026, 9, 10, 6, 58, 0, DateTimeKind.Utc)
             });
         });
 
@@ -66,6 +71,86 @@ public sealed class DomioDbContext : DbContext
             entity.HasIndex(x => x.CreatedAtUtc);
             entity.HasIndex(x => x.CorrelationId);
             entity.HasIndex(x => x.EventType);
+        });
+
+        modelBuilder.Entity<PersonalFinancialAccount>(entity =>
+        {
+            entity.ToTable("PersonalFinancialAccounts");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Name)
+                .HasMaxLength(120)
+                .IsRequired();
+            entity.Property(x => x.AccountTypeCode)
+                .HasMaxLength(50)
+                .IsRequired();
+            entity.Property(x => x.CurrencyCode)
+                .HasMaxLength(3)
+                .IsRequired();
+            entity.Property(x => x.IsActive)
+                .IsRequired();
+            entity.Property(x => x.CreatedAtUtc)
+                .IsRequired();
+            entity.Property(x => x.UpdatedAtUtc)
+                .IsRequired();
+            entity.Property(x => x.ArchivedAtUtc);
+
+            entity.HasIndex(x => x.OwnerPersonId);
+            entity.HasIndex(x => new
+            {
+                x.OwnerPersonId,
+                x.IsActive
+            });
+
+            entity.HasOne<Person>()
+                .WithMany()
+                .HasForeignKey(x => x.OwnerPersonId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PersonalFinancialTransaction>(entity =>
+        {
+            entity.ToTable("PersonalFinancialTransactions");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.KindCode)
+                .HasMaxLength(50)
+                .IsRequired();
+            entity.Property(x => x.AmountMinor)
+                .IsRequired();
+            entity.Property(x => x.OccurredAtUtc)
+                .IsRequired();
+            entity.Property(x => x.Description)
+                .HasMaxLength(500);
+            entity.Property(x => x.CreatedAtUtc)
+                .IsRequired();
+
+            entity.HasIndex(x => x.AccountId);
+            entity.HasIndex(x => x.OwnerPersonId);
+            entity.HasIndex(x => new
+            {
+                x.OwnerPersonId,
+                x.OccurredAtUtc
+            });
+            entity.HasIndex(x => x.CorrectsTransactionId);
+
+            entity.HasOne<PersonalFinancialAccount>()
+                .WithMany()
+                .HasForeignKey(x => x.AccountId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<Person>()
+                .WithMany()
+                .HasForeignKey(x => x.OwnerPersonId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<UserAccount>()
+                .WithMany()
+                .HasForeignKey(x => x.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<PersonalFinancialTransaction>()
+                .WithMany()
+                .HasForeignKey(x => x.CorrectsTransactionId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Person>(entity =>

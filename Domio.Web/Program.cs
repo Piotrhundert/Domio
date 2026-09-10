@@ -3,6 +3,7 @@ using Domio.Application.Auditing;
 using Domio.Application.Authorization;
 using Domio.Application.Diagnostics;
 using Domio.Application.Maintenance;
+using Domio.Application.PersonalFinance;
 using Domio.Domain.Users;
 using Domio.Infrastructure;
 using Domio.Infrastructure.Persistence;
@@ -263,6 +264,52 @@ if (isDevelopmentOrTest)
         .RequireAuthorization(
             SystemPermissions.UsersView);
 
+    app.MapGet("/dev/m03/foundation", async (
+        HttpContext httpContext,
+        IPersonalFinanceService personalFinanceService,
+        CancellationToken cancellationToken) =>
+    {
+        var userIdValue =
+            httpContext.User
+                .FindFirst(ClaimTypes.NameIdentifier)?
+                .Value;
+
+        if (!Guid.TryParse(
+                userIdValue,
+                out var userId))
+        {
+            return Results.Unauthorized();
+        }
+
+        var overview =
+            await personalFinanceService
+                .GetOwnOverviewAsync(
+                    userId,
+                    cancellationToken);
+
+        return Results.Ok(new
+        {
+            module = "M03",
+            package = "M03.1",
+            ownerPersonId =
+                overview.OwnerPersonId,
+            personalAccounts =
+                overview.Accounts.Count,
+            recentTransactions =
+                overview.RecentTransactions.Count,
+            availableAccountTypes =
+                Domio.Domain.PersonalFinance
+                    .PersonalAccountTypes.All
+                    .Select(x => new
+                    {
+                        x.Code,
+                        x.NamePl
+                    })
+        });
+    })
+    .RequireAuthorization(
+        SystemPermissions.FinancePersonalViewOwn);
+
     app.MapPost("/dev/database/backup", async (
         HttpContext httpContext,
         IDatabaseMaintenanceService maintenanceService,
@@ -356,8 +403,8 @@ app.MapGet("/health", async (
                 ? "Healthy"
                 : "Unhealthy",
             application = "Domio",
-            module = "M02",
-            package = "M02.7",
+            module = "M03",
+            package = "M03.1",
             environment =
                 app.Environment.EnvironmentName,
             correlationId =

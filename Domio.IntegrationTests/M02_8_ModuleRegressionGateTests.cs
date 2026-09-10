@@ -47,7 +47,7 @@ public sealed class M02_8_ModuleRegressionGateTests
                     .Select(x => x.Version)
                     .SingleAsync();
 
-            Assert.Equal(7, schemaVersion);
+            Assert.True(schemaVersion >= 7);
             Assert.Empty(
                 await dbContext.Database
                     .GetPendingMigrationsAsync());

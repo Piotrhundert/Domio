@@ -10,13 +10,17 @@ namespace Domio.Infrastructure.Persistence.Migrations;
 [DbContext(typeof(DomioDbContext))]
 partial class DomioDbContextModelSnapshot : ModelSnapshot
 {
-    protected override void BuildModel(ModelBuilder modelBuilder)
+    protected override void BuildModel(
+        ModelBuilder modelBuilder)
     {
 #pragma warning disable 612, 618
         modelBuilder
-            .HasAnnotation("ProductVersion", "10.0.11");
+            .HasAnnotation(
+                "ProductVersion",
+                "10.0.11");
 
-        AddPersonProfiles.BuildModel(modelBuilder);
+        AddPersonalFinanceFoundation.BuildModel(
+            modelBuilder);
 #pragma warning restore 612, 618
     }
 }

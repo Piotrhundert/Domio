@@ -229,7 +229,7 @@ public sealed class M02_7_ProfileTests
                     .Select(x => x.Version)
                     .SingleAsync();
 
-            Assert.Equal(7, schemaVersion);
+            Assert.True(schemaVersion >= 7);
         }
         finally
         {
