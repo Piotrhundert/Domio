@@ -582,6 +582,394 @@ public sealed class HouseholdFinanceService(
         return entry.Id;
     }
 
+    public async Task<HouseholdTransferResult> TransferBetweenAccountsAsync(
+        CreateHouseholdTransferRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(
+            request);
+
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinanceHouseholdManage,
+            cancellationToken);
+
+        if (request.SourceAccountId ==
+            request.TargetAccountId)
+        {
+            throw new ArgumentException(
+                "Konto źródłowe i docelowe muszą być różne.");
+        }
+
+        if (request.Amount <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(request.Amount),
+                "Kwota transferu musi być większa od zera.");
+        }
+
+        var amountMinor =
+            HouseholdFinanceMoney.ToMinorUnits(
+                request.Amount);
+
+        var description =
+            NormalizeOptionalText(
+                request.Description,
+                "Opis transferu",
+                500);
+
+        var personId =
+            await GetActorPersonIdAsync(
+                actorUserId,
+                cancellationToken);
+
+        var household =
+            await GetActiveHouseholdForPersonAsync(
+                personId,
+                cancellationToken)
+            ?? throw new UnauthorizedAccessException(
+                "Użytkownik nie jest przypisany do aktywnego gospodarstwa.");
+
+        var now =
+            DateTime.UtcNow;
+
+        var occurredAtUtc =
+            NormalizeOccurredAtUtc(
+                request.OccurredAtUtc,
+                now);
+
+        await using var transaction =
+            await dbContext.Database.BeginTransactionAsync(
+                cancellationToken);
+
+        var accounts =
+            await dbContext.HouseholdAccounts
+                .Where(x =>
+                    x.HouseholdId ==
+                        household.Id &&
+                    x.IsActive &&
+                    (x.Id ==
+                        request.SourceAccountId ||
+                     x.Id ==
+                        request.TargetAccountId))
+                .ToArrayAsync(
+                    cancellationToken);
+
+        if (accounts.Length != 2)
+        {
+            throw new UnauthorizedAccessException(
+                "Jedno z kont nie istnieje, jest nieaktywne albo należy do innego gospodarstwa.");
+        }
+
+        var source =
+            accounts.Single(x =>
+                x.Id ==
+                    request.SourceAccountId);
+
+        var target =
+            accounts.Single(x =>
+                x.Id ==
+                    request.TargetAccountId);
+
+        if (!string.Equals(
+                source.CurrencyCode,
+                target.CurrencyCode,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Transfer pomiędzy kontami domu w różnych walutach nie jest obsługiwany.");
+        }
+
+        var sourceBalanceMinor =
+            await dbContext.HouseholdEntries
+                .Where(x =>
+                    x.HouseholdId ==
+                        household.Id &&
+                    x.AccountId ==
+                        source.Id)
+                .SumAsync(
+                    x => x.AmountMinor,
+                    cancellationToken);
+
+        if (sourceBalanceMinor <
+            amountMinor)
+        {
+            throw new InvalidOperationException(
+                "Niewystarczające środki na koncie źródłowym. Transfer został zablokowany.");
+        }
+
+        var transferId =
+            Guid.NewGuid();
+
+        var sourceEntryId =
+            Guid.NewGuid();
+
+        var targetEntryId =
+            Guid.NewGuid();
+
+        dbContext.HouseholdEntries.AddRange(
+            new HouseholdEntry
+            {
+                Id =
+                    sourceEntryId,
+                HouseholdId =
+                    household.Id,
+                AccountId =
+                    source.Id,
+                EntryTypeCode =
+                    HouseholdEntryTypes.TransferOut,
+                AmountMinor =
+                    -amountMinor,
+                OccurredAtUtc =
+                    occurredAtUtc,
+                CategoryCode =
+                    null,
+                Description =
+                    string.IsNullOrWhiteSpace(description)
+                        ? $"Transfer do: {target.Name}"
+                        : $"Transfer do: {target.Name} · {description}",
+                SourceType =
+                    "HouseholdTransfer",
+                SourceId =
+                    transferId.ToString(),
+                CreatedByUserId =
+                    actorUserId,
+                CreatedAtUtc =
+                    now
+            },
+            new HouseholdEntry
+            {
+                Id =
+                    targetEntryId,
+                HouseholdId =
+                    household.Id,
+                AccountId =
+                    target.Id,
+                EntryTypeCode =
+                    HouseholdEntryTypes.TransferIn,
+                AmountMinor =
+                    amountMinor,
+                OccurredAtUtc =
+                    occurredAtUtc,
+                CategoryCode =
+                    null,
+                Description =
+                    string.IsNullOrWhiteSpace(description)
+                        ? $"Transfer z: {source.Name}"
+                        : $"Transfer z: {source.Name} · {description}",
+                SourceType =
+                    "HouseholdTransfer",
+                SourceId =
+                    transferId.ToString(),
+                CreatedByUserId =
+                    actorUserId,
+                CreatedAtUtc =
+                    now
+            });
+
+        source.UpdatedAtUtc =
+            now;
+
+        target.UpdatedAtUtc =
+            now;
+
+        await dbContext.SaveChangesAsync(
+            cancellationToken);
+
+        await auditService.WriteAsync(
+            new AuditEntry(
+                EventType:
+                    "M04.2.HouseholdTransferPosted",
+                EntityType:
+                    "HouseholdTransfer",
+                EntityId:
+                    transferId.ToString(),
+                ActorId:
+                    actorUserId.ToString(),
+                CorrelationId:
+                    correlationId,
+                Description:
+                    "Wykonano atomowy transfer pomiędzy kontami gospodarstwa. Kwota, nazwy kont i opis nie są zapisywane w audycie."),
+            cancellationToken);
+
+        await transaction.CommitAsync(
+            cancellationToken);
+
+        return new HouseholdTransferResult(
+            transferId,
+            sourceEntryId,
+            targetEntryId,
+            source.Id,
+            target.Id,
+            request.Amount,
+            source.CurrencyCode);
+    }
+
+    public async Task<HouseholdAccountClosureInfo?> GetAccountClosureInfoAsync(
+        Guid accountId,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default)
+    {
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinanceHouseholdManage,
+            cancellationToken);
+
+        var personId =
+            await GetActorPersonIdAsync(
+                actorUserId,
+                cancellationToken);
+
+        var household =
+            await GetActiveHouseholdForPersonAsync(
+                personId,
+                cancellationToken);
+
+        if (household is null)
+        {
+            return null;
+        }
+
+        var account =
+            await dbContext.HouseholdAccounts
+                .AsNoTracking()
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id ==
+                            accountId &&
+                        x.HouseholdId ==
+                            household.Id,
+                    cancellationToken);
+
+        if (account is null)
+        {
+            return null;
+        }
+
+        var balanceMinor =
+            await dbContext.HouseholdEntries
+                .AsNoTracking()
+                .Where(x =>
+                    x.HouseholdId ==
+                        household.Id &&
+                    x.AccountId ==
+                        account.Id)
+                .SumAsync(
+                    x => x.AmountMinor,
+                    cancellationToken);
+
+        return new HouseholdAccountClosureInfo(
+            account.Id,
+            account.Name,
+            HouseholdAccountTypes.GetNamePl(
+                account.AccountTypeCode),
+            account.CurrencyCode,
+            HouseholdFinanceMoney.FromMinorUnits(
+                balanceMinor),
+            account.IsActive);
+    }
+
+    public async Task CloseAccountAsync(
+        Guid accountId,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinanceHouseholdManage,
+            cancellationToken);
+
+        var personId =
+            await GetActorPersonIdAsync(
+                actorUserId,
+                cancellationToken);
+
+        var household =
+            await GetActiveHouseholdForPersonAsync(
+                personId,
+                cancellationToken)
+            ?? throw new UnauthorizedAccessException(
+                "Użytkownik nie jest przypisany do aktywnego gospodarstwa.");
+
+        await using var transaction =
+            await dbContext.Database.BeginTransactionAsync(
+                cancellationToken);
+
+        var account =
+            await dbContext.HouseholdAccounts
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id ==
+                            accountId &&
+                        x.HouseholdId ==
+                            household.Id,
+                    cancellationToken)
+            ?? throw new UnauthorizedAccessException(
+                "Konto domu nie istnieje albo należy do innego gospodarstwa.");
+
+        if (!account.IsActive)
+        {
+            return;
+        }
+
+        var balanceMinor =
+            await dbContext.HouseholdEntries
+                .Where(x =>
+                    x.HouseholdId ==
+                        household.Id &&
+                    x.AccountId ==
+                        account.Id)
+                .SumAsync(
+                    x => x.AmountMinor,
+                    cancellationToken);
+
+        if (balanceMinor != 0)
+        {
+            throw new InvalidOperationException(
+                "Nie można zamknąć konta domu z niezerowym saldem. Najpierw przenieś lub rozlicz pozostałe środki.");
+        }
+
+        var now =
+            DateTime.UtcNow;
+
+        account.IsActive =
+            false;
+
+        account.ArchivedAtUtc =
+            now;
+
+        account.UpdatedAtUtc =
+            now;
+
+        await dbContext.SaveChangesAsync(
+            cancellationToken);
+
+        await auditService.WriteAsync(
+            new AuditEntry(
+                EventType:
+                    "M04.2.HouseholdAccountClosed",
+                EntityType:
+                    "HouseholdAccount",
+                EntityId:
+                    account.Id.ToString(),
+                ActorId:
+                    actorUserId.ToString(),
+                CorrelationId:
+                    correlationId,
+                Description:
+                    "Zamknięto konto gospodarstwa z zerowym saldem. Historia księgowań pozostała zachowana."),
+            cancellationToken);
+
+        await transaction.CommitAsync(
+            cancellationToken);
+    }
+
     private async Task<Household?> GetActiveHouseholdForPersonAsync(
         Guid personId,
         CancellationToken cancellationToken)
@@ -608,7 +996,7 @@ public sealed class HouseholdFinanceService(
         if (households.Length > 1)
         {
             throw new InvalidOperationException(
-                "M04.1 obsługuje jedno aktywne gospodarstwo na użytkownika. Wybór wielu gospodarstw zostanie dodany w dalszym etapie.");
+                "M04.2 obsługuje jedno aktywne gospodarstwo na użytkownika. Wybór wielu gospodarstw zostanie dodany w dalszym etapie.");
         }
 
         return households.SingleOrDefault();

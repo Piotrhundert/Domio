@@ -17,4 +17,21 @@ public interface IHouseholdFinanceService
         Guid actorUserId,
         string correlationId,
         CancellationToken cancellationToken = default);
+
+    Task<HouseholdTransferResult> TransferBetweenAccountsAsync(
+        CreateHouseholdTransferRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
+
+    Task<HouseholdAccountClosureInfo?> GetAccountClosureInfoAsync(
+        Guid accountId,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default);
+
+    Task CloseAccountAsync(
+        Guid accountId,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
 }

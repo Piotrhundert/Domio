@@ -1,0 +1,163 @@
+@model Domio.Web.Models.HouseholdFinance.HouseholdTransferViewModel
+@{
+    ViewData["Title"] = "Transfer między kontami domu";
+}
+
+<div class="household-finance-page household-finance-form-page">
+    <div class="household-finance-header">
+        <div>
+            <div class="household-finance-kicker">
+                M04.2 · TRANSFER WEWNĘTRZNY
+            </div>
+
+            <h1>Transfer między kontami domu</h1>
+
+            <p>
+                Przenieś środki np. z gotówki domu na konto bankowe.
+                Transfer nie tworzy przychodu ani wydatku gospodarstwa.
+            </p>
+        </div>
+
+        <a asp-action="Index"
+           class="btn btn-outline-secondary">
+            Wróć
+        </a>
+    </div>
+
+    <form asp-action="Transfer"
+          method="post"
+          class="household-finance-form-card">
+
+        <div asp-validation-summary="ModelOnly"
+             class="text-danger mb-3"></div>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label asp-for="SourceAccountId"
+                       class="form-label"></label>
+
+                <select asp-for="SourceAccountId"
+                        asp-items="Model.SourceAccounts"
+                        class="form-select"
+                        id="household-transfer-source">
+                </select>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="TargetAccountId"
+                       class="form-label"></label>
+
+                <select asp-for="TargetAccountId"
+                        asp-items="Model.TargetAccounts"
+                        class="form-select"
+                        id="household-transfer-target">
+                </select>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="Amount"
+                       class="form-label"></label>
+
+                <input asp-for="Amount"
+                       class="form-control"
+                       type="number"
+                       step="0.01"
+                       min="0.01" />
+
+                <span asp-validation-for="Amount"
+                      class="text-danger small"></span>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="OccurredOn"
+                       class="form-label"></label>
+
+                <input asp-for="OccurredOn"
+                       type="date"
+                       class="form-control" />
+            </div>
+
+            <div class="col-12">
+                <label asp-for="Description"
+                       class="form-label"></label>
+
+                <textarea asp-for="Description"
+                          class="form-control"
+                          rows="3"
+                          placeholder="np. wpłata gotówki do banku"></textarea>
+
+                <span asp-validation-for="Description"
+                      class="text-danger small"></span>
+            </div>
+        </div>
+
+        <div class="household-finance-info">
+            <strong>Jedna operacja, dwa księgowania.</strong>
+            <span>
+                Domio zapisze wypływ z konta źródłowego i wpływ
+                na konto docelowe atomowo, ze wspólnym identyfikatorem
+                transferu.
+            </span>
+        </div>
+
+        <div class="household-finance-warning">
+            <strong>Brak środków = brak transferu.</strong>
+            <span>
+                Jeśli konto źródłowe nie ma wystarczającego salda,
+                nie powstanie żadna strona transferu.
+            </span>
+        </div>
+
+        <div class="household-finance-form-actions">
+            <a asp-action="Index"
+               class="btn btn-outline-secondary">
+                Anuluj
+            </a>
+
+            <button type="submit"
+                    class="btn btn-primary">
+                Wykonaj transfer
+            </button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        (() => {
+            const source =
+                document.getElementById("household-transfer-source");
+
+            const target =
+                document.getElementById("household-transfer-target");
+
+            const keepAccountsDifferent = () => {
+                if (!source || !target) {
+                    return;
+                }
+
+                if (source.value === target.value) {
+                    const alternative =
+                        Array.from(target.options)
+                            .find(x => x.value !== source.value);
+
+                    if (alternative) {
+                        target.value = alternative.value;
+                    }
+                }
+            };
+
+            source?.addEventListener(
+                "change",
+                keepAccountsDifferent);
+
+            target?.addEventListener(
+                "change",
+                keepAccountsDifferent);
+
+            keepAccountsDifferent();
+        })();
+    </script>
+}

@@ -47,3 +47,33 @@ public sealed record PostHouseholdOperationRequest(
     string? Description,
     string? SourceType = "Manual",
     string? SourceId = null);
+
+
+public sealed record CreateHouseholdTransferRequest(
+    Guid SourceAccountId,
+    Guid TargetAccountId,
+    decimal Amount,
+    DateTime OccurredAtUtc,
+    string? Description);
+
+public sealed record HouseholdTransferResult(
+    Guid TransferId,
+    Guid SourceEntryId,
+    Guid TargetEntryId,
+    Guid SourceAccountId,
+    Guid TargetAccountId,
+    decimal Amount,
+    string CurrencyCode);
+
+public sealed record HouseholdAccountClosureInfo(
+    Guid AccountId,
+    string Name,
+    string AccountTypeNamePl,
+    string CurrencyCode,
+    decimal Balance,
+    bool IsActive)
+{
+    public bool CanClose =>
+        IsActive &&
+        Balance == 0m;
+}

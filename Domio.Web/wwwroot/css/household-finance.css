@@ -338,3 +338,64 @@
     flex: 1;
   }
 }
+
+
+.household-account-actions {
+  display: grid;
+  gap: 7px;
+  margin-top: auto;
+}
+
+.household-account-close-action {
+  color: #9a4545;
+}
+
+.household-account-close-action:hover {
+  color: #7e2f2f;
+}
+
+.household-close-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  margin-bottom: 18px;
+  border: 1px solid var(--domio-border);
+  border-radius: 12px;
+  background: var(--domio-border);
+}
+
+.household-close-summary > div {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  background: #fff;
+}
+
+.household-close-summary span {
+  color: var(--domio-muted);
+  font-size: 0.7rem;
+}
+
+.household-close-summary strong {
+  font-size: 0.84rem;
+}
+
+.household-close-blocker {
+  display: grid;
+  gap: 7px;
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid #efd8b9;
+  border-radius: 12px;
+  background: #fffaf2;
+  color: #775126;
+  font-size: 0.77rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 760px) {
+  .household-close-summary {
+    grid-template-columns: 1fr;
+  }
+}

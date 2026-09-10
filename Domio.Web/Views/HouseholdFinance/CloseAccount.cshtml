@@ -1,0 +1,126 @@
+@model Domio.Web.Models.HouseholdFinance.CloseHouseholdAccountViewModel
+@{
+    ViewData["Title"] = "Zamknij konto domu";
+}
+
+<div class="household-finance-page household-finance-form-page">
+    <div class="household-finance-header">
+        <div>
+            <div class="household-finance-kicker">
+                M04.2 · ZAMKNIĘCIE KONTA
+            </div>
+
+            <h1>Zamknij konto gospodarstwa</h1>
+
+            <p>
+                Konto zostanie wyłączone z nowych operacji,
+                ale pełna historia księgowań pozostanie w Domio.
+            </p>
+        </div>
+
+        <a asp-action="Index"
+           class="btn btn-outline-secondary">
+            Wróć
+        </a>
+    </div>
+
+    @if (TempData["HouseholdFinanceError"] is string error)
+    {
+        <div class="alert alert-danger mb-4"
+             role="alert">
+            @error
+        </div>
+    }
+
+    <div class="household-finance-form-card">
+        <div class="household-close-summary">
+            <div>
+                <span>Konto</span>
+                <strong>@Model.Name</strong>
+            </div>
+
+            <div>
+                <span>Typ</span>
+                <strong>@Model.AccountTypeNamePl</strong>
+            </div>
+
+            <div>
+                <span>Saldo</span>
+                <strong>
+                    @Model.Balance.ToString("N2")
+                    @Model.CurrencyCode
+                </strong>
+            </div>
+
+            <div>
+                <span>Status</span>
+                <strong>
+                    @(Model.IsActive
+                        ? "Aktywne"
+                        : "Zamknięte")
+                </strong>
+            </div>
+        </div>
+
+        @if (Model.CanClose)
+        {
+            <div class="household-finance-warning">
+                <strong>Czy na pewno zamknąć konto?</strong>
+                <span>
+                    Po zamknięciu nie będzie można księgować na nim
+                    nowych wpływów, wydatków ani transferów.
+                    Dotychczasowe wpisy pozostaną bez zmian.
+                </span>
+            </div>
+
+            <form asp-action="CloseAccountConfirmed"
+                  method="post">
+
+                <input type="hidden"
+                       name="accountId"
+                       value="@Model.AccountId" />
+
+                <div class="household-finance-form-actions">
+                    <a asp-action="Index"
+                       class="btn btn-outline-secondary">
+                        Anuluj
+                    </a>
+
+                    <button type="submit"
+                            class="btn btn-danger">
+                        Zamknij konto
+                    </button>
+                </div>
+            </form>
+        }
+        else
+        {
+            <div class="household-close-blocker">
+                <strong>Konta nie można jeszcze zamknąć.</strong>
+
+                @if (!Model.IsActive)
+                {
+                    <span>
+                        Konto jest już zamknięte.
+                    </span>
+                }
+
+                @if (Model.Balance != 0m)
+                {
+                    <span>
+                        Saldo musi wynosić dokładnie 0,00
+                        @Model.CurrencyCode. Najpierw przenieś środki
+                        na inne konto albo rozlicz brakującą kwotę.
+                    </span>
+                }
+            </div>
+
+            <div class="household-finance-form-actions">
+                <a asp-action="Index"
+                   class="btn btn-primary">
+                    Wróć do finansów domu
+                </a>
+            </div>
+        }
+    </div>
+</div>

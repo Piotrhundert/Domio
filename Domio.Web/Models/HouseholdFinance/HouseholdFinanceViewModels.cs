@@ -89,3 +89,59 @@ public sealed class AddHouseholdOperationViewModel
 
     public List<SelectListItem> Categories { get; set; } = [];
 }
+
+
+public sealed class HouseholdTransferViewModel
+{
+    [Required]
+    [Display(Name = "Konto źródłowe")]
+    public Guid SourceAccountId { get; set; }
+
+    [Required]
+    [Display(Name = "Konto docelowe")]
+    public Guid TargetAccountId { get; set; }
+
+    [Range(
+        0.01d,
+        999999999999.99d,
+        ErrorMessage =
+            "Kwota transferu musi być większa od zera.")]
+    [Display(Name = "Kwota")]
+    public decimal Amount { get; set; } =
+        0.01m;
+
+    [DataType(DataType.Date)]
+    [Display(Name = "Data transferu")]
+    public DateTime OccurredOn { get; set; } =
+        DateTime.Today;
+
+    [MaxLength(500)]
+    [Display(Name = "Opis")]
+    public string? Description { get; set; }
+
+    public List<SelectListItem> SourceAccounts { get; set; } = [];
+
+    public List<SelectListItem> TargetAccounts { get; set; } = [];
+}
+
+public sealed class CloseHouseholdAccountViewModel
+{
+    public Guid AccountId { get; set; }
+
+    public string Name { get; set; } =
+        string.Empty;
+
+    public string AccountTypeNamePl { get; set; } =
+        string.Empty;
+
+    public string CurrencyCode { get; set; } =
+        "PLN";
+
+    public decimal Balance { get; set; }
+
+    public bool IsActive { get; set; }
+
+    public bool CanClose =>
+        IsActive &&
+        Balance == 0m;
+}
