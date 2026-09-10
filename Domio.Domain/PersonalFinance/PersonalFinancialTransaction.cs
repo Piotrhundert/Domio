@@ -16,6 +16,10 @@ public sealed class PersonalFinancialTransaction
 
     public DateTime OccurredAtUtc { get; set; }
 
+    public string? CategoryCode { get; set; }
+
+    public string? Counterparty { get; set; }
+
     public string? Description { get; set; }
 
     public Guid? CorrectsTransactionId { get; set; }

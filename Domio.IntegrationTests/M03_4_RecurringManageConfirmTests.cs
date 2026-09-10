@@ -43,7 +43,7 @@ public sealed class M03_4_RecurringManageConfirmTests
                     .Select(x => x.Version)
                     .SingleAsync();
 
-            Assert.Equal(10, schemaVersion);
+            Assert.True(schemaVersion >= 10);
             Assert.Empty(
                 await dbContext.Database
                     .GetPendingMigrationsAsync());

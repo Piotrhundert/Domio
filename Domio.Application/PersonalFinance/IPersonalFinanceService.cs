@@ -57,4 +57,26 @@ public interface IPersonalFinanceService
         Guid actorUserId,
         string correlationId,
         CancellationToken cancellationToken = default);
+
+    Task<PersonalAccountClosureInfo?> GetOwnAccountClosureInfoAsync(
+        Guid accountId,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default);
+
+    Task CloseOwnAccountAsync(
+        Guid accountId,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
+
+    Task<PersonalTransactionCorrectionInfo?> GetOwnTransactionCorrectionInfoAsync(
+        Guid transactionId,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<Guid?> CorrectOwnTransactionAsync(
+        CorrectPersonalTransactionRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
 }

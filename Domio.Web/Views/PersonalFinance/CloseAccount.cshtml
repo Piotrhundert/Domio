@@ -1,0 +1,153 @@
+@model Domio.Web.Models.PersonalFinance.ClosePersonalAccountViewModel
+@{
+    ViewData["Title"] = "Zamknij konto";
+}
+
+<div class="finance-page finance-form-page">
+    <div class="finance-page-header">
+        <div>
+            <div class="finance-kicker">
+                M03.6 · ZAMKNIĘCIE KONTA
+            </div>
+            <h1>Zamknij prywatne konto</h1>
+            <p>
+                Konto zostanie wyłączone z dalszego użycia,
+                ale jego historia finansowa nie zostanie usunięta.
+            </p>
+        </div>
+
+        <a asp-action="Index"
+           class="btn btn-outline-secondary">
+            Wróć
+        </a>
+    </div>
+
+    @if (TempData["PersonalFinanceError"] is string error)
+    {
+        <div class="alert alert-danger mb-4"
+             role="alert">
+            @error
+        </div>
+    }
+
+    <div class="finance-form-card">
+        <div class="finance-delete-summary">
+            <div>
+                <span>Konto</span>
+                <strong>@Model.Name</strong>
+            </div>
+
+            <div>
+                <span>Typ</span>
+                <strong>@Model.AccountTypeNamePl</strong>
+            </div>
+
+            <div>
+                <span>Saldo</span>
+                <strong>
+                    @Model.Balance.ToString("N2")
+                    @Model.CurrencyCode
+                </strong>
+            </div>
+
+            <div>
+                <span>Status</span>
+                <strong>
+                    @(Model.IsActive
+                        ? "Aktywne"
+                        : "Zamknięte")
+                </strong>
+            </div>
+
+            <div>
+                <span>Aktywne reguły cykliczne</span>
+                <strong>@Model.ActiveRecurringRules</strong>
+            </div>
+
+            <div>
+                <span>Niepotwierdzone plany</span>
+                <strong>@Model.PlannedRecurringOccurrences</strong>
+            </div>
+        </div>
+
+        @if (Model.CanClose)
+        {
+            <div class="finance-delete-warning">
+                <strong>Czy na pewno zamknąć konto?</strong>
+                <span>
+                    Konto przestanie być dostępne przy nowych
+                    przychodach, wydatkach i transferach.
+                    Wszystkie wcześniejsze operacje pozostaną
+                    w historii Domio.
+                </span>
+            </div>
+
+            <form asp-action="CloseAccountConfirmed"
+                  method="post">
+                <input type="hidden"
+                       name="accountId"
+                       value="@Model.AccountId" />
+
+                <div class="finance-form-actions">
+                    <a asp-action="Index"
+                       class="btn btn-outline-secondary">
+                        Anuluj
+                    </a>
+
+                    <button type="submit"
+                            class="btn btn-danger">
+                        Zamknij konto
+                    </button>
+                </div>
+            </form>
+        }
+        else
+        {
+            <div class="finance-close-blockers">
+                <strong>Konta nie można jeszcze zamknąć.</strong>
+
+                @if (!Model.IsActive)
+                {
+                    <span>
+                        Konto jest już zamknięte.
+                    </span>
+                }
+
+                @if (Model.Balance != 0m)
+                {
+                    <span>
+                        Saldo musi wynosić dokładnie 0,00
+                        @Model.CurrencyCode. Przenieś pozostałe
+                        środki na inne konto albo rozlicz brakującą kwotę.
+                    </span>
+                }
+
+                @if (Model.ActiveRecurringRules > 0)
+                {
+                    <span>
+                        Najpierw przenieś lub zakończ
+                        @Model.ActiveRecurringRules
+                        aktywną/aktywne regułę/reguły cykliczne.
+                    </span>
+                }
+
+                @if (Model.PlannedRecurringOccurrences > 0)
+                {
+                    <span>
+                        Pozostało
+                        @Model.PlannedRecurringOccurrences
+                        niepotwierdzone planowane wystąpienie/wystąpienia.
+                        Najpierw je rozlicz.
+                    </span>
+                }
+            </div>
+
+            <div class="finance-form-actions">
+                <a asp-action="Index"
+                   class="btn btn-primary">
+                    Wróć do finansów
+                </a>
+            </div>
+        }
+    </div>
+</div>

@@ -18,7 +18,10 @@ public sealed record PersonalTransactionItem(
     DateTime OccurredAtUtc,
     string? Description,
     Guid? CorrectsTransactionId,
-    DateTime CreatedAtUtc);
+    DateTime CreatedAtUtc,
+    string? CategoryCode = null,
+    string? CategoryNamePl = null,
+    string? Counterparty = null);
 
 public sealed record PersonalRecurringRuleSummary(
     Guid RuleId,
@@ -76,7 +79,9 @@ public sealed record PostPersonalOperationRequest(
     string KindCode,
     decimal Amount,
     DateTime OccurredAtUtc,
-    string? Description);
+    string? Description,
+    string? CategoryCode = null,
+    string? Counterparty = null);
 
 public sealed record CreatePersonalRecurringRuleRequest(
     Guid AccountId,
@@ -122,3 +127,43 @@ public sealed record PersonalTransferResult(
     Guid TargetAccountId,
     decimal Amount,
     string CurrencyCode);
+
+
+public sealed record PersonalAccountClosureInfo(
+    Guid AccountId,
+    string Name,
+    string AccountTypeNamePl,
+    string CurrencyCode,
+    decimal Balance,
+    bool IsActive,
+    int ActiveRecurringRules,
+    int PlannedRecurringOccurrences)
+{
+    public bool CanClose =>
+        IsActive &&
+        Balance == 0m &&
+        ActiveRecurringRules == 0 &&
+        PlannedRecurringOccurrences == 0;
+}
+
+
+public sealed record PersonalTransactionCorrectionInfo(
+    Guid TransactionId,
+    Guid AccountId,
+    string AccountName,
+    string CurrencyCode,
+    string KindCode,
+    string KindNamePl,
+    decimal OriginalAmount,
+    DateTime OccurredAtUtc,
+    string? CategoryCode,
+    string CategoryNamePl,
+    string? Counterparty,
+    string? Description,
+    bool AlreadyCorrected,
+    bool CanCorrect);
+
+public sealed record CorrectPersonalTransactionRequest(
+    Guid TransactionId,
+    decimal CorrectedAmount,
+    string? CategoryCode);

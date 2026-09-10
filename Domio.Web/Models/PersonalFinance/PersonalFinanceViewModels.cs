@@ -87,7 +87,7 @@ public sealed class AddPersonalOperationViewModel
     public string FrequencyCode { get; set; } = "Monthly";
 
     [Display(Name = "Kategoria")]
-    public string CategoryCode { get; set; } = "Subscription";
+    public string CategoryCode { get; set; } = "OtherExpense";
 
     [MaxLength(200)]
     [Display(Name = "Firma / instytucja / usługodawca")]
@@ -244,4 +244,62 @@ public sealed class PersonalTransferViewModel
     public List<SelectListItem> SourceAccounts { get; set; } = [];
 
     public List<SelectListItem> TargetAccounts { get; set; } = [];
+}
+
+
+public sealed class ClosePersonalAccountViewModel
+{
+    public Guid AccountId { get; set; }
+
+    public string Name { get; set; } = string.Empty;
+
+    public string AccountTypeNamePl { get; set; } = string.Empty;
+
+    public string CurrencyCode { get; set; } = "PLN";
+
+    public decimal Balance { get; set; }
+
+    public bool IsActive { get; set; }
+
+    public int ActiveRecurringRules { get; set; }
+
+    public int PlannedRecurringOccurrences { get; set; }
+
+    public bool CanClose =>
+        IsActive &&
+        Balance == 0m &&
+        ActiveRecurringRules == 0 &&
+        PlannedRecurringOccurrences == 0;
+}
+
+
+public sealed class CorrectPersonalTransactionViewModel
+{
+    [Required]
+    public Guid TransactionId { get; set; }
+
+    public string AccountName { get; set; } = string.Empty;
+
+    public string CurrencyCode { get; set; } = "PLN";
+
+    public string KindNamePl { get; set; } = string.Empty;
+
+    public decimal OriginalAmount { get; set; }
+
+    public DateTime OccurredAt { get; set; }
+
+    public string? OriginalDescription { get; set; }
+
+    [Range(
+        0d,
+        999999999999.99d,
+        ErrorMessage =
+            "Prawidłowa kwota nie może być ujemna.")]
+    [Display(Name = "Prawidłowa kwota")]
+    public decimal CorrectedAmount { get; set; }
+
+    [Display(Name = "Kategoria")]
+    public string? CategoryCode { get; set; }
+
+    public List<SelectListItem> Categories { get; set; } = [];
 }

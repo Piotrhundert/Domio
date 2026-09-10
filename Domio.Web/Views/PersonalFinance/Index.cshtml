@@ -23,13 +23,19 @@
             .OrderBy(x => x.PlannedDateUtc)
             .Take(12)
             .ToArray();
+
+    var correctedSourceIds =
+        Model.RecentTransactions
+            .Where(x => x.CorrectsTransactionId.HasValue)
+            .Select(x => x.CorrectsTransactionId!.Value)
+            .ToHashSet();
 }
 
 <div class="finance-page">
     <div class="finance-page-header">
         <div>
             <div class="finance-kicker">
-                M03.5 · FINANSE OSOBISTE
+                M03.7 · FINANSE OSOBISTE
             </div>
             <h1>Moje finanse</h1>
             <p>
@@ -67,6 +73,14 @@
         <div class="alert alert-success mb-4"
              role="alert">
             @message
+        </div>
+    }
+
+    @if (TempData["PersonalFinanceError"] is string error)
+    {
+        <div class="alert alert-danger mb-4"
+             role="alert">
+            @error
         </div>
     }
 
@@ -144,7 +158,7 @@
                             else
                             {
                                 <span class="finance-status-inactive">
-                                    Nieaktywne
+                                    Zamknięte
                                 </span>
                             }
                         </div>
@@ -174,6 +188,12 @@
                                         Przelej z tego konta →
                                     </a>
                                 }
+
+                                <a asp-action="CloseAccount"
+                                   asp-route-id="@account.AccountId"
+                                   class="finance-account-action finance-account-close-action">
+                                    Zamknij konto →
+                                </a>
                             </div>
                         }
                     </article>
@@ -396,8 +416,10 @@
                             <th>Data</th>
                             <th>Konto</th>
                             <th>Rodzaj</th>
+                            <th>Kategoria / kontrahent</th>
                             <th>Opis</th>
                             <th class="text-end">Kwota</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -435,6 +457,29 @@
                                 <span class="finance-kind">
                                     @transaction.KindNamePl
                                 </span>
+
+                                @if (transaction.CorrectsTransactionId.HasValue)
+                                {
+                                    <div class="finance-row-meta">
+                                        korekta operacji źródłowej
+                                    </div>
+                                }
+                            </td>
+                            <td>
+                                <strong>
+                                    @(string.IsNullOrWhiteSpace(
+                                        transaction.CategoryNamePl)
+                                        ? "Bez kategorii"
+                                        : transaction.CategoryNamePl)
+                                </strong>
+
+                                @if (!string.IsNullOrWhiteSpace(
+                                    transaction.Counterparty))
+                                {
+                                    <div class="finance-row-meta">
+                                        @transaction.Counterparty
+                                    </div>
+                                }
                             </td>
                             <td>
                                 @(string.IsNullOrWhiteSpace(
@@ -448,6 +493,33 @@
                                     @transaction.Amount.ToString("N2")
                                     @accountCurrency
                                 </span>
+                            </td>
+                            <td class="text-end">
+                                @{
+                                    var correctableKind =
+                                        transaction.KindCode ==
+                                            PersonalTransactionKinds.Income ||
+                                        transaction.KindCode ==
+                                            PersonalTransactionKinds.Expense ||
+                                        transaction.KindCode ==
+                                            PersonalTransactionKinds.OpeningBalance;
+
+                                    var alreadyCorrected =
+                                        correctedSourceIds.Contains(
+                                            transaction.TransactionId);
+                                }
+
+                                @if (canManage &&
+                                     correctableKind &&
+                                     !alreadyCorrected &&
+                                     !transaction.CorrectsTransactionId.HasValue)
+                                {
+                                    <a asp-action="CorrectOperation"
+                                       asp-route-id="@transaction.TransactionId"
+                                       class="btn btn-sm btn-outline-secondary">
+                                        Koryguj
+                                    </a>
+                                }
                             </td>
                         </tr>
                     }

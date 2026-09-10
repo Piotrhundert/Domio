@@ -7,7 +7,7 @@
     <div class="finance-page-header">
         <div>
             <div class="finance-kicker">
-                M03.3 · NOWA OPERACJA
+                M03.7 · NOWA OPERACJA
             </div>
             <h1>Dodaj przychód lub wydatek</h1>
             <p>
@@ -49,7 +49,8 @@
                            class="form-label"></label>
                     <select asp-for="KindCode"
                             asp-items="Model.OperationKinds"
-                            class="form-select">
+                            class="form-select"
+                            id="operation-kind">
                     </select>
                     <span asp-validation-for="KindCode"
                           class="text-danger small"></span>
@@ -74,6 +75,26 @@
                            type="date"
                            class="form-control" />
                     <span asp-validation-for="OccurredOn"
+                          class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="CategoryCode"
+                           class="form-label"></label>
+                    <select asp-for="CategoryCode"
+                            asp-items="Model.Categories"
+                            class="form-select"
+                            id="operation-category">
+                    </select>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="Counterparty"
+                           class="form-label"></label>
+                    <input asp-for="Counterparty"
+                           class="form-control"
+                           placeholder="np. sklep, pracodawca, usługodawca" />
+                    <span asp-validation-for="Counterparty"
                           class="text-danger small"></span>
                 </div>
 
@@ -113,8 +134,8 @@
             <div class="finance-recurring-info">
                 Domio utworzy planowane wystąpienia.
                 <strong>Plan nie zmienia salda.</strong>
-                Rzeczywiste księgowanie dodamy w następnym kroku
-                przez potwierdzenie konkretnego wystąpienia.
+                Rzeczywisty wpływ albo płatność księgujesz
+                później przez potwierdzenie konkretnego wystąpienia.
             </div>
 
             <div class="row g-3 mt-1">
@@ -133,27 +154,6 @@
                             asp-items="Model.RecurringFrequencies"
                             class="form-select">
                     </select>
-                </div>
-
-                <div class="col-md-6">
-                    <label asp-for="CategoryCode"
-                           class="form-label"></label>
-                    <select asp-for="CategoryCode"
-                            asp-items="Model.Categories"
-                            class="form-select">
-                    </select>
-                </div>
-
-                <div class="col-md-6">
-                    <label asp-for="Counterparty"
-                           class="form-label"></label>
-                    <input asp-for="Counterparty"
-                           class="form-control"
-                           placeholder="np. pracodawca, Netflix, operator" />
-                    <div class="form-text">
-                        Przy cyklicznym przychodzie płatnik
-                        jest wymagany.
-                    </div>
                 </div>
 
                 <div class="col-md-5">
@@ -209,11 +209,40 @@
                 fields.hidden = !toggle.checked;
             };
 
+            const kind =
+                document.getElementById("operation-kind");
+            const category =
+                document.getElementById("operation-category");
+
+            const adjustCategory = () => {
+                if (!kind || !category) {
+                    return;
+                }
+
+                const incomeCategories =
+                    ["Salary", "OtherIncome"];
+
+                if (kind.value === "Income" &&
+                    !incomeCategories.includes(category.value)) {
+                    category.value = "OtherIncome";
+                }
+
+                if (kind.value === "Expense" &&
+                    incomeCategories.includes(category.value)) {
+                    category.value = "OtherExpense";
+                }
+            };
+
             toggle?.addEventListener(
                 "change",
                 refresh);
 
+            kind?.addEventListener(
+                "change",
+                adjustCategory);
+
             refresh();
+            adjustCategory();
         })();
     </script>
 }

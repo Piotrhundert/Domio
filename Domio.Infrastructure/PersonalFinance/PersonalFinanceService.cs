@@ -103,7 +103,11 @@ public sealed class PersonalFinanceService(
                             x.OccurredAtUtc,
                             x.Description,
                             x.CorrectsTransactionId,
-                            x.CreatedAtUtc))
+                            x.CreatedAtUtc,
+                            x.CategoryCode,
+                            PersonalFinanceCategories.GetNamePl(
+                                x.CategoryCode),
+                            x.Counterparty))
                     .ToArrayAsync(cancellationToken);
 
         var recurringRules =
@@ -358,6 +362,28 @@ public sealed class PersonalFinanceService(
                 "Opis operacji",
                 500);
 
+        var categoryCode =
+            string.IsNullOrWhiteSpace(
+                request.CategoryCode)
+                ? request.KindCode ==
+                    PersonalTransactionKinds.Income
+                    ? PersonalFinanceCategories.OtherIncome
+                    : PersonalFinanceCategories.OtherExpense
+                : request.CategoryCode.Trim();
+
+        if (!PersonalFinanceCategories.IsValid(
+                categoryCode))
+        {
+            throw new ArgumentException(
+                "Wybrano nieprawidłową kategorię operacji.");
+        }
+
+        var counterparty =
+            NormalizeOptionalText(
+                request.Counterparty,
+                "Kontrahent / źródło",
+                200);
+
         var account =
             await dbContext.PersonalFinancialAccounts
                 .SingleOrDefaultAsync(
@@ -419,6 +445,8 @@ public sealed class PersonalFinanceService(
                     NormalizeOccurredAtUtc(
                         request.OccurredAtUtc,
                         now),
+                CategoryCode = categoryCode,
+                Counterparty = counterparty,
                 Description = description,
                 CreatedByUserId = actorUserId,
                 CreatedAtUtc = now
@@ -1077,6 +1105,12 @@ public sealed class PersonalFinanceService(
                     signedAmountMinor,
                 OccurredAtUtc =
                     actualDate,
+                CategoryCode =
+                    occurrence.CategoryCode ??
+                    rule.CategoryCode,
+                Counterparty =
+                    occurrence.Counterparty ??
+                    rule.Counterparty,
                 Description =
                     description ??
                     occurrence.RuleName ??
@@ -1337,6 +1371,516 @@ public sealed class PersonalFinanceService(
             PersonalFinanceMoney.FromMinorUnits(
                 amountMinor),
             sourceAccount.CurrencyCode);
+    }
+
+    public async Task<PersonalAccountClosureInfo?> GetOwnAccountClosureInfoAsync(
+        Guid accountId,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default)
+    {
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinancePersonalManageOwn,
+            cancellationToken);
+
+        var ownerPersonId =
+            await GetActorPersonIdAsync(
+                actorUserId,
+                cancellationToken);
+
+        var account =
+            await dbContext.PersonalFinancialAccounts
+                .AsNoTracking()
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id == accountId &&
+                        x.OwnerPersonId == ownerPersonId,
+                    cancellationToken);
+
+        if (account is null)
+        {
+            return null;
+        }
+
+        var balanceMinor =
+            await dbContext.PersonalFinancialTransactions
+                .AsNoTracking()
+                .Where(x =>
+                    x.AccountId == account.Id &&
+                    x.OwnerPersonId == ownerPersonId)
+                .SumAsync(
+                    x => x.AmountMinor,
+                    cancellationToken);
+
+        var activeRecurringRules =
+            await dbContext.PersonalRecurringRules
+                .AsNoTracking()
+                .CountAsync(
+                    x =>
+                        x.OwnerPersonId == ownerPersonId &&
+                        x.AccountId == account.Id &&
+                        x.IsActive,
+                    cancellationToken);
+
+        var plannedRecurringOccurrences =
+            await dbContext.PersonalRecurringOccurrences
+                .AsNoTracking()
+                .CountAsync(
+                    x =>
+                        x.OwnerPersonId == ownerPersonId &&
+                        x.AccountId == account.Id &&
+                        x.StatusCode ==
+                            PersonalRecurringOccurrenceStatuses.Planned,
+                    cancellationToken);
+
+        return new PersonalAccountClosureInfo(
+            account.Id,
+            account.Name,
+            PersonalAccountTypes.GetNamePl(
+                account.AccountTypeCode),
+            account.CurrencyCode,
+            PersonalFinanceMoney.FromMinorUnits(
+                balanceMinor),
+            account.IsActive,
+            activeRecurringRules,
+            plannedRecurringOccurrences);
+    }
+
+    public async Task CloseOwnAccountAsync(
+        Guid accountId,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinancePersonalManageOwn,
+            cancellationToken);
+
+        var ownerPersonId =
+            await GetActorPersonIdAsync(
+                actorUserId,
+                cancellationToken);
+
+        var account =
+            await dbContext.PersonalFinancialAccounts
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id == accountId &&
+                        x.OwnerPersonId == ownerPersonId,
+                    cancellationToken)
+            ?? throw new UnauthorizedAccessException(
+                "Konto nie istnieje albo nie należy do zalogowanego użytkownika.");
+
+        if (!account.IsActive)
+        {
+            return;
+        }
+
+        var balanceMinor =
+            await dbContext.PersonalFinancialTransactions
+                .Where(x =>
+                    x.AccountId == account.Id &&
+                    x.OwnerPersonId == ownerPersonId)
+                .SumAsync(
+                    x => x.AmountMinor,
+                    cancellationToken);
+
+        if (balanceMinor != 0)
+        {
+            throw new InvalidOperationException(
+                "Nie można zamknąć konta z niezerowym saldem. Najpierw przenieś lub rozlicz pozostałe środki.");
+        }
+
+        var activeRecurringRules =
+            await dbContext.PersonalRecurringRules
+                .AsNoTracking()
+                .CountAsync(
+                    x =>
+                        x.OwnerPersonId == ownerPersonId &&
+                        x.AccountId == account.Id &&
+                        x.IsActive,
+                    cancellationToken);
+
+        if (activeRecurringRules > 0)
+        {
+            throw new InvalidOperationException(
+                "Nie można zamknąć konta, ponieważ jest używane przez aktywną operację cykliczną. Najpierw przenieś lub zakończ tę regułę.");
+        }
+
+        var plannedRecurringOccurrences =
+            await dbContext.PersonalRecurringOccurrences
+                .AsNoTracking()
+                .CountAsync(
+                    x =>
+                        x.OwnerPersonId == ownerPersonId &&
+                        x.AccountId == account.Id &&
+                        x.StatusCode ==
+                            PersonalRecurringOccurrenceStatuses.Planned,
+                    cancellationToken);
+
+        if (plannedRecurringOccurrences > 0)
+        {
+            throw new InvalidOperationException(
+                "Nie można zamknąć konta, ponieważ istnieją niepotwierdzone planowane operacje. Najpierw je rozlicz lub zakończ odpowiednią regułę.");
+        }
+
+        var now =
+            DateTime.UtcNow;
+
+        account.IsActive =
+            false;
+        account.ArchivedAtUtc =
+            now;
+        account.UpdatedAtUtc =
+            now;
+
+        await using var transaction =
+            await dbContext.Database.BeginTransactionAsync(
+                cancellationToken);
+
+        await dbContext.SaveChangesAsync(
+            cancellationToken);
+
+        await auditService.WriteAsync(
+            new AuditEntry(
+                EventType:
+                    "M03.6.PersonalAccountClosed",
+                EntityType:
+                    "PersonalFinancialAccount",
+                EntityId:
+                    account.Id.ToString(),
+                ActorId:
+                    actorUserId.ToString(),
+                CorrelationId:
+                    correlationId,
+                Description:
+                    "Użytkownik zamknął własne prywatne konto finansowe. Historia operacji została zachowana; nazwa konta i kwoty nie są zapisywane w audycie."),
+            cancellationToken);
+
+        await transaction.CommitAsync(
+            cancellationToken);
+    }
+
+    public async Task<PersonalTransactionCorrectionInfo?> GetOwnTransactionCorrectionInfoAsync(
+        Guid transactionId,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default)
+    {
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinancePersonalViewOwn,
+            cancellationToken);
+
+        var ownerPersonId =
+            await GetActorPersonIdAsync(
+                actorUserId,
+                cancellationToken);
+
+        var transaction =
+            await dbContext.PersonalFinancialTransactions
+                .AsNoTracking()
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id == transactionId &&
+                        x.OwnerPersonId == ownerPersonId,
+                    cancellationToken);
+
+        if (transaction is null)
+        {
+            return null;
+        }
+
+        var account =
+            await dbContext.PersonalFinancialAccounts
+                .AsNoTracking()
+                .SingleAsync(
+                    x =>
+                        x.Id == transaction.AccountId &&
+                        x.OwnerPersonId == ownerPersonId,
+                    cancellationToken);
+
+        var alreadyCorrected =
+            await dbContext.PersonalFinancialTransactions
+                .AsNoTracking()
+                .AnyAsync(
+                    x =>
+                        x.OwnerPersonId == ownerPersonId &&
+                        x.CorrectsTransactionId == transaction.Id,
+                    cancellationToken);
+
+        var canCorrectKind =
+            transaction.KindCode ==
+                PersonalTransactionKinds.Income ||
+            transaction.KindCode ==
+                PersonalTransactionKinds.Expense ||
+            transaction.KindCode ==
+                PersonalTransactionKinds.OpeningBalance;
+
+        var originalAmount =
+            PersonalFinanceMoney.FromMinorUnits(
+                Math.Abs(transaction.AmountMinor));
+
+        return new PersonalTransactionCorrectionInfo(
+            transaction.Id,
+            account.Id,
+            account.Name,
+            account.CurrencyCode,
+            transaction.KindCode,
+            PersonalTransactionKinds.GetNamePl(
+                transaction.KindCode),
+            originalAmount,
+            transaction.OccurredAtUtc,
+            transaction.CategoryCode,
+            PersonalFinanceCategories.GetNamePl(
+                transaction.CategoryCode),
+            transaction.Counterparty,
+            transaction.Description,
+            alreadyCorrected,
+            canCorrectKind &&
+                !alreadyCorrected &&
+                account.IsActive);
+    }
+
+    public async Task<Guid?> CorrectOwnTransactionAsync(
+        CorrectPersonalTransactionRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinancePersonalManageOwn,
+            cancellationToken);
+
+        var ownerPersonId =
+            await GetActorPersonIdAsync(
+                actorUserId,
+                cancellationToken);
+
+        if (request.CorrectedAmount < 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(request.CorrectedAmount),
+                "Prawidłowa kwota nie może być ujemna.");
+        }
+
+        var correctedAmountMinor =
+            PersonalFinanceMoney.ToMinorUnits(
+                request.CorrectedAmount);
+
+        var transaction =
+            await dbContext.PersonalFinancialTransactions
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id == request.TransactionId &&
+                        x.OwnerPersonId == ownerPersonId,
+                    cancellationToken)
+            ?? throw new UnauthorizedAccessException(
+                "Operacja nie istnieje albo nie należy do zalogowanego użytkownika.");
+
+        if (transaction.KindCode !=
+                PersonalTransactionKinds.Income &&
+            transaction.KindCode !=
+                PersonalTransactionKinds.Expense &&
+            transaction.KindCode !=
+                PersonalTransactionKinds.OpeningBalance)
+        {
+            throw new InvalidOperationException(
+                "Tego rodzaju operacji nie można korygować w M03.7. Transfery pozostają niezmienne, ponieważ są parą księgowań.");
+        }
+
+        var account =
+            await dbContext.PersonalFinancialAccounts
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id == transaction.AccountId &&
+                        x.OwnerPersonId == ownerPersonId &&
+                        x.IsActive,
+                    cancellationToken)
+            ?? throw new InvalidOperationException(
+                "Konto tej operacji jest zamknięte. Historia pozostaje dostępna, ale nowych korekt na zamkniętym koncie nie zapisujemy.");
+
+        var alreadyCorrected =
+            await dbContext.PersonalFinancialTransactions
+                .AsNoTracking()
+                .AnyAsync(
+                    x =>
+                        x.OwnerPersonId == ownerPersonId &&
+                        x.CorrectsTransactionId == transaction.Id,
+                    cancellationToken);
+
+        if (alreadyCorrected)
+        {
+            throw new InvalidOperationException(
+                "Ta operacja ma już korektę. W M03.7 każdą operację źródłową można skorygować tylko raz.");
+        }
+
+        string? categoryCode =
+            string.IsNullOrWhiteSpace(
+                request.CategoryCode)
+                ? transaction.CategoryCode
+                : request.CategoryCode.Trim();
+
+        if (!string.IsNullOrWhiteSpace(
+                categoryCode) &&
+            !PersonalFinanceCategories.IsValid(
+                categoryCode))
+        {
+            throw new ArgumentException(
+                "Wybrano nieprawidłową kategorię.");
+        }
+
+        var originalSignedMinor =
+            transaction.AmountMinor;
+
+        long correctedSignedMinor =
+            transaction.KindCode switch
+            {
+                PersonalTransactionKinds.Expense =>
+                    -correctedAmountMinor,
+                _ =>
+                    correctedAmountMinor
+            };
+
+        var deltaMinor =
+            checked(
+                correctedSignedMinor -
+                originalSignedMinor);
+
+        var categoryChanged =
+            !string.Equals(
+                transaction.CategoryCode,
+                categoryCode,
+                StringComparison.Ordinal);
+
+        if (deltaMinor == 0 &&
+            !categoryChanged)
+        {
+            throw new InvalidOperationException(
+                "Nie wykryto żadnej zmiany do zapisania.");
+        }
+
+        if (deltaMinor < 0)
+        {
+            var balanceMinor =
+                await dbContext.PersonalFinancialTransactions
+                    .Where(x =>
+                        x.AccountId == account.Id &&
+                        x.OwnerPersonId == ownerPersonId)
+                    .SumAsync(
+                        x => x.AmountMinor,
+                        cancellationToken);
+
+            if (balanceMinor <
+                Math.Abs(deltaMinor))
+            {
+                throw new InvalidOperationException(
+                    "Korekta zmniejszyłaby saldo poniżej zera. Operacja została zablokowana.");
+            }
+        }
+
+        var now =
+            DateTime.UtcNow;
+
+        await using var dbTransaction =
+            await dbContext.Database.BeginTransactionAsync(
+                cancellationToken);
+
+        Guid? correctionTransactionId =
+            null;
+
+        if (deltaMinor != 0)
+        {
+            correctionTransactionId =
+                Guid.NewGuid();
+
+            dbContext.PersonalFinancialTransactions.Add(
+                new PersonalFinancialTransaction
+                {
+                    Id =
+                        correctionTransactionId.Value,
+                    AccountId =
+                        transaction.AccountId,
+                    OwnerPersonId =
+                        ownerPersonId,
+                    KindCode =
+                        PersonalTransactionKinds.Correction,
+                    AmountMinor =
+                        deltaMinor,
+                    OccurredAtUtc =
+                        transaction.OccurredAtUtc,
+                    CategoryCode =
+                        categoryCode,
+                    Counterparty =
+                        transaction.Counterparty,
+                    Description =
+                        $"Korekta operacji: {transaction.Description ?? transaction.KindCode}",
+                    CorrectsTransactionId =
+                        transaction.Id,
+                    CreatedByUserId =
+                        actorUserId,
+                    CreatedAtUtc =
+                        now
+                });
+        }
+
+        if (categoryChanged)
+        {
+            transaction.CategoryCode =
+                categoryCode;
+        }
+
+        var linkedOccurrence =
+            await dbContext.PersonalRecurringOccurrences
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.ActualTransactionId ==
+                            transaction.Id &&
+                        x.OwnerPersonId ==
+                            ownerPersonId,
+                    cancellationToken);
+
+        if (linkedOccurrence is not null)
+        {
+            linkedOccurrence.ActualAmountMinor =
+                correctedAmountMinor;
+            linkedOccurrence.UpdatedAtUtc =
+                now;
+        }
+
+        account.UpdatedAtUtc =
+            now;
+
+        await dbContext.SaveChangesAsync(
+            cancellationToken);
+
+        await auditService.WriteAsync(
+            new AuditEntry(
+                EventType:
+                    "M03.7.PersonalTransactionCorrected",
+                EntityType:
+                    "PersonalFinancialTransaction",
+                EntityId:
+                    transaction.Id.ToString(),
+                ActorId:
+                    actorUserId.ToString(),
+                CorrelationId:
+                    correlationId,
+                Description:
+                    "Użytkownik skorygował własną operację finansową. Operacja źródłowa pozostała w historii, a zmiana kwoty została zapisana jako powiązana korekta. Kwoty, nazwa konta i opis nie są zapisywane w audycie."),
+            cancellationToken);
+
+        await dbTransaction.CommitAsync(
+            cancellationToken);
+
+        return correctionTransactionId;
     }
 
     private static void ValidateRecurringRuleInput(

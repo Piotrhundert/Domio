@@ -1,0 +1,130 @@
+@model Domio.Web.Models.PersonalFinance.CorrectPersonalTransactionViewModel
+@{
+    ViewData["Title"] = "Korekta operacji";
+}
+
+<div class="finance-page finance-form-page">
+    <div class="finance-page-header">
+        <div>
+            <div class="finance-kicker">
+                M03.7 · KOREKTA OPERACJI
+            </div>
+            <h1>Skoryguj błędną operację</h1>
+            <p>
+                Operacja źródłowa nie zostanie usunięta.
+                Domio zapisze osobną korektę powiązaną z pierwotnym wpisem.
+            </p>
+        </div>
+
+        <a asp-action="Index"
+           class="btn btn-outline-secondary">
+            Wróć
+        </a>
+    </div>
+
+    <form asp-action="CorrectOperation"
+          method="post"
+          class="finance-form-card">
+
+        <input asp-for="TransactionId"
+               type="hidden" />
+
+        <div asp-validation-summary="ModelOnly"
+             class="text-danger mb-3 px-4 pt-4"></div>
+
+        <div class="finance-correction-source">
+            <div>
+                <span>Konto</span>
+                <strong>@Model.AccountName</strong>
+            </div>
+
+            <div>
+                <span>Rodzaj</span>
+                <strong>@Model.KindNamePl</strong>
+            </div>
+
+            <div>
+                <span>Data źródłowa</span>
+                <strong>
+                    @Model.OccurredAt.ToString("dd.MM.yyyy")
+                </strong>
+            </div>
+
+            <div>
+                <span>Kwota źródłowa</span>
+                <strong>
+                    @Model.OriginalAmount.ToString("N2")
+                    @Model.CurrencyCode
+                </strong>
+            </div>
+
+            <div class="finance-correction-source-wide">
+                <span>Opis źródłowy</span>
+                <strong>
+                    @(string.IsNullOrWhiteSpace(Model.OriginalDescription)
+                        ? "—"
+                        : Model.OriginalDescription)
+                </strong>
+            </div>
+        </div>
+
+        <div class="finance-form-section">
+            <h2>Prawidłowe dane</h2>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="CorrectedAmount"
+                           class="form-label"></label>
+                    <div class="input-group">
+                        <input asp-for="CorrectedAmount"
+                               class="form-control"
+                               type="number"
+                               step="0.01"
+                               min="0" />
+                        <span class="input-group-text">
+                            @Model.CurrencyCode
+                        </span>
+                    </div>
+                    <span asp-validation-for="CorrectedAmount"
+                          class="text-danger small"></span>
+                    <div class="form-text">
+                        Wpisz 0,00, jeśli chcesz całkowicie
+                        anulować wpływ tej operacji na saldo.
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="CategoryCode"
+                           class="form-label"></label>
+                    <select asp-for="CategoryCode"
+                            asp-items="Model.Categories"
+                            class="form-select">
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="finance-form-info">
+            Przykład: wydatek 120,00 zł zapisany omyłkowo
+            jako 100,00 zł poprawiasz przez wpisanie prawidłowej
+            kwoty 100,00 zł. Domio zachowa wpis 120,00 zł i dopisze
+            korektę +20,00 zł.
+        </div>
+
+        <div class="finance-form-actions">
+            <a asp-action="Index"
+               class="btn btn-outline-secondary">
+                Anuluj
+            </a>
+
+            <button type="submit"
+                    class="btn btn-primary">
+                Zapisz korektę
+            </button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

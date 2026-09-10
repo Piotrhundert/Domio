@@ -147,7 +147,7 @@ public sealed class PersonalFinanceController(
                 FrequencyCode =
                     PersonalRecurringFrequencies.Monthly,
                 CategoryCode =
-                    PersonalFinanceCategories.Subscription
+                    PersonalFinanceCategories.OtherExpense
             };
 
         RebuildOperationOptions(
@@ -227,7 +227,9 @@ public sealed class PersonalFinanceController(
                                 model.OccurredOn.Date
                                     .AddHours(12),
                                 DateTimeKind.Utc),
-                            model.Description),
+                            model.Description,
+                            model.CategoryCode,
+                            model.Counterparty),
                         GetCurrentUserId(),
                         HttpContext.TraceIdentifier,
                         cancellationToken);
@@ -707,6 +709,222 @@ public sealed class PersonalFinanceController(
         return RedirectToAction(nameof(Index));
     }
 
+    [HttpGet]
+    [Authorize(
+        Policy = SystemPermissions.FinancePersonalManageOwn)]
+    public async Task<IActionResult> CloseAccount(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var info =
+            await personalFinanceService
+                .GetOwnAccountClosureInfoAsync(
+                    id,
+                    GetCurrentUserId(),
+                    cancellationToken);
+
+        if (info is null)
+        {
+            return NotFound();
+        }
+
+        return View(
+            new ClosePersonalAccountViewModel
+            {
+                AccountId = info.AccountId,
+                Name = info.Name,
+                AccountTypeNamePl =
+                    info.AccountTypeNamePl,
+                CurrencyCode =
+                    info.CurrencyCode,
+                Balance =
+                    info.Balance,
+                IsActive =
+                    info.IsActive,
+                ActiveRecurringRules =
+                    info.ActiveRecurringRules,
+                PlannedRecurringOccurrences =
+                    info.PlannedRecurringOccurrences
+            });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(
+        Policy = SystemPermissions.FinancePersonalManageOwn)]
+    public async Task<IActionResult> CloseAccountConfirmed(
+        Guid accountId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await personalFinanceService
+                .CloseOwnAccountAsync(
+                    accountId,
+                    GetCurrentUserId(),
+                    HttpContext.TraceIdentifier,
+                    cancellationToken);
+        }
+        catch (InvalidOperationException exception)
+        {
+            TempData["PersonalFinanceError"] =
+                exception.Message;
+
+            return RedirectToAction(
+                nameof(CloseAccount),
+                new { id = accountId });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        TempData["PersonalFinanceMessage"] =
+            "Konto zostało zamknięte. Historia operacji pozostała zachowana.";
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    [HttpGet]
+    [Authorize(
+        Policy = SystemPermissions.FinancePersonalManageOwn)]
+    public async Task<IActionResult> CorrectOperation(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        var info =
+            await personalFinanceService
+                .GetOwnTransactionCorrectionInfoAsync(
+                    id,
+                    GetCurrentUserId(),
+                    cancellationToken);
+
+        if (info is null)
+        {
+            return NotFound();
+        }
+
+        if (!info.CanCorrect)
+        {
+            TempData["PersonalFinanceError"] =
+                info.AlreadyCorrected
+                    ? "Ta operacja ma już zapisaną korektę."
+                    : "Tej operacji nie można skorygować.";
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        var model =
+            new CorrectPersonalTransactionViewModel
+            {
+                TransactionId =
+                    info.TransactionId,
+                AccountName =
+                    info.AccountName,
+                CurrencyCode =
+                    info.CurrencyCode,
+                KindNamePl =
+                    info.KindNamePl,
+                OriginalAmount =
+                    info.OriginalAmount,
+                CorrectedAmount =
+                    info.OriginalAmount,
+                OccurredAt =
+                    info.OccurredAtUtc
+                        .ToLocalTime(),
+                OriginalDescription =
+                    info.Description,
+                CategoryCode =
+                    info.CategoryCode
+            };
+
+        RebuildCorrectionCategories(
+            model);
+
+        return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(
+        Policy = SystemPermissions.FinancePersonalManageOwn)]
+    public async Task<IActionResult> CorrectOperation(
+        CorrectPersonalTransactionViewModel model,
+        CancellationToken cancellationToken = default)
+    {
+        var info =
+            await personalFinanceService
+                .GetOwnTransactionCorrectionInfoAsync(
+                    model.TransactionId,
+                    GetCurrentUserId(),
+                    cancellationToken);
+
+        if (info is null)
+        {
+            return NotFound();
+        }
+
+        model.AccountName =
+            info.AccountName;
+        model.CurrencyCode =
+            info.CurrencyCode;
+        model.KindNamePl =
+            info.KindNamePl;
+        model.OriginalAmount =
+            info.OriginalAmount;
+        model.OccurredAt =
+            info.OccurredAtUtc
+                .ToLocalTime();
+        model.OriginalDescription =
+            info.Description;
+
+        RebuildCorrectionCategories(
+            model);
+
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        try
+        {
+            await personalFinanceService
+                .CorrectOwnTransactionAsync(
+                    new CorrectPersonalTransactionRequest(
+                        model.TransactionId,
+                        model.CorrectedAmount,
+                        model.CategoryCode),
+                    GetCurrentUserId(),
+                    HttpContext.TraceIdentifier,
+                    cancellationToken);
+        }
+        catch (ArgumentException exception)
+        {
+            ModelState.AddModelError(
+                string.Empty,
+                exception.Message);
+
+            return View(model);
+        }
+        catch (InvalidOperationException exception)
+        {
+            ModelState.AddModelError(
+                string.Empty,
+                exception.Message);
+
+            return View(model);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        TempData["PersonalFinanceMessage"] =
+            "Korekta została zapisana. Operacja źródłowa pozostała w historii.";
+
+        return RedirectToAction(nameof(Index));
+    }
+
     private Guid GetCurrentUserId()
     {
         var value =
@@ -908,6 +1126,23 @@ public sealed class PersonalFinanceController(
                         Selected =
                             x.AccountId ==
                             model.TargetAccountId
+                    })
+                .ToList();
+    }
+
+    private static void RebuildCorrectionCategories(
+        CorrectPersonalTransactionViewModel model)
+    {
+        model.Categories =
+            PersonalFinanceCategories.All
+                .Select(x =>
+                    new SelectListItem
+                    {
+                        Value = x.Code,
+                        Text = x.NamePl,
+                        Selected =
+                            x.Code ==
+                            model.CategoryCode
                     })
                 .ToList();
     }

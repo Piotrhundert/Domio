@@ -44,9 +44,9 @@ public sealed class DomioDbContext : DbContext
             entity.HasData(new SchemaVersionRecord
             {
                 Id = 1,
-                Version = 10,
+                Version = 11,
                 UpdatedAtUtc = new DateTime(
-                    2026, 9, 10, 8, 15, 0, DateTimeKind.Utc)
+                    2026, 9, 10, 10, 56, 0, DateTimeKind.Utc)
             });
         });
 
@@ -122,6 +122,10 @@ public sealed class DomioDbContext : DbContext
                 .IsRequired();
             entity.Property(x => x.OccurredAtUtc)
                 .IsRequired();
+            entity.Property(x => x.CategoryCode)
+                .HasMaxLength(50);
+            entity.Property(x => x.Counterparty)
+                .HasMaxLength(200);
             entity.Property(x => x.Description)
                 .HasMaxLength(500);
             entity.Property(x => x.CreatedAtUtc)
@@ -129,6 +133,7 @@ public sealed class DomioDbContext : DbContext
 
             entity.HasIndex(x => x.AccountId);
             entity.HasIndex(x => x.OwnerPersonId);
+            entity.HasIndex(x => x.CategoryCode);
             entity.HasIndex(x => new
             {
                 x.OwnerPersonId,

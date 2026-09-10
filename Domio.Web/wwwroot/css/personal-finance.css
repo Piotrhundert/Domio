@@ -569,3 +569,75 @@
 .finance-transfer-info strong {
   color: #244d52;
 }
+
+
+.finance-account-close-action {
+  color: #9a4545;
+}
+
+.finance-account-close-action:hover {
+  color: #7e2f2f;
+}
+
+.finance-close-blockers {
+  display: grid;
+  gap: 8px;
+  margin: 0 22px 22px;
+  padding: 15px 17px;
+  border: 1px solid #efd8b9;
+  border-radius: 12px;
+  background: #fffaf2;
+  color: #785229;
+  font-size: 0.79rem;
+  line-height: 1.55;
+}
+
+.finance-close-blockers strong {
+  color: #65411c;
+}
+
+.finance-close-blockers span {
+  display: block;
+}
+
+
+.finance-correction-source {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  margin: 22px;
+  overflow: hidden;
+  border: 1px solid var(--domio-border);
+  border-radius: 13px;
+  background: var(--domio-border);
+}
+
+.finance-correction-source > div {
+  display: grid;
+  gap: 3px;
+  padding: 13px 15px;
+  background: #fff;
+}
+
+.finance-correction-source span {
+  color: var(--domio-muted);
+  font-size: 0.69rem;
+}
+
+.finance-correction-source strong {
+  font-size: 0.82rem;
+}
+
+.finance-correction-source-wide {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 760px) {
+  .finance-correction-source {
+    grid-template-columns: 1fr;
+  }
+
+  .finance-correction-source-wide {
+    grid-column: auto;
+  }
+}
