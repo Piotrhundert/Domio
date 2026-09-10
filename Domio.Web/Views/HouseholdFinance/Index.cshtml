@@ -1,0 +1,265 @@
+@using Domio.Application.Authorization
+@using Domio.Domain.Users
+@model Domio.Web.Models.HouseholdFinance.HouseholdFinanceIndexViewModel
+@{
+    ViewData["Title"] = "Finanse domu";
+
+    var canManage =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.FinanceHouseholdManage);
+
+    var overview =
+        Model.Overview;
+}
+
+<div class="household-finance-page">
+    <div class="household-finance-header">
+        <div>
+            <div class="household-finance-kicker">
+                M04.1 · FINANSE DOMU
+            </div>
+
+            <h1>Finanse domu</h1>
+
+            <p>
+                Wspólne rachunki i gotówka gospodarstwa są prowadzone
+                osobno od prywatnych finansów domowników.
+            </p>
+        </div>
+
+        @if (canManage)
+        {
+            <div class="household-finance-header-actions">
+                @if (overview is not null &&
+                     overview.Accounts.Any(x => x.IsActive))
+                {
+                    <a asp-action="AddOperation"
+                       class="btn btn-outline-primary">
+                        + Dodaj operację
+                    </a>
+                }
+
+                <a asp-action="CreateAccount"
+                   class="btn btn-primary">
+                    + Dodaj konto domu
+                </a>
+            </div>
+        }
+    </div>
+
+    @if (TempData["HouseholdFinanceMessage"] is string message)
+    {
+        <div class="alert alert-success mb-4"
+             role="alert">
+            @message
+        </div>
+    }
+
+    @if (overview is null)
+    {
+        <div class="household-finance-empty">
+            <div class="household-finance-empty-icon">D</div>
+
+            <h2>Brak skonfigurowanego gospodarstwa</h2>
+
+            <p>
+                Pierwsze konto domu utworzy jednocześnie podstawowy
+                rekord gospodarstwa. Na tym etapie M04.1 nie są jeszcze
+                obsługiwane składki domowników ani faktury.
+            </p>
+
+            @if (canManage)
+            {
+                <a asp-action="CreateAccount"
+                   class="btn btn-primary">
+                    Utwórz pierwsze konto domu
+                </a>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="household-finance-summary-card">
+            <div>
+                <span>Gospodarstwo</span>
+                <strong>@overview.HouseholdName</strong>
+            </div>
+
+            <div>
+                <span>Waluta bazowa</span>
+                <strong>@overview.CurrencyCode</strong>
+            </div>
+
+            <div>
+                <span>Konta</span>
+                <strong>@overview.Accounts.Count</strong>
+            </div>
+        </div>
+
+        <section class="household-finance-section">
+            <div class="household-finance-section-heading">
+                <div>
+                    <div class="household-finance-section-number">01</div>
+                    <h2>Konta gospodarstwa</h2>
+                    <p>
+                        Konto bankowe, gotówka lub inne wspólne konto.
+                        Saldo wynika wyłącznie z zaksięgowanych wpisów.
+                    </p>
+                </div>
+            </div>
+
+            @if (overview.Accounts.Count == 0)
+            {
+                <div class="household-finance-empty compact">
+                    <h3>Brak kont</h3>
+                    <p>Dodaj pierwsze konto gospodarstwa.</p>
+                </div>
+            }
+            else
+            {
+                <div class="household-account-grid">
+                    @foreach (var account in overview.Accounts)
+                    {
+                        <article class="household-account-card @(account.IsActive ? "" : "is-closed")">
+                            <div class="household-account-card-top">
+                                <div>
+                                    <span class="household-account-type">
+                                        @account.AccountTypeNamePl
+                                    </span>
+
+                                    <h3>@account.Name</h3>
+                                </div>
+
+                                <span class="household-account-status @(account.IsActive ? "is-active" : "is-inactive")">
+                                    @(account.IsActive ? "Aktywne" : "Zamknięte")
+                                </span>
+                            </div>
+
+                            <div class="household-account-balance">
+                                <span>Saldo</span>
+                                <strong>
+                                    @account.Balance.ToString("N2")
+                                    @account.CurrencyCode
+                                </strong>
+                            </div>
+
+                            @if (canManage && account.IsActive)
+                            {
+                                <a asp-action="AddOperation"
+                                   asp-route-accountId="@account.AccountId"
+                                   class="household-account-action">
+                                    Dodaj wpływ lub wydatek →
+                                </a>
+                            }
+                        </article>
+                    }
+                </div>
+            }
+        </section>
+
+        <section class="household-finance-section">
+            <div class="household-finance-section-heading">
+                <div>
+                    <div class="household-finance-section-number">02</div>
+                    <h2>Ostatnie księgowania</h2>
+                    <p>
+                        Każdy wpis zmienia rzeczywiste saldo wskazanego
+                        konta domu i może wskazywać proces źródłowy.
+                    </p>
+                </div>
+            </div>
+
+            @if (overview.RecentEntries.Count == 0)
+            {
+                <div class="household-finance-empty compact">
+                    <h3>Brak operacji</h3>
+                    <p>
+                        Zaksięgowane wpływy i wydatki pojawią się tutaj.
+                    </p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive household-finance-table-wrap">
+                    <table class="table household-finance-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Konto</th>
+                                <th>Rodzaj</th>
+                                <th>Kategoria</th>
+                                <th>Opis / źródło</th>
+                                <th class="text-end">Kwota</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                        @foreach (var entry in overview.RecentEntries)
+                        {
+                            var isExpense =
+                                entry.Amount < 0;
+
+                            <tr>
+                                <td>
+                                    @(entry.OccurredAtUtc
+                                        .ToLocalTime()
+                                        .ToString("dd.MM.yyyy"))
+                                </td>
+
+                                <td>
+                                    <strong>@entry.AccountName</strong>
+                                </td>
+
+                                <td>
+                                    <span class="household-entry-kind">
+                                        @entry.EntryTypeNamePl
+                                    </span>
+                                </td>
+
+                                <td>
+                                    @entry.CategoryNamePl
+                                </td>
+
+                                <td>
+                                    @(string.IsNullOrWhiteSpace(entry.Description)
+                                        ? "—"
+                                        : entry.Description)
+
+                                    @if (!string.IsNullOrWhiteSpace(entry.SourceType))
+                                    {
+                                        <div class="household-entry-source">
+                                            źródło: @entry.SourceType
+                                            @if (!string.IsNullOrWhiteSpace(entry.SourceId))
+                                            {
+                                                <span>· @entry.SourceId</span>
+                                            }
+                                        </div>
+                                    }
+                                </td>
+
+                                <td class="text-end">
+                                    <span class="household-entry-amount @(isExpense ? "is-expense" : "is-income")">
+                                        @(entry.Amount > 0 ? "+" : "")
+                                        @entry.Amount.ToString("N2")
+                                        @entry.CurrencyCode
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+
+        <div class="household-finance-foundation-note">
+            <strong>M04.1 – fundament.</strong>
+            <span>
+                W następnych paczkach do tego samego rejestru
+                HouseholdEntry zostaną podłączone składki domowników,
+                transfery, wpłaty i faktury.
+            </span>
+        </div>
+    }
+</div>

@@ -1,5 +1,6 @@
 using Domio.Domain.Audit;
 using Domio.Domain.Common;
+using Domio.Domain.HouseholdFinance;
 using Domio.Domain.PersonalFinance;
 using Domio.Domain.Users;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +17,10 @@ public sealed class DomioDbContext : DbContext
     public DbSet<SchemaVersionRecord> SchemaVersions => Set<SchemaVersionRecord>();
     public DbSet<DatabaseMetadataRecord> DatabaseMetadata => Set<DatabaseMetadataRecord>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<Household> Households => Set<Household>();
+    public DbSet<HouseholdMember> HouseholdMembers => Set<HouseholdMember>();
+    public DbSet<HouseholdAccount> HouseholdAccounts => Set<HouseholdAccount>();
+    public DbSet<HouseholdEntry> HouseholdEntries => Set<HouseholdEntry>();
     public DbSet<PersonalFinancialAccount> PersonalFinancialAccounts =>
         Set<PersonalFinancialAccount>();
     public DbSet<PersonalFinancialTransaction> PersonalFinancialTransactions =>
@@ -44,9 +49,9 @@ public sealed class DomioDbContext : DbContext
             entity.HasData(new SchemaVersionRecord
             {
                 Id = 1,
-                Version = 11,
+                Version = 12,
                 UpdatedAtUtc = new DateTime(
-                    2026, 9, 10, 10, 56, 0, DateTimeKind.Utc)
+                    2026, 9, 10, 11, 47, 0, DateTimeKind.Utc)
             });
         });
 
@@ -75,6 +80,153 @@ public sealed class DomioDbContext : DbContext
             entity.HasIndex(x => x.CreatedAtUtc);
             entity.HasIndex(x => x.CorrelationId);
             entity.HasIndex(x => x.EventType);
+        });
+
+        modelBuilder.Entity<Household>(entity =>
+        {
+            entity.ToTable("Households");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Name)
+                .HasMaxLength(160)
+                .IsRequired();
+            entity.Property(x => x.CurrencyCode)
+                .HasMaxLength(3)
+                .IsRequired();
+            entity.Property(x => x.IsActive)
+                .IsRequired();
+            entity.Property(x => x.CreatedAtUtc)
+                .IsRequired();
+            entity.Property(x => x.UpdatedAtUtc)
+                .IsRequired();
+
+            entity.HasIndex(x => x.IsActive);
+
+            entity.HasOne<UserAccount>()
+                .WithMany()
+                .HasForeignKey(x => x.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<HouseholdMember>(entity =>
+        {
+            entity.ToTable("HouseholdMembers");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.IsActive)
+                .IsRequired();
+            entity.Property(x => x.JoinedAtUtc)
+                .IsRequired();
+            entity.Property(x => x.LeftAtUtc);
+
+            entity.HasIndex(x => x.HouseholdId);
+            entity.HasIndex(x => x.PersonId);
+            entity.HasIndex(x => new
+            {
+                x.HouseholdId,
+                x.PersonId
+            })
+                .IsUnique();
+
+            entity.HasOne<Household>()
+                .WithMany()
+                .HasForeignKey(x => x.HouseholdId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<Person>()
+                .WithMany()
+                .HasForeignKey(x => x.PersonId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<HouseholdAccount>(entity =>
+        {
+            entity.ToTable("HouseholdAccounts");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Name)
+                .HasMaxLength(120)
+                .IsRequired();
+            entity.Property(x => x.AccountTypeCode)
+                .HasMaxLength(50)
+                .IsRequired();
+            entity.Property(x => x.CurrencyCode)
+                .HasMaxLength(3)
+                .IsRequired();
+            entity.Property(x => x.IsActive)
+                .IsRequired();
+            entity.Property(x => x.CreatedAtUtc)
+                .IsRequired();
+            entity.Property(x => x.UpdatedAtUtc)
+                .IsRequired();
+            entity.Property(x => x.ArchivedAtUtc);
+
+            entity.HasIndex(x => x.HouseholdId);
+            entity.HasIndex(x => new
+            {
+                x.HouseholdId,
+                x.IsActive
+            });
+
+            entity.HasOne<Household>()
+                .WithMany()
+                .HasForeignKey(x => x.HouseholdId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<HouseholdEntry>(entity =>
+        {
+            entity.ToTable("HouseholdEntries");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.EntryTypeCode)
+                .HasMaxLength(50)
+                .IsRequired();
+            entity.Property(x => x.AmountMinor)
+                .IsRequired();
+            entity.Property(x => x.OccurredAtUtc)
+                .IsRequired();
+            entity.Property(x => x.CategoryCode)
+                .HasMaxLength(50);
+            entity.Property(x => x.Description)
+                .HasMaxLength(500);
+            entity.Property(x => x.SourceType)
+                .HasMaxLength(100);
+            entity.Property(x => x.SourceId)
+                .HasMaxLength(200);
+            entity.Property(x => x.CreatedAtUtc)
+                .IsRequired();
+
+            entity.HasIndex(x => x.HouseholdId);
+            entity.HasIndex(x => x.AccountId);
+            entity.HasIndex(x => x.CategoryCode);
+            entity.HasIndex(x => new
+            {
+                x.HouseholdId,
+                x.OccurredAtUtc
+            });
+            entity.HasIndex(x => new
+            {
+                x.SourceType,
+                x.SourceId
+            });
+            entity.HasIndex(x => x.CorrectsEntryId);
+
+            entity.HasOne<Household>()
+                .WithMany()
+                .HasForeignKey(x => x.HouseholdId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<HouseholdAccount>()
+                .WithMany()
+                .HasForeignKey(x => x.AccountId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<UserAccount>()
+                .WithMany()
+                .HasForeignKey(x => x.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<HouseholdEntry>()
+                .WithMany()
+                .HasForeignKey(x => x.CorrectsEntryId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<PersonalFinancialAccount>(entity =>

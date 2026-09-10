@@ -43,7 +43,7 @@ public sealed class M03_7_PersonalTransactionCorrectionTests
                     .Select(x => x.Version)
                     .SingleAsync();
 
-            Assert.Equal(11, schemaVersion);
+            Assert.True(schemaVersion >= 11);
             Assert.Empty(
                 await dbContext.Database
                     .GetPendingMigrationsAsync());

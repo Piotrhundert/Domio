@@ -23,6 +23,11 @@
         User.HasClaim(
             DomioClaimTypes.Permission,
             SystemPermissions.FinancePersonalViewOwn);
+
+    var canViewHouseholdFinance =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.FinanceHouseholdView);
 }
 <!DOCTYPE html>
 <html lang="pl">
@@ -42,6 +47,9 @@
           asp-append-version="true" />
     <link rel="stylesheet"
           href="~/css/personal-finance.css"
+          asp-append-version="true" />
+    <link rel="stylesheet"
+          href="~/css/household-finance.css"
           asp-append-version="true" />
     <link rel="stylesheet"
           href="~/Domio.Web.styles.css"
@@ -150,10 +158,22 @@
                         </a>
                     }
 
-                    <span class="domio-side-link is-disabled">
-                        <span class="domio-side-icon">D</span>
-                        <span>Finanse domu</span>
-                    </span>
+                    @if (canViewHouseholdFinance)
+                    {
+                        <a asp-controller="HouseholdFinance"
+                           asp-action="Index"
+                           class="domio-side-link">
+                            <span class="domio-side-icon">D</span>
+                            <span>Finanse domu</span>
+                        </a>
+                    }
+                    else
+                    {
+                        <span class="domio-side-link is-disabled">
+                            <span class="domio-side-icon">D</span>
+                            <span>Finanse domu</span>
+                        </span>
+                    }
 
                     <span class="domio-side-link is-disabled">
                         <span class="domio-side-icon">N</span>
@@ -178,7 +198,7 @@
     <footer class="domio-footer">
         <div class="container-fluid px-4 d-flex flex-column flex-md-row justify-content-between gap-2">
             <span>Domio · domowe centrum zarządzania</span>
-            <span>M03.9 · finanse osobiste — regresja i brama G03</span>
+            <span>M04.1 · finanse domu — fundament kont i księgowań</span>
         </div>
     </footer>
 

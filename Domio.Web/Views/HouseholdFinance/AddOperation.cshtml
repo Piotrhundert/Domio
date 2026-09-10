@@ -1,0 +1,151 @@
+@model Domio.Web.Models.HouseholdFinance.AddHouseholdOperationViewModel
+@{
+    ViewData["Title"] = "Dodaj operację domu";
+}
+
+<div class="household-finance-page household-finance-form-page">
+    <div class="household-finance-header">
+        <div>
+            <div class="household-finance-kicker">
+                M04.1 · NOWA OPERACJA DOMU
+            </div>
+
+            <h1>Dodaj wpływ lub wydatek</h1>
+
+            <p>
+                Operacja zmieni rzeczywiste saldo wspólnego konta.
+                Prywatne konta domowników pozostają odseparowane.
+            </p>
+        </div>
+
+        <a asp-action="Index"
+           class="btn btn-outline-secondary">
+            Wróć
+        </a>
+    </div>
+
+    <form asp-action="AddOperation"
+          method="post"
+          class="household-finance-form-card">
+
+        <div asp-validation-summary="ModelOnly"
+             class="text-danger mb-3"></div>
+
+        <div class="row g-3">
+            <div class="col-md-7">
+                <label asp-for="AccountId"
+                       class="form-label"></label>
+                <select asp-for="AccountId"
+                        asp-items="Model.Accounts"
+                        class="form-select">
+                </select>
+            </div>
+
+            <div class="col-md-5">
+                <label asp-for="EntryTypeCode"
+                       class="form-label"></label>
+                <select asp-for="EntryTypeCode"
+                        asp-items="Model.EntryTypes"
+                        class="form-select"
+                        id="household-entry-type">
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="Amount"
+                       class="form-label"></label>
+                <input asp-for="Amount"
+                       class="form-control"
+                       type="number"
+                       step="0.01"
+                       min="0.01" />
+                <span asp-validation-for="Amount"
+                      class="text-danger small"></span>
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="OccurredOn"
+                       class="form-label"></label>
+                <input asp-for="OccurredOn"
+                       class="form-control"
+                       type="date" />
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="CategoryCode"
+                       class="form-label"></label>
+                <select asp-for="CategoryCode"
+                        asp-items="Model.Categories"
+                        class="form-select"
+                        id="household-category">
+                </select>
+            </div>
+
+            <div class="col-12">
+                <label asp-for="Description"
+                       class="form-label"></label>
+                <textarea asp-for="Description"
+                          class="form-control"
+                          rows="3"
+                          placeholder="np. rachunek za internet, zakup do domu"></textarea>
+                <span asp-validation-for="Description"
+                      class="text-danger small"></span>
+            </div>
+        </div>
+
+        <div class="household-finance-warning">
+            <strong>Kontrola środków:</strong>
+            <span>
+                Wydatek zostanie odrzucony, jeśli saldo wskazanego
+                konta jest mniejsze od kwoty operacji.
+            </span>
+        </div>
+
+        <div class="household-finance-form-actions">
+            <a asp-action="Index"
+               class="btn btn-outline-secondary">
+                Anuluj
+            </a>
+
+            <button type="submit"
+                    class="btn btn-primary">
+                Zaksięguj operację
+            </button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        (() => {
+            const type =
+                document.getElementById("household-entry-type");
+
+            const category =
+                document.getElementById("household-category");
+
+            const refreshCategory = () => {
+                if (!type || !category) {
+                    return;
+                }
+
+                if (type.value === "Income") {
+                    category.value = "HouseholdIncome";
+                }
+
+                if (type.value === "Expense" &&
+                    category.value === "HouseholdIncome") {
+                    category.value = "OtherExpense";
+                }
+            };
+
+            type?.addEventListener(
+                "change",
+                refreshCategory);
+
+            refreshCategory();
+        })();
+    </script>
+}

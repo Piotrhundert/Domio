@@ -29,6 +29,11 @@
         User.HasClaim(
             DomioClaimTypes.Permission,
             SystemPermissions.FinancePersonalViewOwn);
+
+    var canViewHouseholdFinance =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.FinanceHouseholdView);
 }
 
 <div class="container-fluid px-4 py-4">
@@ -44,14 +49,14 @@
                 <h1>Witaj, @User.Identity?.Name</h1>
                 <p>
                     Jesteś zalogowany jako <strong>@role</strong>.
-                    Moduł finansów osobistych jest dostępny
-                    wyłącznie w zakresie własnych danych.
+                    Finanse osobiste pozostają prywatne,
+                    a finanse domu działają jako odrębny wspólny obszar.
                 </p>
             </div>
         </div>
 
         <div class="domio-status-badge">
-            M03.9 · Regresja modułu i brama G03
+            M04.1 · Fundament finansów domu
         </div>
     </div>
 
@@ -81,6 +86,39 @@
                     <p>
                         Twoja rola nie ma dostępu
                         do finansów osobistych.
+                    </p>
+                    <span class="badge text-bg-light">
+                        Brak dostępu
+                    </span>
+                </div>
+            }
+        </div>
+
+        <div class="col-md-6 col-xl-3">
+            @if (canViewHouseholdFinance)
+            {
+                <a asp-controller="HouseholdFinance"
+                   asp-action="Index"
+                   class="domio-module-card domio-module-card-link">
+                    <div class="domio-module-icon">D</div>
+                    <h2>Finanse domu</h2>
+                    <p>
+                        Wspólne konta, gotówka,
+                        wpływy i wydatki gospodarstwa.
+                    </p>
+                    <span class="badge text-bg-primary">
+                        Otwórz finanse domu
+                    </span>
+                </a>
+            }
+            else
+            {
+                <div class="domio-module-card">
+                    <div class="domio-module-icon">D</div>
+                    <h2>Finanse domu</h2>
+                    <p>
+                        Twoja rola nie ma dostępu
+                        do wspólnych finansów.
                     </p>
                     <span class="badge text-bg-light">
                         Brak dostępu

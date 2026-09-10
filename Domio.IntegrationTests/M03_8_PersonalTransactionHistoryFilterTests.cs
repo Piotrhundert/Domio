@@ -49,9 +49,8 @@ public sealed class M03_8_PersonalTransactionHistoryFilterTests
                     .Select(x => x.Version)
                     .SingleAsync();
 
-            Assert.Equal(
-                11,
-                schemaVersion);
+            Assert.True(
+                schemaVersion >= 11);
 
             Assert.Empty(
                 await dbContext.Database

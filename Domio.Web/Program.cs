@@ -289,7 +289,7 @@ if (isDevelopmentOrTest)
 
         return Results.Ok(new
         {
-            module = "M03",
+            module = "M04",
             package = "M03.1",
             ownerPersonId =
                 overview.OwnerPersonId,
@@ -404,7 +404,7 @@ app.MapGet("/health", async (
                 : "Unhealthy",
             application = "Domio",
             module = "M03",
-            package = "M03.9",
+            package = "M04.1",
             environment =
                 app.Environment.EnvironmentName,
             correlationId =
