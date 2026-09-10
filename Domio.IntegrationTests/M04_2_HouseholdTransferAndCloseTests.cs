@@ -51,9 +51,8 @@ public sealed class M04_2_HouseholdTransferAndCloseTests
                         x.Version)
                     .SingleAsync();
 
-            Assert.Equal(
-                12,
-                schemaVersion);
+            Assert.True(
+                schemaVersion >= 12);
 
             Assert.Empty(
                 await dbContext.Database

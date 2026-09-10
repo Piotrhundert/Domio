@@ -17,7 +17,7 @@
     <div class="household-finance-header">
         <div>
             <div class="household-finance-kicker">
-                M04.2 · FINANSE DOMU
+                M04.3 · FINANSE DOMU
             </div>
 
             <h1>Finanse domu</h1>
@@ -31,6 +31,14 @@
         @if (canManage)
         {
             <div class="household-finance-header-actions">
+                @if (overview is not null)
+                {
+                    <a asp-action="Contributions"
+                       class="btn btn-outline-secondary">
+                        Składki domowników
+                    </a>
+                }
+
                 @if (overview is not null &&
                      overview.Accounts.Count(x => x.IsActive) >= 2)
                 {
@@ -288,11 +296,11 @@
         </section>
 
         <div class="household-finance-foundation-note">
-            <strong>M04.2 – transfery i zamykanie kont.</strong>
+            <strong>M04.3 – cykliczne składki domowników.</strong>
             <span>
-                Transfer pomiędzy kontami domu zapisuje dwie strony
-                tej samej operacji przez wspólny SourceId. Zamknięcie
-                konta nie usuwa żadnego wcześniejszego księgowania.
+                Reguły składek tworzą miesięczne zobowiązania
+                na podstawie planowanego wynagrodzenia. Samo zobowiązanie
+                nie zmienia jeszcze salda konta domu.
             </span>
         </div>
     }

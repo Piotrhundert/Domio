@@ -1,0 +1,232 @@
+@using Domio.Domain.HouseholdFinance
+@model Domio.Web.Models.HouseholdFinance.CreateHouseholdContributionRuleViewModel
+@{
+    ViewData["Title"] = "Nowa reguła składki";
+}
+
+<div class="household-finance-page household-finance-form-page">
+    <div class="household-finance-header">
+        <div>
+            <div class="household-finance-kicker">
+                M04.3 · SKŁADKA DLA ROLI
+            </div>
+
+            <h1>Utwórz cykliczną składkę</h1>
+
+            <p>
+                Wybierz rolę, np. Domownik. Domio utworzy taką samą
+                zasadę składki osobno dla każdego aktywnego użytkownika
+                posiadającego tę rolę.
+            </p>
+        </div>
+
+        <a asp-action="Contributions"
+           class="btn btn-outline-secondary">
+            Wróć
+        </a>
+    </div>
+
+    <form asp-action="CreateContributionRule"
+          method="post"
+          class="household-finance-form-card">
+
+        <div asp-validation-summary="ModelOnly"
+             class="text-danger mb-3"></div>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label asp-for="RoleDefinitionId"
+                       class="form-label"></label>
+
+                <select asp-for="RoleDefinitionId"
+                        asp-items="Model.Roles"
+                        class="form-select">
+                </select>
+
+                <div class="form-text">
+                    Obecnie składkę zbiorczą można ustawić dla roli
+                    Administrator lub Domownik.
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="ModeCode"
+                       class="form-label"></label>
+
+                <select asp-for="ModeCode"
+                        asp-items="Model.Modes"
+                        class="form-select"
+                        id="contribution-mode">
+                </select>
+            </div>
+
+            <div class="col-md-6"
+                 id="fixed-amount-wrap">
+                <label asp-for="FixedAmount"
+                       class="form-label"></label>
+
+                <input asp-for="FixedAmount"
+                       type="number"
+                       step="0.01"
+                       min="0.01"
+                       class="form-control" />
+
+                <span asp-validation-for="FixedAmount"
+                      class="text-danger small"></span>
+            </div>
+
+            <div class="col-md-6"
+                 id="percentage-wrap">
+                <label asp-for="Percentage"
+                       class="form-label"></label>
+
+                <div class="input-group">
+                    <input asp-for="Percentage"
+                           type="number"
+                           step="0.01"
+                           min="0.01"
+                           max="100"
+                           class="form-control" />
+                    <span class="input-group-text">%</span>
+                </div>
+
+                <span asp-validation-for="Percentage"
+                      class="text-danger small"></span>
+            </div>
+
+            <div class="col-12">
+                <div class="household-finance-info mt-0">
+                    <strong>Planowane wynagrodzenie jest dobierane osobno dla każdej osoby.</strong>
+                    <span>
+                        Brak wynagrodzenia nie blokuje już utworzenia składki.
+                        Jeśli użytkownik doda je później w finansach osobistych,
+                        Domio automatycznie powiąże regułę przy najbliższym
+                        przeliczeniu i wygeneruje zobowiązania. Prywatne saldo
+                        i historia użytkownika pozostają niewidoczne.
+                    </span>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="DueOffsetDays"
+                       class="form-label"></label>
+
+                <input asp-for="DueOffsetDays"
+                       type="number"
+                       min="0"
+                       max="31"
+                       class="form-control" />
+
+                <div class="form-text">
+                    Termin każdej osoby = jej planowana data wypłaty
+                    + ta liczba dni.
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="TargetHouseholdAccountId"
+                       class="form-label"></label>
+
+                <select asp-for="TargetHouseholdAccountId"
+                        asp-items="Model.TargetAccounts"
+                        class="form-select">
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="ValidFrom"
+                       class="form-label"></label>
+
+                <input asp-for="ValidFrom"
+                       type="date"
+                       class="form-control" />
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="ValidTo"
+                       class="form-label"></label>
+
+                <input asp-for="ValidTo"
+                       type="date"
+                       class="form-control" />
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="ReminderDays"
+                       class="form-label"></label>
+
+                <input asp-for="ReminderDays"
+                       type="number"
+                       min="0"
+                       max="31"
+                       class="form-control" />
+            </div>
+        </div>
+
+        <div class="household-finance-warning">
+            <strong>Zmiana dotyczy wszystkich użytkowników wybranej roli.</strong>
+            <span>
+                Przykład: jeśli rolę Domownik mają Anna i Piotr,
+                ustawienie 30% utworzy osobną regułę dla Anny oraz
+                osobną regułę dla Piotra. Jeśli Piotr nie ma jeszcze
+                wynagrodzenia, jego reguła będzie oczekiwać do chwili,
+                aż doda planowane wynagrodzenie.
+            </span>
+        </div>
+
+        <div class="household-finance-info">
+            <strong>Przykład procentowy.</strong>
+            <span>
+                Plan 5 800 zł × 30% = 1 740 zł. Jeśli faktycznie wpłynie
+                6 100 zł, zobowiązanie pozostaje 1 740 zł.
+            </span>
+        </div>
+
+        <div class="household-finance-form-actions">
+            <a asp-action="Contributions"
+               class="btn btn-outline-secondary">
+                Anuluj
+            </a>
+
+            <button type="submit"
+                    class="btn btn-primary">
+                Ustaw dla całej roli
+            </button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        (() => {
+            const mode =
+                document.getElementById("contribution-mode");
+
+            const fixedWrap =
+                document.getElementById("fixed-amount-wrap");
+
+            const percentageWrap =
+                document.getElementById("percentage-wrap");
+
+            const refreshMode = () => {
+                if (!mode || !fixedWrap || !percentageWrap) {
+                    return;
+                }
+
+                const percentage =
+                    mode.value === "PercentageOfIncome";
+
+                fixedWrap.hidden = percentage;
+                percentageWrap.hidden = !percentage;
+            };
+
+            mode?.addEventListener(
+                "change",
+                refreshMode);
+
+            refreshMode();
+        })();
+    </script>
+}

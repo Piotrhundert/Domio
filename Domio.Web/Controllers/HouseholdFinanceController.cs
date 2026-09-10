@@ -464,6 +464,247 @@ public sealed class HouseholdFinanceController(
             nameof(Index));
     }
 
+    [HttpGet]
+    [Authorize(
+        Policy = SystemPermissions.FinanceHouseholdView)]
+    public async Task<IActionResult> Contributions(
+        CancellationToken cancellationToken = default)
+    {
+        var overview =
+            await householdFinanceService
+                .GetContributionOverviewAsync(
+                    GetCurrentUserId(),
+                    cancellationToken);
+
+        var model =
+            new HouseholdContributionIndexViewModel
+            {
+                Overview =
+                    overview
+            };
+
+        if (overview is not null &&
+            overview.CanManage)
+        {
+            model.CandidatePeople =
+                overview.MemberCandidates
+                    .Select(x =>
+                        new SelectListItem
+                        {
+                            Value =
+                                x.PersonId.ToString(),
+                            Text =
+                                $"{x.DisplayName} · {x.LoginName}"
+                        })
+                    .ToList();
+        }
+
+        return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(
+        Policy = SystemPermissions.FinanceHouseholdManage)]
+    public async Task<IActionResult> AddHouseholdMember(
+        HouseholdContributionIndexViewModel model,
+        CancellationToken cancellationToken = default)
+    {
+        if (!model.CandidatePersonId.HasValue)
+        {
+            TempData["HouseholdFinanceError"] =
+                "Wybierz domownika do dodania.";
+
+            return RedirectToAction(
+                nameof(Contributions));
+        }
+
+        try
+        {
+            await householdFinanceService
+                .AddHouseholdMemberAsync(
+                    new AddHouseholdMemberRequest(
+                        model.CandidatePersonId.Value),
+                    GetCurrentUserId(),
+                    HttpContext.TraceIdentifier,
+                    cancellationToken);
+        }
+        catch (ArgumentException exception)
+        {
+            TempData["HouseholdFinanceError"] =
+                exception.Message;
+
+            return RedirectToAction(
+                nameof(Contributions));
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        TempData["HouseholdFinanceMessage"] =
+            "Domownik został dodany do gospodarstwa.";
+
+        return RedirectToAction(
+            nameof(Contributions));
+    }
+
+    [HttpGet]
+    [Authorize(
+        Policy = SystemPermissions.FinanceHouseholdManage)]
+    public async Task<IActionResult> CreateContributionRule(
+        CancellationToken cancellationToken = default)
+    {
+        var overview =
+            await householdFinanceService
+                .GetContributionOverviewAsync(
+                    GetCurrentUserId(),
+                    cancellationToken);
+
+        if (overview is null)
+        {
+            TempData["HouseholdFinanceError"] =
+                "Najpierw utwórz konto gospodarstwa.";
+
+            return RedirectToAction(
+                nameof(Index));
+        }
+
+        if (overview.Roles.Count == 0)
+        {
+            TempData["HouseholdFinanceError"] =
+                "Brak roli z aktywnymi użytkownikami, dla której można utworzyć składkę.";
+
+            return RedirectToAction(
+                nameof(Contributions));
+        }
+
+        if (overview.TargetAccounts.Count == 0)
+        {
+            TempData["HouseholdFinanceError"] =
+                "Brak aktywnego konta docelowego gospodarstwa.";
+
+            return RedirectToAction(
+                nameof(Contributions));
+        }
+
+        var firstRole =
+            overview.Roles[0];
+
+        var firstAccount =
+            overview.TargetAccounts[0];
+
+        var model =
+            new CreateHouseholdContributionRuleViewModel
+            {
+                RoleDefinitionId =
+                    firstRole.RoleDefinitionId,
+                ModeCode =
+                    HouseholdContributionModes.FixedAmount,
+                FixedAmount =
+                    0.01m,
+                Percentage =
+                    30m,
+                DueOffsetDays =
+                    7,
+                TargetHouseholdAccountId =
+                    firstAccount.AccountId,
+                ValidFrom =
+                    DateTime.Today,
+                ReminderDays =
+                    3
+            };
+
+        RebuildContributionRuleOptions(
+            model,
+            overview);
+
+        return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(
+        Policy = SystemPermissions.FinanceHouseholdManage)]
+    public async Task<IActionResult> CreateContributionRule(
+        CreateHouseholdContributionRuleViewModel model,
+        CancellationToken cancellationToken = default)
+    {
+        var overview =
+            await householdFinanceService
+                .GetContributionOverviewAsync(
+                    GetCurrentUserId(),
+                    cancellationToken);
+
+        if (overview is null)
+        {
+            return NotFound();
+        }
+
+        RebuildContributionRuleOptions(
+            model,
+            overview);
+
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        try
+        {
+            var result =
+                await householdFinanceService
+                    .CreateContributionRuleAsync(
+                        new CreateHouseholdContributionRuleRequest(
+                            model.RoleDefinitionId,
+                            model.ModeCode,
+                            model.FixedAmount,
+                            model.Percentage,
+                            model.DueOffsetDays,
+                            model.TargetHouseholdAccountId,
+                            DateTime.SpecifyKind(
+                                model.ValidFrom.Date,
+                                DateTimeKind.Utc),
+                            model.ValidTo.HasValue
+                                ? DateTime.SpecifyKind(
+                                    model.ValidTo.Value.Date,
+                                    DateTimeKind.Utc)
+                                : null,
+                            model.ReminderDays),
+                        GetCurrentUserId(),
+                        HttpContext.TraceIdentifier,
+                        cancellationToken);
+
+            TempData["HouseholdFinanceMessage"] =
+                result.RulesWaitingForIncomePlan > 0
+                    ? $"Reguła została ustawiona dla roli {result.RoleNamePl}. Utworzono {result.RulesCreated} reguł; {result.RulesWaitingForIncomePlan} oczekuje na dodanie planowanego wynagrodzenia."
+                    : $"Reguła została ustawiona dla roli {result.RoleNamePl}. Utworzono {result.RulesCreated} indywidualnych reguł dla {result.UsersMatched} użytkowników.";
+        }
+        catch (ArgumentException exception)
+        {
+            ModelState.AddModelError(
+                string.Empty,
+                exception.Message);
+
+            return View(model);
+        }
+        catch (InvalidOperationException exception)
+        {
+            ModelState.AddModelError(
+                string.Empty,
+                exception.Message);
+
+            return View(model);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        return RedirectToAction(
+            nameof(Contributions));
+    }
+
     private Guid GetCurrentUserId()
     {
         var value =
@@ -589,6 +830,58 @@ public sealed class HouseholdFinanceController(
                         Selected =
                             x.AccountId ==
                             model.TargetAccountId
+                    })
+                .ToList();
+    }
+
+    private static void RebuildContributionRuleOptions(
+        CreateHouseholdContributionRuleViewModel model,
+        HouseholdContributionOverview overview)
+    {
+        model.Roles =
+            overview.Roles
+                .Select(x =>
+                    new SelectListItem
+                    {
+                        Value =
+                            x.RoleDefinitionId.ToString(),
+                        Text =
+                            $"{x.RoleNamePl} · {x.UserCount} użytk.",
+                        Selected =
+                            x.RoleDefinitionId ==
+                            model.RoleDefinitionId
+                    })
+                .ToList();
+
+        model.Modes =
+            HouseholdContributionModes.All
+                .Select(x =>
+                    new SelectListItem
+                    {
+                        Value =
+                            x.Code,
+                        Text =
+                            x.NamePl,
+                        Selected =
+                            x.Code ==
+                            model.ModeCode
+                    })
+                .ToList();
+
+        model.TargetAccounts =
+            overview.TargetAccounts
+                .Where(x =>
+                    x.IsActive)
+                .Select(x =>
+                    new SelectListItem
+                    {
+                        Value =
+                            x.AccountId.ToString(),
+                        Text =
+                            $"{x.Name} · {x.Balance:N2} {x.CurrencyCode}",
+                        Selected =
+                            x.AccountId ==
+                            model.TargetHouseholdAccountId
                     })
                 .ToList();
     }

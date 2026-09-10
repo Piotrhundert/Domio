@@ -54,9 +54,8 @@ public sealed class M04_1_HouseholdFinanceFoundationTests
                         x.Version)
                     .SingleAsync();
 
-            Assert.Equal(
-                12,
-                schemaVersion);
+            Assert.True(
+                schemaVersion >= 12);
 
             Assert.Empty(
                 await dbContext.Database

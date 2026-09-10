@@ -34,4 +34,20 @@ public interface IHouseholdFinanceService
         Guid actorUserId,
         string correlationId,
         CancellationToken cancellationToken = default);
+
+    Task<HouseholdContributionOverview?> GetContributionOverviewAsync(
+        Guid actorUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<Guid> AddHouseholdMemberAsync(
+        AddHouseholdMemberRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
+
+    Task<HouseholdContributionBatchResult> CreateContributionRuleAsync(
+        CreateHouseholdContributionRuleRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
 }

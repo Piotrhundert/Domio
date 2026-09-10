@@ -399,3 +399,143 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+.household-contribution-members {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--domio-border);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.household-contribution-member-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.household-contribution-member-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #eef6f6;
+  color: #416e73;
+  font-size: 0.72rem;
+  font-weight: 720;
+}
+
+.household-contribution-add-member {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 10px;
+}
+
+.household-contribution-rule-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  gap: 14px;
+}
+
+.household-contribution-rule-card {
+  padding: 17px;
+  border: 1px solid var(--domio-border);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.household-contribution-rule-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.household-contribution-rule-top span:first-child {
+  color: var(--domio-muted);
+  font-size: 0.68rem;
+}
+
+.household-contribution-rule-top h3 {
+  margin: 3px 0 0;
+  font-size: 1rem;
+  font-weight: 760;
+}
+
+.household-contribution-rule-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+  margin: 0;
+}
+
+.household-contribution-rule-details div {
+  display: grid;
+  gap: 2px;
+}
+
+.household-contribution-rule-details dt {
+  color: var(--domio-muted);
+  font-size: 0.66rem;
+  font-weight: 650;
+}
+
+.household-contribution-rule-details dd {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 710;
+}
+
+.household-contribution-status {
+  display: inline-flex;
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 760;
+  background: #f0f3f4;
+  color: #536267;
+}
+
+.household-contribution-status.pending {
+  background: #eef4fb;
+  color: #466b95;
+}
+
+.household-contribution-status.partiallypaid {
+  background: #fff6df;
+  color: #8a671c;
+}
+
+.household-contribution-status.paid {
+  background: #eaf8f0;
+  color: #2d7550;
+}
+
+.household-contribution-status.overdue {
+  background: #fdeeee;
+  color: #9a4545;
+}
+
+@media (max-width: 760px) {
+  .household-contribution-add-member {
+    grid-template-columns: 1fr;
+  }
+
+  .household-contribution-rule-details {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+.household-contribution-pending-income {
+  margin-top: 12px;
+  padding: 9px 11px;
+  border: 1px solid #eadcbf;
+  border-radius: 10px;
+  background: #fffaf1;
+  color: #795c2e;
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
