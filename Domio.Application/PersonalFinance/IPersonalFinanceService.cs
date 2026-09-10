@@ -51,4 +51,10 @@ public interface IPersonalFinanceService
         Guid actorUserId,
         string correlationId,
         CancellationToken cancellationToken = default);
+
+    Task<PersonalTransferResult> TransferBetweenOwnAccountsAsync(
+        CreatePersonalTransferRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
 }

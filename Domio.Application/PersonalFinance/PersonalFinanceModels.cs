@@ -106,3 +106,19 @@ public sealed record ConfirmPersonalRecurringOccurrenceRequest(
     decimal ActualAmount,
     DateTime ActualDateUtc,
     string? Description);
+
+
+public sealed record CreatePersonalTransferRequest(
+    Guid SourceAccountId,
+    Guid TargetAccountId,
+    decimal Amount,
+    DateTime OccurredAtUtc,
+    string? Description);
+
+public sealed record PersonalTransferResult(
+    Guid SourceTransactionId,
+    Guid TargetTransactionId,
+    Guid SourceAccountId,
+    Guid TargetAccountId,
+    decimal Amount,
+    string CurrencyCode);

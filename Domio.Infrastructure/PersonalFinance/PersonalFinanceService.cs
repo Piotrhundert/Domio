@@ -1133,6 +1133,212 @@ public sealed class PersonalFinanceService(
         return financialTransaction.Id;
     }
 
+    public async Task<PersonalTransferResult> TransferBetweenOwnAccountsAsync(
+        CreatePersonalTransferRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinancePersonalManageOwn,
+            cancellationToken);
+
+        var ownerPersonId =
+            await GetActorPersonIdAsync(
+                actorUserId,
+                cancellationToken);
+
+        if (request.SourceAccountId ==
+            request.TargetAccountId)
+        {
+            throw new ArgumentException(
+                "Konto źródłowe i docelowe muszą być różne.");
+        }
+
+        if (request.Amount <= 0)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(request.Amount),
+                "Kwota transferu musi być większa od zera.");
+        }
+
+        var amountMinor =
+            PersonalFinanceMoney.ToMinorUnits(
+                request.Amount);
+
+        var description =
+            NormalizeOptionalText(
+                request.Description,
+                "Opis transferu",
+                300);
+
+        var now =
+            DateTime.UtcNow;
+
+        var occurredAtUtc =
+            NormalizeOccurredAtUtc(
+                request.OccurredAtUtc,
+                now);
+
+        await using var dbTransaction =
+            await dbContext.Database.BeginTransactionAsync(
+                cancellationToken);
+
+        var accounts =
+            await dbContext.PersonalFinancialAccounts
+                .Where(x =>
+                    x.OwnerPersonId == ownerPersonId &&
+                    x.IsActive &&
+                    (x.Id == request.SourceAccountId ||
+                     x.Id == request.TargetAccountId))
+                .ToListAsync(
+                    cancellationToken);
+
+        if (accounts.Count != 2)
+        {
+            throw new UnauthorizedAccessException(
+                "Jedno z kont nie istnieje, jest nieaktywne albo nie należy do zalogowanego użytkownika.");
+        }
+
+        var sourceAccount =
+            accounts.Single(x =>
+                x.Id ==
+                request.SourceAccountId);
+
+        var targetAccount =
+            accounts.Single(x =>
+                x.Id ==
+                request.TargetAccountId);
+
+        if (!string.Equals(
+                sourceAccount.CurrencyCode,
+                targetAccount.CurrencyCode,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Transfer między kontami w różnych walutach nie jest jeszcze obsługiwany.");
+        }
+
+        var sourceBalanceMinor =
+            await dbContext.PersonalFinancialTransactions
+                .Where(x =>
+                    x.AccountId ==
+                        sourceAccount.Id &&
+                    x.OwnerPersonId ==
+                        ownerPersonId)
+                .SumAsync(
+                    x => x.AmountMinor,
+                    cancellationToken);
+
+        if (sourceBalanceMinor <
+            amountMinor)
+        {
+            throw new InvalidOperationException(
+                "Niewystarczające środki na koncie źródłowym. Transfer został zablokowany.");
+        }
+
+        var sourceTransactionId =
+            Guid.NewGuid();
+
+        var targetTransactionId =
+            Guid.NewGuid();
+
+        var sourceDescription =
+            string.IsNullOrWhiteSpace(description)
+                ? $"Transfer do: {targetAccount.Name}"
+                : $"Transfer do: {targetAccount.Name} · {description}";
+
+        var targetDescription =
+            string.IsNullOrWhiteSpace(description)
+                ? $"Transfer z: {sourceAccount.Name}"
+                : $"Transfer z: {sourceAccount.Name} · {description}";
+
+        dbContext.PersonalFinancialTransactions.AddRange(
+            new PersonalFinancialTransaction
+            {
+                Id =
+                    sourceTransactionId,
+                AccountId =
+                    sourceAccount.Id,
+                OwnerPersonId =
+                    ownerPersonId,
+                KindCode =
+                    PersonalTransactionKinds.TransferOut,
+                AmountMinor =
+                    -amountMinor,
+                OccurredAtUtc =
+                    occurredAtUtc,
+                Description =
+                    sourceDescription,
+                CreatedByUserId =
+                    actorUserId,
+                CreatedAtUtc =
+                    now
+            },
+            new PersonalFinancialTransaction
+            {
+                Id =
+                    targetTransactionId,
+                AccountId =
+                    targetAccount.Id,
+                OwnerPersonId =
+                    ownerPersonId,
+                KindCode =
+                    PersonalTransactionKinds.TransferIn,
+                AmountMinor =
+                    amountMinor,
+                OccurredAtUtc =
+                    occurredAtUtc,
+                Description =
+                    targetDescription,
+                CreatedByUserId =
+                    actorUserId,
+                CreatedAtUtc =
+                    now
+            });
+
+        sourceAccount.UpdatedAtUtc =
+            now;
+
+        targetAccount.UpdatedAtUtc =
+            now;
+
+        await dbContext.SaveChangesAsync(
+            cancellationToken);
+
+        await auditService.WriteAsync(
+            new AuditEntry(
+                EventType:
+                    "M03.5.PersonalAccountTransferPosted",
+                EntityType:
+                    "PersonalFinancialTransaction",
+                EntityId:
+                    sourceTransactionId.ToString(),
+                ActorId:
+                    actorUserId.ToString(),
+                CorrelationId:
+                    correlationId,
+                Description:
+                    "Użytkownik wykonał atomowy transfer pomiędzy dwoma własnymi prywatnymi kontami. Kwota, nazwy kont i opis nie są zapisywane w audycie."),
+            cancellationToken);
+
+        await dbTransaction.CommitAsync(
+            cancellationToken);
+
+        return new PersonalTransferResult(
+            sourceTransactionId,
+            targetTransactionId,
+            sourceAccount.Id,
+            targetAccount.Id,
+            PersonalFinanceMoney.FromMinorUnits(
+                amountMinor),
+            sourceAccount.CurrencyCode);
+    }
+
     private static void ValidateRecurringRuleInput(
         string kindCode,
         string name,

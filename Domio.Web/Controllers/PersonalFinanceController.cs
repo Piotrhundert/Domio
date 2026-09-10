@@ -576,6 +576,137 @@ public sealed class PersonalFinanceController(
         return RedirectToAction(nameof(Index));
     }
 
+    [HttpGet]
+    [Authorize(
+        Policy = SystemPermissions.FinancePersonalManageOwn)]
+    public async Task<IActionResult> Transfer(
+        Guid? sourceAccountId,
+        CancellationToken cancellationToken = default)
+    {
+        var overview =
+            await personalFinanceService
+                .GetOwnOverviewAsync(
+                    GetCurrentUserId(),
+                    cancellationToken);
+
+        var activeAccounts =
+            overview.Accounts
+                .Where(x => x.IsActive)
+                .ToArray();
+
+        if (activeAccounts.Length < 2)
+        {
+            TempData["PersonalFinanceMessage"] =
+                "Aby wykonać transfer, potrzebujesz co najmniej dwóch aktywnych prywatnych kont.";
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        var selectedSourceId =
+            sourceAccountId.HasValue &&
+            activeAccounts.Any(x =>
+                x.AccountId == sourceAccountId.Value)
+                ? sourceAccountId.Value
+                : activeAccounts[0].AccountId;
+
+        var selectedTargetId =
+            activeAccounts
+                .First(x =>
+                    x.AccountId != selectedSourceId)
+                .AccountId;
+
+        var model =
+            new PersonalTransferViewModel
+            {
+                SourceAccountId =
+                    selectedSourceId,
+                TargetAccountId =
+                    selectedTargetId,
+                Amount =
+                    0.01m,
+                OccurredOn =
+                    DateTime.Today
+            };
+
+        RebuildTransferOptions(
+            model,
+            activeAccounts);
+
+        return View(model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(
+        Policy = SystemPermissions.FinancePersonalManageOwn)]
+    public async Task<IActionResult> Transfer(
+        PersonalTransferViewModel model,
+        CancellationToken cancellationToken = default)
+    {
+        var overview =
+            await personalFinanceService
+                .GetOwnOverviewAsync(
+                    GetCurrentUserId(),
+                    cancellationToken);
+
+        var activeAccounts =
+            overview.Accounts
+                .Where(x => x.IsActive)
+                .ToArray();
+
+        RebuildTransferOptions(
+            model,
+            activeAccounts);
+
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        try
+        {
+            await personalFinanceService
+                .TransferBetweenOwnAccountsAsync(
+                    new CreatePersonalTransferRequest(
+                        model.SourceAccountId,
+                        model.TargetAccountId,
+                        model.Amount,
+                        DateTime.SpecifyKind(
+                            model.OccurredOn.Date
+                                .AddHours(12),
+                            DateTimeKind.Utc),
+                        model.Description),
+                    GetCurrentUserId(),
+                    HttpContext.TraceIdentifier,
+                    cancellationToken);
+        }
+        catch (ArgumentException exception)
+        {
+            ModelState.AddModelError(
+                string.Empty,
+                exception.Message);
+
+            return View(model);
+        }
+        catch (InvalidOperationException exception)
+        {
+            ModelState.AddModelError(
+                string.Empty,
+                exception.Message);
+
+            return View(model);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        TempData["PersonalFinanceMessage"] =
+            "Transfer pomiędzy własnymi kontami został wykonany.";
+
+        return RedirectToAction(nameof(Index));
+    }
+
     private Guid GetCurrentUserId()
     {
         var value =
@@ -742,6 +873,41 @@ public sealed class PersonalFinanceController(
                         Selected =
                             x.Code ==
                             model.CategoryCode
+                    })
+                .ToList();
+    }
+
+    private static void RebuildTransferOptions(
+        PersonalTransferViewModel model,
+        IReadOnlyList<PersonalAccountSummary> accounts)
+    {
+        model.SourceAccounts =
+            accounts
+                .Select(x =>
+                    new SelectListItem
+                    {
+                        Value =
+                            x.AccountId.ToString(),
+                        Text =
+                            $"{x.Name} · {x.Balance:N2} {x.CurrencyCode}",
+                        Selected =
+                            x.AccountId ==
+                            model.SourceAccountId
+                    })
+                .ToList();
+
+        model.TargetAccounts =
+            accounts
+                .Select(x =>
+                    new SelectListItem
+                    {
+                        Value =
+                            x.AccountId.ToString(),
+                        Text =
+                            $"{x.Name} · {x.Balance:N2} {x.CurrencyCode}",
+                        Selected =
+                            x.AccountId ==
+                            model.TargetAccountId
                     })
                 .ToList();
     }

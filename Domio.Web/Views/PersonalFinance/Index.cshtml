@@ -29,7 +29,7 @@
     <div class="finance-page-header">
         <div>
             <div class="finance-kicker">
-                M03.4 · FINANSE OSOBISTE
+                M03.5 · FINANSE OSOBISTE
             </div>
             <h1>Moje finanse</h1>
             <p>
@@ -41,6 +41,14 @@
         @if (canManage)
         {
             <div class="finance-header-actions">
+                @if (Model.Accounts.Count(x => x.IsActive) >= 2)
+                {
+                    <a asp-action="Transfer"
+                       class="btn btn-outline-primary">
+                        ↔ Transfer między kontami
+                    </a>
+                }
+
                 <a asp-action="AddOperation"
                    class="btn btn-outline-primary">
                     + Dodaj operację
@@ -151,11 +159,22 @@
 
                         @if (canManage && account.IsActive)
                         {
-                            <a asp-action="AddOperation"
-                               asp-route-accountId="@account.AccountId"
-                               class="finance-account-action">
-                                Dodaj przychód lub wydatek →
-                            </a>
+                            <div class="finance-account-actions">
+                                <a asp-action="AddOperation"
+                                   asp-route-accountId="@account.AccountId"
+                                   class="finance-account-action">
+                                    Dodaj przychód lub wydatek →
+                                </a>
+
+                                @if (Model.Accounts.Count(x => x.IsActive) >= 2)
+                                {
+                                    <a asp-action="Transfer"
+                                       asp-route-sourceAccountId="@account.AccountId"
+                                       class="finance-account-action">
+                                        Przelej z tego konta →
+                                    </a>
+                                }
+                            </div>
                         }
                     </article>
                 }

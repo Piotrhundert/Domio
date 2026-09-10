@@ -212,3 +212,36 @@ public sealed class DeletePersonalRecurringRuleViewModel
 
     public string FrequencyNamePl { get; set; } = string.Empty;
 }
+
+
+public sealed class PersonalTransferViewModel
+{
+    [Required]
+    [Display(Name = "Z konta")]
+    public Guid SourceAccountId { get; set; }
+
+    [Required]
+    [Display(Name = "Na konto")]
+    public Guid TargetAccountId { get; set; }
+
+    [Range(
+        0.01d,
+        999999999999.99d,
+        ErrorMessage =
+            "Kwota transferu musi być większa od zera.")]
+    [Display(Name = "Kwota")]
+    public decimal Amount { get; set; }
+
+    [DataType(DataType.Date)]
+    [Display(Name = "Data transferu")]
+    public DateTime OccurredOn { get; set; } =
+        DateTime.Today;
+
+    [MaxLength(300)]
+    [Display(Name = "Opis")]
+    public string? Description { get; set; }
+
+    public List<SelectListItem> SourceAccounts { get; set; } = [];
+
+    public List<SelectListItem> TargetAccounts { get; set; } = [];
+}

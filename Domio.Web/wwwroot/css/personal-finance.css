@@ -541,3 +541,31 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+.finance-account-actions {
+  display: grid;
+  gap: 7px;
+  margin-top: auto;
+}
+
+.finance-account-actions .finance-account-action {
+  margin-top: 0;
+}
+
+.finance-transfer-info {
+  display: grid;
+  gap: 4px;
+  margin: 0 22px 14px;
+  padding: 14px 16px;
+  border: 1px solid rgba(18, 168, 181, 0.18);
+  border-radius: 12px;
+  background: rgba(239, 250, 249, 0.88);
+  color: #3d6266;
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.finance-transfer-info strong {
+  color: #244d52;
+}

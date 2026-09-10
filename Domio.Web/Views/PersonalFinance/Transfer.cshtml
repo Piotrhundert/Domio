@@ -1,0 +1,161 @@
+@model Domio.Web.Models.PersonalFinance.PersonalTransferViewModel
+@{
+    ViewData["Title"] = "Transfer między kontami";
+}
+
+<div class="finance-page finance-form-page">
+    <div class="finance-page-header">
+        <div>
+            <div class="finance-kicker">
+                M03.5 · TRANSFER
+            </div>
+            <h1>Przelej między własnymi kontami</h1>
+            <p>
+                Transfer tworzy jednocześnie rozchód na koncie źródłowym
+                i wpływ na koncie docelowym.
+            </p>
+        </div>
+
+        <a asp-action="Index"
+           class="btn btn-outline-secondary">
+            Wróć
+        </a>
+    </div>
+
+    <form asp-action="Transfer"
+          method="post"
+          class="finance-form-card">
+
+        <div asp-validation-summary="ModelOnly"
+             class="text-danger mb-3 px-4 pt-4"></div>
+
+        <div class="finance-form-section">
+            <h2>Transfer</h2>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="SourceAccountId"
+                           class="form-label"></label>
+                    <select asp-for="SourceAccountId"
+                            asp-items="Model.SourceAccounts"
+                            class="form-select"
+                            id="transfer-source">
+                    </select>
+                    <span asp-validation-for="SourceAccountId"
+                          class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="TargetAccountId"
+                           class="form-label"></label>
+                    <select asp-for="TargetAccountId"
+                            asp-items="Model.TargetAccounts"
+                            class="form-select"
+                            id="transfer-target">
+                    </select>
+                    <span asp-validation-for="TargetAccountId"
+                          class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-5">
+                    <label asp-for="Amount"
+                           class="form-label"></label>
+                    <input asp-for="Amount"
+                           class="form-control"
+                           type="number"
+                           step="0.01"
+                           min="0.01" />
+                    <span asp-validation-for="Amount"
+                          class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="OccurredOn"
+                           class="form-label"></label>
+                    <input asp-for="OccurredOn"
+                           type="date"
+                           class="form-control" />
+                    <span asp-validation-for="OccurredOn"
+                          class="text-danger small"></span>
+                </div>
+
+                <div class="col-12">
+                    <label asp-for="Description"
+                           class="form-label"></label>
+                    <textarea asp-for="Description"
+                              rows="3"
+                              class="form-control"
+                              placeholder="np. przeniesienie oszczędności"></textarea>
+                    <span asp-validation-for="Description"
+                          class="text-danger small"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="finance-transfer-info">
+            <strong>Transfer jest atomowy.</strong>
+            <span>
+                Albo zostaną zapisane obie strony transferu,
+                albo żadna. Jeśli na koncie źródłowym brakuje środków,
+                Domio zablokuje całą operację.
+            </span>
+        </div>
+
+        <div class="finance-form-info">
+            Na tym etapie transfer jest możliwy tylko pomiędzy
+            własnymi kontami w tej samej walucie.
+        </div>
+
+        <div class="finance-form-actions">
+            <a asp-action="Index"
+               class="btn btn-outline-secondary">
+                Anuluj
+            </a>
+
+            <button type="submit"
+                    class="btn btn-primary">
+                Wykonaj transfer
+            </button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        (() => {
+            const source =
+                document.getElementById("transfer-source");
+            const target =
+                document.getElementById("transfer-target");
+
+            const avoidSameAccount = (changed, other) => {
+                if (!changed || !other) {
+                    return;
+                }
+
+                if (changed.value !== other.value) {
+                    return;
+                }
+
+                const alternative =
+                    Array.from(other.options)
+                        .find(option =>
+                            option.value !== changed.value);
+
+                if (alternative) {
+                    other.value = alternative.value;
+                }
+            };
+
+            source?.addEventListener(
+                "change",
+                () => avoidSameAccount(source, target));
+
+            target?.addEventListener(
+                "change",
+                () => avoidSameAccount(target, source));
+        })();
+    </script>
+}
