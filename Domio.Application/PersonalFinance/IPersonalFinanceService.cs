@@ -79,4 +79,9 @@ public interface IPersonalFinanceService
         Guid actorUserId,
         string correlationId,
         CancellationToken cancellationToken = default);
+
+    Task<PersonalTransactionHistoryResult> GetOwnTransactionHistoryAsync(
+        PersonalTransactionHistoryFilter filter,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default);
 }

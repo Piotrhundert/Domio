@@ -641,3 +641,58 @@
     grid-column: auto;
   }
 }
+
+
+.finance-history-filter-card {
+  margin-bottom: 18px;
+  padding: 18px;
+  border: 1px solid var(--domio-border);
+  border-radius: 14px;
+  background: var(--domio-surface);
+}
+
+.finance-history-filter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.finance-history-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  margin: 0 0 12px;
+  color: var(--domio-muted);
+  font-size: 0.78rem;
+}
+
+.finance-history-summary strong {
+  color: var(--domio-text);
+  font-size: 1rem;
+}
+
+.finance-history-table-wrap {
+  border: 1px solid var(--domio-border);
+  border-radius: 14px;
+  background: var(--domio-surface);
+}
+
+.finance-history-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.finance-history-pagination span {
+  color: var(--domio-muted);
+  font-size: 0.78rem;
+}
+
+@media (max-width: 760px) {
+  .finance-history-pagination {
+    flex-direction: column;
+    gap: 10px;
+  }
+}

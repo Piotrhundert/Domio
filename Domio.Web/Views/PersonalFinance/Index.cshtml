@@ -35,7 +35,7 @@
     <div class="finance-page-header">
         <div>
             <div class="finance-kicker">
-                M03.7 · FINANSE OSOBISTE
+                M03.9 · FINANSE OSOBISTE
             </div>
             <h1>Moje finanse</h1>
             <p>
@@ -47,6 +47,11 @@
         @if (canManage)
         {
             <div class="finance-header-actions">
+                <a asp-action="History"
+                   class="btn btn-outline-secondary">
+                    Historia i filtry
+                </a>
+
                 @if (Model.Accounts.Count(x => x.IsActive) >= 2)
                 {
                     <a asp-action="Transfer"

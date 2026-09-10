@@ -167,3 +167,43 @@ public sealed record CorrectPersonalTransactionRequest(
     Guid TransactionId,
     decimal CorrectedAmount,
     string? CategoryCode);
+
+
+public sealed record PersonalTransactionHistoryFilter(
+    DateTime? FromDateUtc,
+    DateTime? ToDateUtc,
+    Guid? AccountId,
+    string? KindCode,
+    string? CategoryCode,
+    int Page = 1,
+    int PageSize = 50);
+
+public sealed record PersonalTransactionHistoryItem(
+    Guid TransactionId,
+    Guid AccountId,
+    string AccountName,
+    string CurrencyCode,
+    string KindCode,
+    string KindNamePl,
+    decimal Amount,
+    DateTime OccurredAtUtc,
+    string? CategoryCode,
+    string CategoryNamePl,
+    string? Counterparty,
+    string? Description,
+    Guid? CorrectsTransactionId,
+    bool HasCorrection);
+
+public sealed record PersonalTransactionHistoryResult(
+    IReadOnlyList<PersonalTransactionHistoryItem> Items,
+    int TotalCount,
+    int Page,
+    int PageSize)
+{
+    public int TotalPages =>
+        TotalCount == 0
+            ? 1
+            : (int)Math.Ceiling(
+                TotalCount /
+                (double)PageSize);
+}

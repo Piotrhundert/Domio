@@ -404,7 +404,7 @@ app.MapGet("/health", async (
                 : "Unhealthy",
             application = "Domio",
             module = "M03",
-            package = "M03.7",
+            package = "M03.9",
             environment =
                 app.Environment.EnvironmentName,
             correlationId =

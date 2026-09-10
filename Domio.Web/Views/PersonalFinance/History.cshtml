@@ -1,0 +1,266 @@
+@using Domio.Application.Authorization
+@using Domio.Domain.PersonalFinance
+@using Domio.Domain.Users
+@model Domio.Web.Models.PersonalFinance.PersonalTransactionHistoryViewModel
+@{
+    ViewData["Title"] = "Historia operacji";
+
+    var fromDateRoute =
+        Model.FromDate?.ToString("yyyy-MM-dd");
+
+    var toDateRoute =
+        Model.ToDate?.ToString("yyyy-MM-dd");
+
+    var canManage =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.FinancePersonalManageOwn);
+}
+
+<div class="finance-page">
+    <div class="finance-page-header">
+        <div>
+            <div class="finance-kicker">
+                M03.8 · HISTORIA I FILTRY
+            </div>
+            <h1>Historia operacji</h1>
+            <p>
+                Przeglądaj wszystkie własne operacje i filtruj je
+                po dacie, koncie, rodzaju oraz kategorii.
+            </p>
+        </div>
+
+        <a asp-action="Index"
+           class="btn btn-outline-secondary">
+            Wróć do finansów
+        </a>
+    </div>
+
+    <form method="get"
+          asp-action="History"
+          class="finance-history-filter-card">
+
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label asp-for="FromDate"
+                       class="form-label"></label>
+                <input asp-for="FromDate"
+                       type="date"
+                       class="form-control" />
+            </div>
+
+            <div class="col-md-3">
+                <label asp-for="ToDate"
+                       class="form-label"></label>
+                <input asp-for="ToDate"
+                       type="date"
+                       class="form-control" />
+            </div>
+
+            <div class="col-md-3">
+                <label asp-for="AccountId"
+                       class="form-label"></label>
+                <select asp-for="AccountId"
+                        asp-items="Model.Accounts"
+                        class="form-select">
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label asp-for="KindCode"
+                       class="form-label"></label>
+                <select asp-for="KindCode"
+                        asp-items="Model.OperationKinds"
+                        class="form-select">
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="CategoryCode"
+                       class="form-label"></label>
+                <select asp-for="CategoryCode"
+                        asp-items="Model.Categories"
+                        class="form-select">
+                </select>
+            </div>
+
+            <div class="col-md-8">
+                <div class="finance-history-filter-actions">
+                    <button type="submit"
+                            class="btn btn-primary">
+                        Filtruj
+                    </button>
+
+                    <a asp-action="History"
+                       class="btn btn-outline-secondary">
+                        Wyczyść filtry
+                    </a>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <div class="finance-history-summary">
+        <strong>@Model.TotalCount</strong>
+        <span>
+            @(Model.TotalCount == 1
+                ? "operacja"
+                : "operacji")
+        </span>
+
+        @if (Model.TotalPages > 1)
+        {
+            <span>
+                · strona @Model.Page z @Model.TotalPages
+            </span>
+        }
+    </div>
+
+    @if (Model.Items.Count == 0)
+    {
+        <div class="finance-empty">
+            <h3>Brak operacji spełniających filtry</h3>
+            <p>
+                Zmień zakres dat albo wyczyść wybrane kryteria.
+            </p>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive finance-history-table-wrap">
+            <table class="table finance-table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Konto</th>
+                        <th>Rodzaj</th>
+                        <th>Kategoria / kontrahent</th>
+                        <th>Opis</th>
+                        <th class="text-end">Kwota</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var transaction in Model.Items)
+                {
+                    var isExpense =
+                        transaction.Amount < 0;
+
+                    var correctableKind =
+                        transaction.KindCode ==
+                            PersonalTransactionKinds.Income ||
+                        transaction.KindCode ==
+                            PersonalTransactionKinds.Expense ||
+                        transaction.KindCode ==
+                            PersonalTransactionKinds.OpeningBalance;
+
+                    <tr>
+                        <td>
+                            @(transaction.OccurredAtUtc
+                                .ToLocalTime()
+                                .ToString("dd.MM.yyyy"))
+                        </td>
+
+                        <td>
+                            <strong>@transaction.AccountName</strong>
+                        </td>
+
+                        <td>
+                            <span class="finance-kind">
+                                @transaction.KindNamePl
+                            </span>
+
+                            @if (transaction.CorrectsTransactionId.HasValue)
+                            {
+                                <div class="finance-row-meta">
+                                    korekta operacji źródłowej
+                                </div>
+                            }
+                        </td>
+
+                        <td>
+                            <strong>@transaction.CategoryNamePl</strong>
+
+                            @if (!string.IsNullOrWhiteSpace(
+                                transaction.Counterparty))
+                            {
+                                <div class="finance-row-meta">
+                                    @transaction.Counterparty
+                                </div>
+                            }
+                        </td>
+
+                        <td>
+                            @(string.IsNullOrWhiteSpace(
+                                transaction.Description)
+                                ? "—"
+                                : transaction.Description)
+                        </td>
+
+                        <td class="text-end">
+                            <span class="finance-amount @(isExpense ? "is-expense" : "is-income")">
+                                @(transaction.Amount > 0 ? "+" : "")
+                                @transaction.Amount.ToString("N2")
+                                @transaction.CurrencyCode
+                            </span>
+                        </td>
+
+                        <td class="text-end">
+                            @if (canManage &&
+                                 correctableKind &&
+                                 !transaction.HasCorrection &&
+                                 !transaction.CorrectsTransactionId.HasValue)
+                            {
+                                <a asp-action="CorrectOperation"
+                                   asp-route-id="@transaction.TransactionId"
+                                   class="btn btn-sm btn-outline-secondary">
+                                    Koryguj
+                                </a>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+
+        @if (Model.TotalPages > 1)
+        {
+            <nav class="finance-history-pagination"
+                 aria-label="Strony historii operacji">
+
+                @if (Model.Page > 1)
+                {
+                    <a asp-action="History"
+                       asp-route-fromDate="@fromDateRoute"
+                       asp-route-toDate="@toDateRoute"
+                       asp-route-accountId="@Model.AccountId"
+                       asp-route-kindCode="@Model.KindCode"
+                       asp-route-categoryCode="@Model.CategoryCode"
+                       asp-route-page="@(Model.Page - 1)"
+                       class="btn btn-outline-secondary">
+                        ← Poprzednia
+                    </a>
+                }
+
+                <span>
+                    Strona @Model.Page z @Model.TotalPages
+                </span>
+
+                @if (Model.Page < Model.TotalPages)
+                {
+                    <a asp-action="History"
+                       asp-route-fromDate="@fromDateRoute"
+                       asp-route-toDate="@toDateRoute"
+                       asp-route-accountId="@Model.AccountId"
+                       asp-route-kindCode="@Model.KindCode"
+                       asp-route-categoryCode="@Model.CategoryCode"
+                       asp-route-page="@(Model.Page + 1)"
+                       class="btn btn-outline-secondary">
+                        Następna →
+                    </a>
+                }
+            </nav>
+        }
+    }
+</div>

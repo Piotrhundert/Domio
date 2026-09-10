@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using Domio.Application.PersonalFinance;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace Domio.Web.Models.PersonalFinance;
@@ -300,6 +301,43 @@ public sealed class CorrectPersonalTransactionViewModel
 
     [Display(Name = "Kategoria")]
     public string? CategoryCode { get; set; }
+
+    public List<SelectListItem> Categories { get; set; } = [];
+}
+
+
+public sealed class PersonalTransactionHistoryViewModel
+{
+    [DataType(DataType.Date)]
+    [Display(Name = "Od daty")]
+    public DateTime? FromDate { get; set; }
+
+    [DataType(DataType.Date)]
+    [Display(Name = "Do daty")]
+    public DateTime? ToDate { get; set; }
+
+    [Display(Name = "Konto")]
+    public Guid? AccountId { get; set; }
+
+    [Display(Name = "Rodzaj operacji")]
+    public string? KindCode { get; set; }
+
+    [Display(Name = "Kategoria")]
+    public string? CategoryCode { get; set; }
+
+    public int Page { get; set; } = 1;
+
+    public int PageSize { get; set; } = 50;
+
+    public int TotalCount { get; set; }
+
+    public int TotalPages { get; set; } = 1;
+
+    public List<PersonalTransactionHistoryItem> Items { get; set; } = [];
+
+    public List<SelectListItem> Accounts { get; set; } = [];
+
+    public List<SelectListItem> OperationKinds { get; set; } = [];
 
     public List<SelectListItem> Categories { get; set; } = [];
 }

@@ -925,6 +925,86 @@ public sealed class PersonalFinanceController(
         return RedirectToAction(nameof(Index));
     }
 
+    [HttpGet]
+    [Authorize(
+        Policy = SystemPermissions.FinancePersonalViewOwn)]
+    public async Task<IActionResult> History(
+        DateTime? fromDate,
+        DateTime? toDate,
+        Guid? accountId,
+        string? kindCode,
+        string? categoryCode,
+        int page = 1,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var result =
+                await personalFinanceService
+                    .GetOwnTransactionHistoryAsync(
+                        new PersonalTransactionHistoryFilter(
+                            fromDate.HasValue
+                                ? DateTime.SpecifyKind(
+                                    fromDate.Value.Date,
+                                    DateTimeKind.Utc)
+                                : null,
+                            toDate.HasValue
+                                ? DateTime.SpecifyKind(
+                                    toDate.Value.Date,
+                                    DateTimeKind.Utc)
+                                : null,
+                            accountId,
+                            string.IsNullOrWhiteSpace(kindCode)
+                                ? null
+                                : kindCode,
+                            string.IsNullOrWhiteSpace(categoryCode)
+                                ? null
+                                : categoryCode,
+                            page,
+                            50),
+                        GetCurrentUserId(),
+                        cancellationToken);
+
+            var overview =
+                await personalFinanceService
+                    .GetOwnOverviewAsync(
+                        GetCurrentUserId(),
+                        cancellationToken);
+
+            var model =
+                new PersonalTransactionHistoryViewModel
+                {
+                    FromDate = fromDate,
+                    ToDate = toDate,
+                    AccountId = accountId,
+                    KindCode = kindCode,
+                    CategoryCode = categoryCode,
+                    Page = result.Page,
+                    PageSize = result.PageSize,
+                    TotalCount = result.TotalCount,
+                    TotalPages = result.TotalPages,
+                    Items = result.Items.ToList()
+                };
+
+            RebuildHistoryOptions(
+                model,
+                overview.Accounts);
+
+            return View(model);
+        }
+        catch (ArgumentException exception)
+        {
+            TempData["PersonalFinanceError"] =
+                exception.Message;
+
+            return RedirectToAction(nameof(Index));
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+    }
+
     private Guid GetCurrentUserId()
     {
         var value =
@@ -1145,6 +1225,90 @@ public sealed class PersonalFinanceController(
                             model.CategoryCode
                     })
                 .ToList();
+    }
+
+    private static void RebuildHistoryOptions(
+        PersonalTransactionHistoryViewModel model,
+        IReadOnlyList<PersonalAccountSummary> accounts)
+    {
+        model.Accounts =
+        [
+            new SelectListItem
+            {
+                Value = string.Empty,
+                Text = "Wszystkie konta",
+                Selected = !model.AccountId.HasValue
+            },
+            .. accounts
+                .OrderByDescending(x => x.IsActive)
+                .ThenBy(x => x.Name)
+                .Select(x =>
+                    new SelectListItem
+                    {
+                        Value = x.AccountId.ToString(),
+                        Text =
+                            x.IsActive
+                                ? x.Name
+                                : $"{x.Name} (zamknięte)",
+                        Selected =
+                            model.AccountId ==
+                            x.AccountId
+                    })
+        ];
+
+        var transactionKinds =
+            new[]
+            {
+                PersonalTransactionKinds.OpeningBalance,
+                PersonalTransactionKinds.Income,
+                PersonalTransactionKinds.Expense,
+                PersonalTransactionKinds.Correction,
+                PersonalTransactionKinds.TransferIn,
+                PersonalTransactionKinds.TransferOut
+            };
+
+        model.OperationKinds =
+        [
+            new SelectListItem
+            {
+                Value = string.Empty,
+                Text = "Wszystkie rodzaje",
+                Selected =
+                    string.IsNullOrWhiteSpace(
+                        model.KindCode)
+            },
+            .. transactionKinds.Select(code =>
+                new SelectListItem
+                {
+                    Value = code,
+                    Text =
+                        PersonalTransactionKinds.GetNamePl(
+                            code),
+                    Selected =
+                        model.KindCode == code
+                })
+        ];
+
+        model.Categories =
+        [
+            new SelectListItem
+            {
+                Value = string.Empty,
+                Text = "Wszystkie kategorie",
+                Selected =
+                    string.IsNullOrWhiteSpace(
+                        model.CategoryCode)
+            },
+            .. PersonalFinanceCategories.All.Select(x =>
+                new SelectListItem
+                {
+                    Value = x.Code,
+                    Text = x.NamePl,
+                    Selected =
+                        model.CategoryCode ==
+                        x.Code
+                })
+        ];
     }
 
 }

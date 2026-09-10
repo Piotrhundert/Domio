@@ -1883,6 +1883,252 @@ public sealed class PersonalFinanceService(
         return correctionTransactionId;
     }
 
+    public async Task<PersonalTransactionHistoryResult> GetOwnTransactionHistoryAsync(
+        PersonalTransactionHistoryFilter filter,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(filter);
+
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinancePersonalViewOwn,
+            cancellationToken);
+
+        var ownerPersonId =
+            await GetActorPersonIdAsync(
+                actorUserId,
+                cancellationToken);
+
+        var fromDate =
+            filter.FromDateUtc.HasValue
+                ? DateTime.SpecifyKind(
+                    filter.FromDateUtc.Value.Date,
+                    DateTimeKind.Utc)
+                : (DateTime?)null;
+
+        var toDateExclusive =
+            filter.ToDateUtc.HasValue
+                ? DateTime.SpecifyKind(
+                    filter.ToDateUtc.Value.Date.AddDays(1),
+                    DateTimeKind.Utc)
+                : (DateTime?)null;
+
+        if (fromDate.HasValue &&
+            toDateExclusive.HasValue &&
+            fromDate.Value >=
+                toDateExclusive.Value)
+        {
+            throw new ArgumentException(
+                "Data końcowa nie może być wcześniejsza od daty początkowej.");
+        }
+
+        if (filter.AccountId.HasValue)
+        {
+            var accountBelongsToOwner =
+                await dbContext.PersonalFinancialAccounts
+                    .AsNoTracking()
+                    .AnyAsync(
+                        x =>
+                            x.Id ==
+                                filter.AccountId.Value &&
+                            x.OwnerPersonId ==
+                                ownerPersonId,
+                        cancellationToken);
+
+            if (!accountBelongsToOwner)
+            {
+                throw new UnauthorizedAccessException(
+                    "Wybrane konto nie istnieje albo nie należy do zalogowanego użytkownika.");
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(
+                filter.KindCode))
+        {
+            var validKinds =
+                new[]
+                {
+                    PersonalTransactionKinds.OpeningBalance,
+                    PersonalTransactionKinds.Income,
+                    PersonalTransactionKinds.Expense,
+                    PersonalTransactionKinds.Correction,
+                    PersonalTransactionKinds.TransferIn,
+                    PersonalTransactionKinds.TransferOut
+                };
+
+            if (!validKinds.Contains(
+                    filter.KindCode,
+                    StringComparer.Ordinal))
+            {
+                throw new ArgumentException(
+                    "Wybrano nieprawidłowy rodzaj operacji.");
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(
+                filter.CategoryCode) &&
+            !PersonalFinanceCategories.IsValid(
+                filter.CategoryCode))
+        {
+            throw new ArgumentException(
+                "Wybrano nieprawidłową kategorię.");
+        }
+
+        var page =
+            Math.Max(
+                filter.Page,
+                1);
+
+        var pageSize =
+            Math.Clamp(
+                filter.PageSize,
+                10,
+                100);
+
+        var query =
+            from transaction in dbContext.PersonalFinancialTransactions
+                .AsNoTracking()
+            join account in dbContext.PersonalFinancialAccounts
+                .AsNoTracking()
+                on transaction.AccountId equals account.Id
+            where
+                transaction.OwnerPersonId ==
+                    ownerPersonId &&
+                account.OwnerPersonId ==
+                    ownerPersonId
+            select new
+            {
+                Transaction = transaction,
+                Account = account
+            };
+
+        if (fromDate.HasValue)
+        {
+            query =
+                query.Where(x =>
+                    x.Transaction.OccurredAtUtc >=
+                        fromDate.Value);
+        }
+
+        if (toDateExclusive.HasValue)
+        {
+            query =
+                query.Where(x =>
+                    x.Transaction.OccurredAtUtc <
+                        toDateExclusive.Value);
+        }
+
+        if (filter.AccountId.HasValue)
+        {
+            query =
+                query.Where(x =>
+                    x.Transaction.AccountId ==
+                        filter.AccountId.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(
+                filter.KindCode))
+        {
+            query =
+                query.Where(x =>
+                    x.Transaction.KindCode ==
+                        filter.KindCode);
+        }
+
+        if (!string.IsNullOrWhiteSpace(
+                filter.CategoryCode))
+        {
+            query =
+                query.Where(x =>
+                    x.Transaction.CategoryCode ==
+                        filter.CategoryCode);
+        }
+
+        var totalCount =
+            await query.CountAsync(
+                cancellationToken);
+
+        var totalPages =
+            totalCount == 0
+                ? 1
+                : (int)Math.Ceiling(
+                    totalCount /
+                    (double)pageSize);
+
+        if (page > totalPages)
+        {
+            page =
+                totalPages;
+        }
+
+        var rows =
+            await query
+                .OrderByDescending(x =>
+                    x.Transaction.OccurredAtUtc)
+                .ThenByDescending(x =>
+                    x.Transaction.CreatedAtUtc)
+                .Skip(
+                    (page - 1) *
+                    pageSize)
+                .Take(pageSize)
+                .Select(x =>
+                    new
+                    {
+                        x.Transaction.Id,
+                        x.Transaction.AccountId,
+                        AccountName =
+                            x.Account.Name,
+                        x.Account.CurrencyCode,
+                        x.Transaction.KindCode,
+                        x.Transaction.AmountMinor,
+                        x.Transaction.OccurredAtUtc,
+                        x.Transaction.CategoryCode,
+                        x.Transaction.Counterparty,
+                        x.Transaction.Description,
+                        x.Transaction.CorrectsTransactionId,
+                        HasCorrection =
+                            dbContext.PersonalFinancialTransactions
+                                .Any(c =>
+                                    c.OwnerPersonId ==
+                                        ownerPersonId &&
+                                    c.CorrectsTransactionId ==
+                                        x.Transaction.Id)
+                    })
+                .ToArrayAsync(
+                    cancellationToken);
+
+        var items =
+            rows
+                .Select(x =>
+                    new PersonalTransactionHistoryItem(
+                        x.Id,
+                        x.AccountId,
+                        x.AccountName,
+                        x.CurrencyCode,
+                        x.KindCode,
+                        PersonalTransactionKinds.GetNamePl(
+                            x.KindCode),
+                        PersonalFinanceMoney.FromMinorUnits(
+                            x.AmountMinor),
+                        x.OccurredAtUtc,
+                        x.CategoryCode,
+                        PersonalFinanceCategories.GetNamePl(
+                            x.CategoryCode),
+                        x.Counterparty,
+                        x.Description,
+                        x.CorrectsTransactionId,
+                        x.HasCorrection))
+                .ToArray();
+
+        return new PersonalTransactionHistoryResult(
+            items,
+            totalCount,
+            page,
+            pageSize);
+    }
+
     private static void ValidateRecurringRuleInput(
         string kindCode,
         string name,
