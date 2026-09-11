@@ -910,3 +910,128 @@
   font-size: 0.77rem;
   line-height: 1.55;
 }
+
+
+/* M04.6 invoice registry category cards */
+.household-invoice-category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.household-invoice-category-card {
+  display: flex;
+  min-height: 164px;
+  flex-direction: column;
+  gap: 12px;
+  padding: 17px;
+  border: 1px solid var(--domio-border);
+  border-radius: 15px;
+  background: #fff;
+  color: inherit;
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .03);
+  transition:
+    transform .12s ease,
+    border-color .12s ease,
+    box-shadow .12s ease,
+    background .12s ease;
+}
+
+.household-invoice-category-card:hover {
+  transform: translateY(-2px);
+  border-color: #b9cddd;
+  background: #fbfdff;
+  color: inherit;
+  text-decoration: none;
+  box-shadow: 0 10px 26px rgba(16, 24, 40, .07);
+}
+
+.household-invoice-category-card.is-active {
+  border-color: #8fb7df;
+  background: #f4f9ff;
+  box-shadow:
+    0 0 0 1px rgba(143, 183, 223, .16),
+    0 8px 22px rgba(38, 91, 150, .06);
+}
+
+.household-invoice-category-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.household-invoice-category-top > strong {
+  color: #172033;
+  font-size: .98rem;
+  font-weight: 800;
+}
+
+.household-invoice-category-top > span {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #e5f0fb;
+  color: #42678e;
+  font-size: .60rem;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.household-invoice-category-metric {
+  display: grid;
+  gap: 3px;
+}
+
+.household-invoice-category-metric > span,
+.household-invoice-category-meta span,
+.household-invoice-category-card > small {
+  color: var(--domio-muted);
+  font-size: .67rem;
+}
+
+.household-invoice-category-metric > strong {
+  color: #172033;
+  font-size: 1.55rem;
+  font-weight: 820;
+  line-height: 1;
+}
+
+.household-invoice-category-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.household-invoice-category-meta > div {
+  display: grid;
+  gap: 3px;
+  padding: 8px 9px;
+  border-radius: 10px;
+  background: #f6f8fa;
+}
+
+.household-invoice-category-meta strong {
+  color: #26364a;
+  font-size: .74rem;
+  font-weight: 760;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.household-invoice-category-card > small {
+  margin-top: auto;
+  line-height: 1.35;
+}
+
+@media (max-width: 760px) {
+  .household-invoice-category-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .household-invoice-category-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

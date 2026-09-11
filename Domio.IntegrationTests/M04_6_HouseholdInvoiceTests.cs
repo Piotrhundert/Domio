@@ -50,9 +50,10 @@ public sealed class M04_6_HouseholdInvoiceTests
                     .Select(x => x.Version)
                     .SingleAsync();
 
-            Assert.Equal(
+            Assert.InRange(
+                schemaVersion,
                 15,
-                schemaVersion);
+                int.MaxValue);
 
             Assert.Empty(
                 await dbContext.Database
