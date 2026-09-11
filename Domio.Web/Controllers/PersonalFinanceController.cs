@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using Domio.Application.Authorization;
+using Domio.Application.HouseholdFinance;
 using Domio.Application.PersonalFinance;
 using Domio.Domain.PersonalFinance;
 using Domio.Domain.Users;
@@ -11,7 +13,8 @@ namespace Domio.Web.Controllers;
 
 [Authorize]
 public sealed class PersonalFinanceController(
-    IPersonalFinanceService personalFinanceService) : Controller
+    IPersonalFinanceService personalFinanceService,
+    IHouseholdFinanceService householdFinanceService) : Controller
 {
     [HttpGet]
     [Authorize(
@@ -19,13 +22,83 @@ public sealed class PersonalFinanceController(
     public async Task<IActionResult> Index(
         CancellationToken cancellationToken = default)
     {
+        var currentUserId =
+            GetCurrentUserId();
+
         var overview =
             await personalFinanceService
                 .GetOwnOverviewAsync(
-                    GetCurrentUserId(),
+                    currentUserId,
                     cancellationToken);
 
-        return View(overview);
+        HouseholdContributionOverview? contributionOverview =
+            null;
+
+        var canViewHouseholdFinance =
+            User.HasClaim(
+                DomioClaimTypes.Permission,
+                SystemPermissions.FinanceHouseholdView);
+
+        if (canViewHouseholdFinance)
+        {
+            try
+            {
+                contributionOverview =
+                    await householdFinanceService
+                        .GetContributionOverviewAsync(
+                            currentUserId,
+                            cancellationToken);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                contributionOverview =
+                    null;
+            }
+        }
+
+        var currentContributionPeriod =
+            DateTime.UtcNow.ToString(
+                "yyyy-MM",
+                System.Globalization.CultureInfo.InvariantCulture);
+
+        var ownContributions =
+            contributionOverview?.Obligations
+                .Where(x =>
+                    x.IsOwn &&
+                    x.PeriodKey ==
+                        currentContributionPeriod)
+                .OrderBy(x =>
+                    x.DueDateUtc)
+                .Take(1)
+                .ToArray()
+            ?? [];
+
+        var ownPayments =
+            contributionOverview?.PaymentRequests
+                .Where(x =>
+                    x.IsOwn)
+                .OrderByDescending(x =>
+                    x.SubmittedAtUtc)
+                .Take(20)
+                .ToArray()
+            ?? [];
+
+        var model =
+            new PersonalFinanceIndexViewModel
+            {
+                Finance =
+                    overview,
+                OwnContributionObligations =
+                    ownContributions,
+                OwnContributionPayments =
+                    ownPayments,
+                CanPayContributions =
+                    User.HasClaim(
+                        DomioClaimTypes.Permission,
+                        SystemPermissions.FinancePersonalManageOwn)
+            };
+
+        return View(model);
     }
 
     [HttpGet]

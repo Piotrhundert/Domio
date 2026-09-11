@@ -61,20 +61,23 @@ public sealed record HouseholdContributionObligationItem(
     decimal? PlannedIncomeAmount,
     Guid TargetHouseholdAccountId,
     string TargetHouseholdAccountName,
-    string CurrencyCode);
+    string CurrencyCode,
+    bool IsOwn);
 
 public sealed record HouseholdContributionOverview(
     Guid HouseholdId,
     string HouseholdName,
     string CurrencyCode,
     bool CanManage,
+    bool CanApprove,
     IReadOnlyList<HouseholdContributionRoleOption> Roles,
     IReadOnlyList<HouseholdMemberOption> Members,
     IReadOnlyList<HouseholdMemberCandidate> MemberCandidates,
     IReadOnlyList<HouseholdContributionIncomeRuleOption> IncomeRules,
     IReadOnlyList<HouseholdAccountSummary> TargetAccounts,
     IReadOnlyList<HouseholdContributionRuleSummary> Rules,
-    IReadOnlyList<HouseholdContributionObligationItem> Obligations);
+    IReadOnlyList<HouseholdContributionObligationItem> Obligations,
+    IReadOnlyList<HouseholdContributionPaymentRequestItem> PaymentRequests);
 
 public sealed record AddHouseholdMemberRequest(
     Guid PersonId);
@@ -97,3 +100,47 @@ public sealed record HouseholdContributionBatchResult(
     int RulesCreated,
     int RulesWaitingForIncomePlan,
     IReadOnlyList<Guid> RuleIds);
+
+
+public sealed record HouseholdContributionPaymentSourceAccount(
+    Guid AccountId,
+    string Name,
+    string AccountTypeNamePl,
+    string CurrencyCode,
+    decimal Balance);
+
+public sealed record HouseholdContributionPaymentForm(
+    Guid ObligationId,
+    string PeriodKey,
+    decimal ObligationAmount,
+    decimal PaidAmount,
+    decimal OutstandingAmount,
+    DateTime DueDateUtc,
+    string CurrencyCode,
+    string TargetHouseholdAccountName,
+    IReadOnlyList<HouseholdContributionPaymentSourceAccount> SourceAccounts);
+
+public sealed record SubmitHouseholdContributionPaymentRequest(
+    Guid ObligationId,
+    Guid SourcePersonalAccountId,
+    decimal Amount);
+
+public sealed record HouseholdContributionPaymentRequestItem(
+    Guid PaymentRequestId,
+    Guid ObligationId,
+    Guid HouseholdMemberId,
+    string HouseholdMemberName,
+    string PeriodKey,
+    decimal Amount,
+    string CurrencyCode,
+    string StatusCode,
+    string StatusNamePl,
+    DateTime SubmittedAtUtc,
+    DateTime? ReviewedAtUtc,
+    string? ReviewNote,
+    bool IsOwn,
+    string? SourcePersonalAccountName);
+
+public sealed record ReviewHouseholdContributionPaymentRequest(
+    Guid PaymentRequestId,
+    string? ReviewNote);

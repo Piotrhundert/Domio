@@ -770,6 +770,13 @@ public sealed class PersonalFinanceService(
             await dbContext.Database.BeginTransactionAsync(
                 cancellationToken);
 
+        await PrepareContributionDependenciesForOccurrenceReplacementAsync(
+            futurePlannedOccurrences
+                .Select(x => x.Id)
+                .ToArray(),
+            now,
+            cancellationToken);
+
         dbContext.PersonalRecurringOccurrences.RemoveRange(
             futurePlannedOccurrences);
 
@@ -874,6 +881,13 @@ public sealed class PersonalFinanceService(
         await using var transaction =
             await dbContext.Database.BeginTransactionAsync(
                 cancellationToken);
+
+        await PrepareContributionDependenciesForOccurrenceReplacementAsync(
+            futurePlannedOccurrences
+                .Select(x => x.Id)
+                .ToArray(),
+            DateTime.UtcNow,
+            cancellationToken);
 
         dbContext.PersonalRecurringOccurrences.RemoveRange(
             futurePlannedOccurrences);
@@ -2390,6 +2404,92 @@ public sealed class PersonalFinanceService(
             0,
             0,
             DateTimeKind.Utc);
+    }
+
+    private async Task PrepareContributionDependenciesForOccurrenceReplacementAsync(
+        IReadOnlyCollection<Guid> occurrenceIds,
+        DateTime changedAtUtc,
+        CancellationToken cancellationToken)
+    {
+        if (occurrenceIds.Count == 0)
+        {
+            return;
+        }
+
+        var obligations =
+            await dbContext.HouseholdContributionObligations
+                .Where(x =>
+                    x.IncomeOccurrenceId.HasValue &&
+                    occurrenceIds.Contains(
+                        x.IncomeOccurrenceId.Value))
+                .ToListAsync(
+                    cancellationToken);
+
+        if (obligations.Count == 0)
+        {
+            return;
+        }
+
+        var obligationIds =
+            obligations
+                .Select(x => x.Id)
+                .ToArray();
+
+        var obligationsWithPaymentHistory =
+            await dbContext.HouseholdContributionPaymentRequests
+                .AsNoTracking()
+                .Where(x =>
+                    obligationIds.Contains(
+                        x.ObligationId))
+                .Select(x =>
+                    x.ObligationId)
+                .Distinct()
+                .ToArrayAsync(
+                    cancellationToken);
+
+        var protectedObligationIds =
+            obligationsWithPaymentHistory
+                .ToHashSet();
+
+        var removableObligations =
+            obligations
+                .Where(x =>
+                    x.PaidAmountMinor == 0 &&
+                    !protectedObligationIds.Contains(
+                        x.Id))
+                .ToArray();
+
+        var preservedObligations =
+            obligations
+                .Except(
+                    removableObligations)
+                .ToArray();
+
+        // Nieopłacone zobowiązania bez historii wpłat mogą zostać
+        // wygenerowane ponownie z nowej planowanej kwoty wynagrodzenia.
+        if (removableObligations.Length > 0)
+        {
+            dbContext.HouseholdContributionObligations.RemoveRange(
+                removableObligations);
+        }
+
+        // Zobowiązania z historią wpłat są snapshotem miesiąca.
+        // Zachowujemy je, ale odpinamy FK do planowanego wystąpienia,
+        // które za chwilę zostanie zastąpione nowym planem.
+        foreach (var obligation in preservedObligations)
+        {
+            obligation.IncomeOccurrenceId =
+                null;
+
+            obligation.UpdatedAtUtc =
+                changedAtUtc;
+        }
+
+        // Zapis zależności wykonujemy jeszcze w tej samej transakcji,
+        // zanim usuniemy planowane wystąpienia. Dzięki temu SQLite
+        // nie blokuje DELETE przez FOREIGN KEY.
+        await dbContext.SaveChangesAsync(
+            cancellationToken);
     }
 
     private async Task<Guid> GetActorPersonIdAsync(

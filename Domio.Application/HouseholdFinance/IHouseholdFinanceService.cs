@@ -50,4 +50,28 @@ public interface IHouseholdFinanceService
         Guid actorUserId,
         string correlationId,
         CancellationToken cancellationToken = default);
+
+
+    Task<HouseholdContributionPaymentForm?> GetContributionPaymentFormAsync(
+        Guid obligationId,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<Guid> SubmitContributionPaymentAsync(
+        SubmitHouseholdContributionPaymentRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
+
+    Task ApproveContributionPaymentAsync(
+        ReviewHouseholdContributionPaymentRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
+
+    Task RejectContributionPaymentAsync(
+        ReviewHouseholdContributionPaymentRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
 }

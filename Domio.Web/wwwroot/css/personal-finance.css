@@ -696,3 +696,145 @@
     gap: 10px;
   }
 }
+
+
+.finance-contribution-section {
+  margin-top: 22px;
+}
+
+.finance-contribution-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(285px, 1fr));
+  gap: 14px;
+}
+
+.finance-contribution-card {
+  display: flex;
+  min-height: 245px;
+  flex-direction: column;
+  gap: 15px;
+  padding: 18px;
+  border: 1px solid var(--domio-border);
+  border-radius: 15px;
+  background: #fff;
+}
+
+.finance-contribution-card.is-paid {
+  background: #fbfdfc;
+}
+
+.finance-contribution-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.finance-contribution-card-top h3 {
+  margin: 3px 0 0;
+  font-size: 0.98rem;
+  font-weight: 760;
+}
+
+.finance-contribution-period {
+  color: var(--domio-muted);
+  font-size: 0.69rem;
+  font-weight: 760;
+  letter-spacing: 0.05em;
+}
+
+.finance-contribution-amount {
+  display: grid;
+  gap: 3px;
+}
+
+.finance-contribution-amount > span {
+  color: var(--domio-muted);
+  font-size: 0.7rem;
+}
+
+.finance-contribution-amount strong {
+  font-size: 1.45rem;
+  font-weight: 790;
+}
+
+.finance-contribution-amount small {
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.finance-contribution-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.finance-contribution-meta > div {
+  display: grid;
+  gap: 3px;
+}
+
+.finance-contribution-meta span {
+  color: var(--domio-muted);
+  font-size: 0.64rem;
+}
+
+.finance-contribution-meta strong {
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.finance-contribution-card-action {
+  display: flex;
+  align-items: flex-end;
+  min-height: 32px;
+  margin-top: auto;
+}
+
+.finance-contribution-paid,
+.finance-contribution-pending {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 9px;
+  border-radius: 10px;
+  font-size: 0.69rem;
+  font-weight: 720;
+  line-height: 1.35;
+}
+
+.finance-contribution-paid {
+  background: #eaf8f0;
+  color: #2d7550;
+}
+
+.finance-contribution-pending {
+  background: #fff6df;
+  color: #8a671c;
+}
+
+@media (max-width: 760px) {
+  .finance-contribution-meta {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+.finance-table tbody tr.finance-planned-future-row {
+  opacity: 0.52;
+  background: #f7f8fa;
+}
+
+.finance-table tbody tr.finance-planned-future-row td {
+  color: #8a9199;
+}
+
+.finance-table tbody tr.finance-planned-future-row .finance-kind,
+.finance-table tbody tr.finance-planned-future-row .finance-status-planned {
+  filter: grayscale(1);
+  opacity: 0.75;
+}
+
+.finance-table tbody tr.finance-planned-future-row .btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

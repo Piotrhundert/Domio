@@ -1,8 +1,24 @@
 using System.ComponentModel.DataAnnotations;
+using Domio.Application.HouseholdFinance;
 using Domio.Application.PersonalFinance;
 using Microsoft.AspNetCore.Mvc.Rendering;
 
 namespace Domio.Web.Models.PersonalFinance;
+
+public sealed class PersonalFinanceIndexViewModel
+{
+    public required PersonalFinanceOverview Finance { get; init; }
+
+    public IReadOnlyList<HouseholdContributionObligationItem>
+        OwnContributionObligations { get; init; } =
+        [];
+
+    public IReadOnlyList<HouseholdContributionPaymentRequestItem>
+        OwnContributionPayments { get; init; } =
+        [];
+
+    public bool CanPayContributions { get; init; }
+}
 
 public sealed class CreatePersonalAccountViewModel
 {

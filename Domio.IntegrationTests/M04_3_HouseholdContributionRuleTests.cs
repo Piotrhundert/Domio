@@ -57,9 +57,8 @@ public sealed class M04_3_HouseholdContributionRuleTests
                         x.Version)
                     .SingleAsync();
 
-            Assert.Equal(
-                13,
-                schemaVersion);
+            Assert.True(
+                schemaVersion >= 13);
 
             Assert.Empty(
                 await dbContext.Database
@@ -561,6 +560,9 @@ public sealed class M04_3_HouseholdContributionRuleTests
                     administrator.UserId,
                     Guid.NewGuid().ToString("N"));
 
+            var now =
+                DateTime.UtcNow;
+
             var batch =
                 await householdService.CreateContributionRuleAsync(
                     new CreateHouseholdContributionRuleRequest(
@@ -570,7 +572,14 @@ public sealed class M04_3_HouseholdContributionRuleTests
                         30m,
                         7,
                         householdAccountId,
-                        DateTime.UtcNow.Date,
+                        new DateTime(
+                            now.Year,
+                            now.Month,
+                            20,
+                            0,
+                            0,
+                            0,
+                            DateTimeKind.Utc),
                         null,
                         3),
                     administrator.UserId,
@@ -611,9 +620,6 @@ public sealed class M04_3_HouseholdContributionRuleTests
                     noSalaryUserId,
                     Guid.NewGuid().ToString("N"));
 
-            var now =
-                DateTime.UtcNow;
-
             var salaryRuleId =
                 await personalService.CreateOwnRecurringRuleAsync(
                     new CreatePersonalRecurringRuleRequest(
@@ -643,8 +649,10 @@ public sealed class M04_3_HouseholdContributionRuleTests
                 await householdService.GetContributionOverviewAsync(
                     noSalaryUserId);
 
-            Assert.NotNull(
-                memberOverview);
+            var resolvedMemberOverview =
+                memberOverview
+                ?? throw new InvalidOperationException(
+                    "Oczekiwano widoku składek domownika.");
 
             var linkedRule =
                 await dbContext.HouseholdContributionRules
@@ -669,7 +677,7 @@ public sealed class M04_3_HouseholdContributionRuleTests
                     .Single();
 
             var obligation =
-                memberOverview!.Obligations
+                resolvedMemberOverview.Obligations
                     .Single(x =>
                         x.PeriodKey ==
                             salaryOccurrence.PeriodKey);

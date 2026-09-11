@@ -14,7 +14,7 @@ partial class DomioDbContextModelSnapshot : ModelSnapshot
     {
 #pragma warning disable 612, 618
         modelBuilder.HasAnnotation("ProductVersion", "10.0.11");
-        AddHouseholdContributionRules.BuildModel(modelBuilder);
+        AddHouseholdContributionPayments.BuildModel(modelBuilder);
 #pragma warning restore 612, 618
     }
 }

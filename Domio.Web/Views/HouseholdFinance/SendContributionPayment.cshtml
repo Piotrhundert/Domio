@@ -1,0 +1,177 @@
+@model Domio.Web.Models.HouseholdFinance.HouseholdContributionPaymentViewModel
+@{
+    ViewData["Title"] = "Wyślij wpłatę składki";
+}
+
+<div class="household-finance-page household-finance-form-page">
+    <div class="household-finance-header">
+        <div>
+            <div class="household-finance-kicker">
+                M04.4 · WPŁATA DOMOWNIKA
+            </div>
+
+            <h1>Wyślij wpłatę do administratora</h1>
+
+            <p>
+                Wybierz własne konto i kwotę. Na tym etapie pieniądze
+                nie są jeszcze księgowane — administrator musi zaakceptować
+                wpłatę.
+            </p>
+        </div>
+
+        <a asp-action="Contributions"
+           class="btn btn-outline-secondary">
+            Wróć
+        </a>
+    </div>
+
+    <div class="household-finance-form-card">
+        <div class="household-contribution-payment-summary">
+            <div>
+                <span>Miesiąc</span>
+                <strong>@Model.PeriodKey</strong>
+            </div>
+
+            <div>
+                <span>Termin</span>
+                <strong>
+                    @(Model.DueDateUtc
+                        .ToLocalTime()
+                        .ToString("dd.MM.yyyy"))
+                </strong>
+            </div>
+
+            <div>
+                <span>Składka</span>
+                <strong>
+                    @Model.ObligationAmount.ToString("N2")
+                    @Model.CurrencyCode
+                </strong>
+            </div>
+
+            <div>
+                <span>Opłacono</span>
+                <strong>
+                    @Model.PaidAmount.ToString("N2")
+                    @Model.CurrencyCode
+                </strong>
+            </div>
+
+            <div>
+                <span>Pozostało</span>
+                <strong>
+                    @Model.OutstandingAmount.ToString("N2")
+                    @Model.CurrencyCode
+                </strong>
+            </div>
+
+            <div>
+                <span>Konto domu</span>
+                <strong>@Model.TargetHouseholdAccountName</strong>
+            </div>
+        </div>
+
+        @if (Model.SourceAccounts.Count == 0)
+        {
+            <div class="household-close-blocker">
+                <strong>Brak środków do wysłania wpłaty.</strong>
+                <span>
+                    Nie masz aktywnego prywatnego konta w tej walucie
+                    z dodatnim saldem. Dodaj środki w Finansach osobistych
+                    i wróć do tej składki.
+                </span>
+            </div>
+
+            <div class="household-finance-form-actions">
+                <a asp-action="Contributions"
+                   class="btn btn-primary">
+                    Wróć do składek
+                </a>
+            </div>
+        }
+        else
+        {
+            <form asp-action="SendContributionPayment"
+                  method="post">
+
+                <input asp-for="ObligationId"
+                       type="hidden" />
+
+                <div asp-validation-summary="ModelOnly"
+                     class="text-danger mb-3"></div>
+
+                <div class="row g-3">
+                    <div class="col-md-7">
+                        <label asp-for="SourcePersonalAccountId"
+                               class="form-label"></label>
+
+                        <select asp-for="SourcePersonalAccountId"
+                                asp-items="Model.SourceAccounts"
+                                class="form-select">
+                        </select>
+
+                        <div class="form-text">
+                            Widoczne są wyłącznie Twoje aktywne konta
+                            z dodatnim saldem i właściwą walutą.
+                        </div>
+                    </div>
+
+                    <div class="col-md-5">
+                        <label asp-for="Amount"
+                               class="form-label"></label>
+
+                        <div class="input-group">
+                            <input asp-for="Amount"
+                                   type="number"
+                                   step="0.01"
+                                   min="0.01"
+                                   max="@(Model.OutstandingAmount.ToString(System.Globalization.CultureInfo.InvariantCulture))"
+                                   class="form-control" />
+
+                            <span class="input-group-text">
+                                @Model.CurrencyCode
+                            </span>
+                        </div>
+
+                        <span asp-validation-for="Amount"
+                              class="text-danger small"></span>
+                    </div>
+                </div>
+
+                <div class="household-finance-info">
+                    <strong>Co stanie się po kliknięciu „Wyślij”?</strong>
+                    <span>
+                        Domio sprawdzi, czy masz środki, i zapisze wpłatę
+                        jako oczekującą. Saldo prywatne i saldo domu
+                        pozostaną bez zmian do chwili akceptacji administratora.
+                    </span>
+                </div>
+
+                <div class="household-finance-warning">
+                    <strong>Środki są sprawdzane ponownie przy akceptacji.</strong>
+                    <span>
+                        Jeśli przed akceptacją wydasz te pieniądze,
+                        administrator nie będzie mógł zaksięgować wpłaty,
+                        dopóki na koncie ponownie nie będzie wystarczającego salda.
+                    </span>
+                </div>
+
+                <div class="household-finance-form-actions">
+                    <a asp-action="Contributions"
+                       class="btn btn-outline-secondary">
+                        Anuluj
+                    </a>
+
+                    <button type="submit"
+                            class="btn btn-primary">
+                        Wyślij do akceptacji
+                    </button>
+                </div>
+            </form>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

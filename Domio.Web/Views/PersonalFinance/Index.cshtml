@@ -1,7 +1,8 @@
 @using Domio.Application.Authorization
+@using Domio.Domain.HouseholdFinance
 @using Domio.Domain.PersonalFinance
 @using Domio.Domain.Users
-@model Domio.Application.PersonalFinance.PersonalFinanceOverview
+@model Domio.Web.Models.PersonalFinance.PersonalFinanceIndexViewModel
 @{
     ViewData["Title"] = "Finanse osobiste";
 
@@ -10,13 +11,16 @@
             DomioClaimTypes.Permission,
             SystemPermissions.FinancePersonalManageOwn);
 
+    var finance =
+        Model.Finance;
+
     var accountNames =
-        Model.Accounts.ToDictionary(
+        finance.Accounts.ToDictionary(
             x => x.AccountId,
             x => x.Name);
 
     var plannedOccurrences =
-        Model.RecurringOccurrences
+        finance.RecurringOccurrences
             .Where(x =>
                 x.StatusCode ==
                 PersonalRecurringOccurrenceStatuses.Planned)
@@ -25,7 +29,7 @@
             .ToArray();
 
     var correctedSourceIds =
-        Model.RecentTransactions
+        finance.RecentTransactions
             .Where(x => x.CorrectsTransactionId.HasValue)
             .Select(x => x.CorrectsTransactionId!.Value)
             .ToHashSet();
@@ -35,7 +39,7 @@
     <div class="finance-page-header">
         <div>
             <div class="finance-kicker">
-                M03.9 · FINANSE OSOBISTE
+                M04.4 · FINANSE OSOBISTE
             </div>
             <h1>Moje finanse</h1>
             <p>
@@ -52,7 +56,7 @@
                     Historia i filtry
                 </a>
 
-                @if (Model.Accounts.Count(x => x.IsActive) >= 2)
+                @if (finance.Accounts.Count(x => x.IsActive) >= 2)
                 {
                     <a asp-action="Transfer"
                        class="btn btn-outline-primary">
@@ -102,6 +106,119 @@
         </div>
     </div>
 
+    @if (Model.OwnContributionObligations.Count > 0)
+    {
+        <section class="finance-section finance-contribution-section">
+            <div class="finance-section-heading">
+                <div>
+                    <span class="finance-section-number">
+                        DOM
+                    </span>
+                    <div>
+                        <h2>Moja aktualna składka na budżet domu</h2>
+                        <p>
+                            Pokazujemy tylko składkę za bieżący miesiąc,
+                            żeby nie wyświetlać przyszłych zobowiązań.
+                        </p>
+                    </div>
+                </div>
+
+                <a asp-controller="HouseholdFinance"
+                   asp-action="Contributions"
+                   class="btn btn-sm btn-outline-secondary">
+                    Wszystkie składki
+                </a>
+            </div>
+
+            <div class="finance-contribution-grid">
+                @foreach (var contribution in Model.OwnContributionObligations)
+                {
+                    var pendingPayment =
+                        Model.OwnContributionPayments
+                            .FirstOrDefault(x =>
+                                x.ObligationId ==
+                                    contribution.ObligationId &&
+                                x.StatusCode ==
+                                    HouseholdContributionPaymentStatuses.Pending);
+
+                    var isPaid =
+                        contribution.OutstandingAmount <= 0m;
+
+                    <article class="finance-contribution-card @(isPaid ? "is-paid" : "")">
+                        <div class="finance-contribution-card-top">
+                            <div>
+                                <span class="finance-contribution-period">
+                                    @contribution.PeriodKey
+                                </span>
+                                <h3>Składka na budżet domu</h3>
+                            </div>
+
+                            <span class="household-contribution-status @contribution.StatusCode.ToLowerInvariant()">
+                                @contribution.StatusNamePl
+                            </span>
+                        </div>
+
+                        <div class="finance-contribution-amount">
+                            <span>Pozostało do wpłaty</span>
+                            <strong>
+                                @contribution.OutstandingAmount.ToString("N2")
+                                <small>@contribution.CurrencyCode</small>
+                            </strong>
+                        </div>
+
+                        <div class="finance-contribution-meta">
+                            <div>
+                                <span>Pełna składka</span>
+                                <strong>
+                                    @contribution.Amount.ToString("N2")
+                                    @contribution.CurrencyCode
+                                </strong>
+                            </div>
+
+                            <div>
+                                <span>Termin</span>
+                                <strong>
+                                    @(contribution.DueDateUtc
+                                        .ToLocalTime()
+                                        .ToString("dd.MM.yyyy"))
+                                </strong>
+                            </div>
+
+                            <div>
+                                <span>Konto domu</span>
+                                <strong>@contribution.TargetHouseholdAccountName</strong>
+                            </div>
+                        </div>
+
+                        <div class="finance-contribution-card-action">
+                            @if (isPaid)
+                            {
+                                <span class="finance-contribution-paid">
+                                    ✓ Składka opłacona
+                                </span>
+                            }
+                            else if (pendingPayment is not null)
+                            {
+                                <span class="finance-contribution-pending">
+                                    Wpłata wysłana · oczekuje na akceptację administratora
+                                </span>
+                            }
+                            else if (Model.CanPayContributions)
+                            {
+                                <a asp-controller="HouseholdFinance"
+                                   asp-action="SendContributionPayment"
+                                   asp-route-obligationId="@contribution.ObligationId"
+                                   class="btn btn-primary btn-sm">
+                                    Wyślij wpłatę
+                                </a>
+                            }
+                        </div>
+                    </article>
+                }
+            </div>
+        </section>
+    }
+
     <section class="finance-section">
         <div class="finance-section-heading">
             <div>
@@ -119,7 +236,7 @@
             </div>
         </div>
 
-        @if (Model.Accounts.Count == 0)
+        @if (finance.Accounts.Count == 0)
         {
             <div class="finance-empty">
                 <div class="finance-empty-icon">
@@ -143,7 +260,7 @@
         else
         {
             <div class="finance-account-grid">
-                @foreach (var account in Model.Accounts)
+                @foreach (var account in finance.Accounts)
                 {
                     <article class="finance-account-card">
                         <div class="finance-account-top">
@@ -185,7 +302,7 @@
                                     Dodaj przychód lub wydatek →
                                 </a>
 
-                                @if (Model.Accounts.Count(x => x.IsActive) >= 2)
+                                @if (finance.Accounts.Count(x => x.IsActive) >= 2)
                                 {
                                     <a asp-action="Transfer"
                                        asp-route-sourceAccountId="@account.AccountId"
@@ -224,7 +341,7 @@
             </div>
         </div>
 
-        @if (Model.RecurringRules.Count == 0)
+        @if (finance.RecurringRules.Count == 0)
         {
             <div class="finance-empty finance-empty-compact">
                 Nie masz jeszcze reguł cyklicznych.
@@ -233,7 +350,7 @@
         else
         {
             <div class="finance-recurring-rule-grid">
-                @foreach (var rule in Model.RecurringRules)
+                @foreach (var rule in finance.RecurringRules)
                 {
                     <article class="finance-recurring-rule-card">
                         <div>
@@ -330,7 +447,11 @@
                     <tbody>
                     @foreach (var occurrence in plannedOccurrences)
                     {
-                        <tr>
+                        var isFutureOccurrence =
+                            occurrence.PlannedDateUtc.Date >
+                            DateTime.UtcNow.Date;
+
+                        <tr class="@(isFutureOccurrence ? "finance-planned-future-row" : null)">
                             <td>
                                 @(occurrence.PlannedDateUtc
                                     .ToLocalTime()
@@ -371,13 +492,27 @@
                             <td class="text-end">
                                 @if (canManage)
                                 {
-                                    <a asp-action="ConfirmRecurring"
-                                       asp-route-id="@occurrence.OccurrenceId"
-                                       class="btn btn-sm btn-outline-primary">
-                                        @(occurrence.KindCode == PersonalTransactionKinds.Income
-                                            ? "Potwierdź wpływ"
-                                            : "Potwierdź płatność")
-                                    </a>
+                                    @if (isFutureOccurrence)
+                                    {
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-secondary"
+                                                disabled
+                                                title="To wystąpienie będzie można potwierdzić w dniu planowanej daty lub później.">
+                                            @(occurrence.KindCode == PersonalTransactionKinds.Income
+                                                ? "Potwierdź wpływ"
+                                                : "Potwierdź płatność")
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <a asp-action="ConfirmRecurring"
+                                           asp-route-id="@occurrence.OccurrenceId"
+                                           class="btn btn-sm btn-outline-primary">
+                                            @(occurrence.KindCode == PersonalTransactionKinds.Income
+                                                ? "Potwierdź wpływ"
+                                                : "Potwierdź płatność")
+                                        </a>
+                                    }
                                 }
                             </td>
                         </tr>
@@ -406,7 +541,7 @@
             </div>
         </div>
 
-        @if (Model.RecentTransactions.Count == 0)
+        @if (finance.RecentTransactions.Count == 0)
         {
             <div class="finance-empty finance-empty-compact">
                 Brak zapisanych operacji.
@@ -428,7 +563,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                    @foreach (var transaction in Model.RecentTransactions)
+                    @foreach (var transaction in finance.RecentTransactions)
                     {
                         var accountName =
                             accountNames.TryGetValue(
@@ -438,7 +573,7 @@
                                 : "Konto";
 
                         var accountCurrency =
-                            Model.Accounts
+                            finance.Accounts
                                 .FirstOrDefault(
                                     x =>
                                         x.AccountId ==

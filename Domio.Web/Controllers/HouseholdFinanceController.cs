@@ -705,6 +705,229 @@ public sealed class HouseholdFinanceController(
             nameof(Contributions));
     }
 
+    [HttpGet]
+    [Authorize(
+        Policy = SystemPermissions.FinanceHouseholdView)]
+    [Authorize(
+        Policy = SystemPermissions.FinancePersonalManageOwn)]
+    public async Task<IActionResult> SendContributionPayment(
+        Guid obligationId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var form =
+                await householdFinanceService
+                    .GetContributionPaymentFormAsync(
+                        obligationId,
+                        GetCurrentUserId(),
+                        cancellationToken);
+
+            if (form is null)
+            {
+                TempData["HouseholdFinanceError"] =
+                    "Nie znaleziono aktywnego zobowiązania do opłacenia.";
+
+                return RedirectToAction(
+                    nameof(Contributions));
+            }
+
+            var model =
+                BuildContributionPaymentViewModel(
+                    form);
+
+            return View(model);
+        }
+        catch (InvalidOperationException exception)
+        {
+            TempData["HouseholdFinanceError"] =
+                exception.Message;
+
+            return RedirectToAction(
+                nameof(Contributions));
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(
+        Policy = SystemPermissions.FinanceHouseholdView)]
+    [Authorize(
+        Policy = SystemPermissions.FinancePersonalManageOwn)]
+    public async Task<IActionResult> SendContributionPayment(
+        HouseholdContributionPaymentViewModel model,
+        CancellationToken cancellationToken = default)
+    {
+        HouseholdContributionPaymentForm? form = null;
+
+        try
+        {
+            form =
+                await householdFinanceService
+                    .GetContributionPaymentFormAsync(
+                        model.ObligationId,
+                        GetCurrentUserId(),
+                        cancellationToken);
+        }
+        catch (InvalidOperationException exception)
+        {
+            TempData["HouseholdFinanceError"] =
+                exception.Message;
+
+            return RedirectToAction(
+                nameof(Contributions));
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        if (form is null)
+        {
+            TempData["HouseholdFinanceError"] =
+                "Nie znaleziono aktywnego zobowiązania do opłacenia.";
+
+            return RedirectToAction(
+                nameof(Contributions));
+        }
+
+        RebuildContributionPaymentViewModel(
+            model,
+            form);
+
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        try
+        {
+            await householdFinanceService
+                .SubmitContributionPaymentAsync(
+                    new SubmitHouseholdContributionPaymentRequest(
+                        model.ObligationId,
+                        model.SourcePersonalAccountId,
+                        model.Amount),
+                    GetCurrentUserId(),
+                    HttpContext.TraceIdentifier,
+                    cancellationToken);
+        }
+        catch (ArgumentException exception)
+        {
+            ModelState.AddModelError(
+                string.Empty,
+                exception.Message);
+
+            return View(model);
+        }
+        catch (InvalidOperationException exception)
+        {
+            ModelState.AddModelError(
+                string.Empty,
+                exception.Message);
+
+            return View(model);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        TempData["HouseholdFinanceMessage"] =
+            "Wpłata została wysłana do administratora. Salda zmienią się dopiero po akceptacji.";
+
+        return RedirectToAction(
+            nameof(Contributions));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(
+        Policy = SystemPermissions.FinanceHouseholdApprove)]
+    public async Task<IActionResult> ApproveContributionPayment(
+        Guid paymentRequestId,
+        string? reviewNote,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await householdFinanceService
+                .ApproveContributionPaymentAsync(
+                    new ReviewHouseholdContributionPaymentRequest(
+                        paymentRequestId,
+                        reviewNote),
+                    GetCurrentUserId(),
+                    HttpContext.TraceIdentifier,
+                    cancellationToken);
+
+            TempData["HouseholdFinanceMessage"] =
+                "Wpłata została zaakceptowana i zaksięgowana na koncie domu.";
+        }
+        catch (InvalidOperationException exception)
+        {
+            TempData["HouseholdFinanceError"] =
+                exception.Message;
+        }
+        catch (ArgumentException exception)
+        {
+            TempData["HouseholdFinanceError"] =
+                exception.Message;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        return RedirectToAction(
+            nameof(Contributions));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(
+        Policy = SystemPermissions.FinanceHouseholdApprove)]
+    public async Task<IActionResult> RejectContributionPayment(
+        Guid paymentRequestId,
+        string? reviewNote,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await householdFinanceService
+                .RejectContributionPaymentAsync(
+                    new ReviewHouseholdContributionPaymentRequest(
+                        paymentRequestId,
+                        reviewNote),
+                    GetCurrentUserId(),
+                    HttpContext.TraceIdentifier,
+                    cancellationToken);
+
+            TempData["HouseholdFinanceMessage"] =
+                "Wpłata została odrzucona. Salda nie zostały zmienione.";
+        }
+        catch (InvalidOperationException exception)
+        {
+            TempData["HouseholdFinanceError"] =
+                exception.Message;
+        }
+        catch (ArgumentException exception)
+        {
+            TempData["HouseholdFinanceError"] =
+                exception.Message;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        return RedirectToAction(
+            nameof(Contributions));
+    }
+
     private Guid GetCurrentUserId()
     {
         var value =
@@ -882,6 +1105,89 @@ public sealed class HouseholdFinanceController(
                         Selected =
                             x.AccountId ==
                             model.TargetHouseholdAccountId
+                    })
+                .ToList();
+    }
+
+    private static HouseholdContributionPaymentViewModel
+        BuildContributionPaymentViewModel(
+            HouseholdContributionPaymentForm form)
+    {
+        var model =
+            new HouseholdContributionPaymentViewModel
+            {
+                ObligationId =
+                    form.ObligationId,
+                PeriodKey =
+                    form.PeriodKey,
+                ObligationAmount =
+                    form.ObligationAmount,
+                PaidAmount =
+                    form.PaidAmount,
+                OutstandingAmount =
+                    form.OutstandingAmount,
+                DueDateUtc =
+                    form.DueDateUtc,
+                CurrencyCode =
+                    form.CurrencyCode,
+                TargetHouseholdAccountName =
+                    form.TargetHouseholdAccountName,
+                Amount =
+                    form.OutstandingAmount,
+                SourcePersonalAccountId =
+                    form.SourceAccounts
+                        .FirstOrDefault()?
+                        .AccountId
+                    ?? Guid.Empty
+            };
+
+        RebuildContributionPaymentViewModel(
+            model,
+            form);
+
+        return model;
+    }
+
+    private static void RebuildContributionPaymentViewModel(
+        HouseholdContributionPaymentViewModel model,
+        HouseholdContributionPaymentForm form)
+    {
+        model.ObligationId =
+            form.ObligationId;
+
+        model.PeriodKey =
+            form.PeriodKey;
+
+        model.ObligationAmount =
+            form.ObligationAmount;
+
+        model.PaidAmount =
+            form.PaidAmount;
+
+        model.OutstandingAmount =
+            form.OutstandingAmount;
+
+        model.DueDateUtc =
+            form.DueDateUtc;
+
+        model.CurrencyCode =
+            form.CurrencyCode;
+
+        model.TargetHouseholdAccountName =
+            form.TargetHouseholdAccountName;
+
+        model.SourceAccounts =
+            form.SourceAccounts
+                .Select(x =>
+                    new SelectListItem
+                    {
+                        Value =
+                            x.AccountId.ToString(),
+                        Text =
+                            $"{x.Name} · {x.Balance:N2} {x.CurrencyCode}",
+                        Selected =
+                            x.AccountId ==
+                            model.SourcePersonalAccountId
                     })
                 .ToList();
     }

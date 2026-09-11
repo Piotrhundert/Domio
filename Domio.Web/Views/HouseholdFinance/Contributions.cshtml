@@ -10,13 +10,21 @@
 
     var canManage =
         overview?.CanManage == true;
+
+    var canApprove =
+        overview?.CanApprove == true;
+
+    var canPay =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.FinancePersonalManageOwn);
 }
 
 <div class="household-finance-page">
     <div class="household-finance-header">
         <div>
             <div class="household-finance-kicker">
-                M04.3 · CYKLICZNE SKŁADKI
+                M04.4 · WPŁATY SKŁADEK
             </div>
 
             <h1>Składki domowników</h1>
@@ -305,6 +313,7 @@
                                 <th>Konto docelowe</th>
                                 <th>Status</th>
                                 <th class="text-end">Pozostało</th>
+                                <th class="text-end">Akcja</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -356,6 +365,179 @@
                                         @obligation.CurrencyCode
                                     </strong>
                                 </td>
+
+                                <td class="text-end">
+                                    @{
+                                        var ownPendingPayment =
+                                            overview.PaymentRequests
+                                                .FirstOrDefault(x =>
+                                                    x.ObligationId ==
+                                                        obligation.ObligationId &&
+                                                    x.IsOwn &&
+                                                    x.StatusCode ==
+                                                        HouseholdContributionPaymentStatuses.Pending);
+                                    }
+
+                                    @if (obligation.IsOwn &&
+                                         canPay &&
+                                         obligation.OutstandingAmount > 0m)
+                                    {
+                                        @if (ownPendingPayment is not null)
+                                        {
+                                            <span class="household-contribution-payment-waiting">
+                                                Wysłana do akceptacji
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <a asp-action="SendContributionPayment"
+                                               asp-route-obligationId="@obligation.ObligationId"
+                                               class="btn btn-sm btn-outline-primary">
+                                                Wyślij wpłatę
+                                            </a>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+
+        <section class="household-finance-section">
+            <div class="household-finance-section-heading">
+                <div>
+                    <div class="household-finance-section-number">04</div>
+                    <h2>
+                        @(canApprove
+                            ? "Wpłaty do akceptacji"
+                            : "Moje wysłane wpłaty")
+                    </h2>
+                    <p>
+                        Wysłanie wpłaty nie zmienia jeszcze żadnego salda.
+                        Dopiero akceptacja administratora księguje wydatek
+                        w finansach osobistych i wpływ na konto domu.
+                    </p>
+                </div>
+            </div>
+
+            @if (overview.PaymentRequests.Count == 0)
+            {
+                <div class="household-finance-empty compact">
+                    <h3>Brak wysłanych wpłat</h3>
+                    <p>
+                        Wpłaty wysłane przez domowników pojawią się tutaj.
+                    </p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive household-finance-table-wrap">
+                    <table class="table household-finance-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Wysłano</th>
+                                <th>Domownik</th>
+                                <th>Miesiąc</th>
+                                <th>Kwota</th>
+                                <th>Status</th>
+                                <th>Konto prywatne</th>
+                                @if (canApprove)
+                                {
+                                    <th class="text-end">Akceptacja</th>
+                                }
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                        @foreach (var payment in overview.PaymentRequests)
+                        {
+                            <tr>
+                                <td>
+                                    @(payment.SubmittedAtUtc
+                                        .ToLocalTime()
+                                        .ToString("dd.MM.yyyy HH:mm"))
+                                </td>
+
+                                <td>@payment.HouseholdMemberName</td>
+
+                                <td>
+                                    <strong>@payment.PeriodKey</strong>
+                                </td>
+
+                                <td>
+                                    <strong>
+                                        @payment.Amount.ToString("N2")
+                                        @payment.CurrencyCode
+                                    </strong>
+                                </td>
+
+                                <td>
+                                    <span class="household-contribution-payment-status @payment.StatusCode.ToLowerInvariant()">
+                                        @payment.StatusNamePl
+                                    </span>
+
+                                    @if (!string.IsNullOrWhiteSpace(payment.ReviewNote))
+                                    {
+                                        <div class="household-entry-source">
+                                            @payment.ReviewNote
+                                        </div>
+                                    }
+                                </td>
+
+                                <td>
+                                    @(payment.IsOwn &&
+                                      !string.IsNullOrWhiteSpace(payment.SourcePersonalAccountName)
+                                        ? payment.SourcePersonalAccountName
+                                        : "prywatne konto domownika")
+                                </td>
+
+                                @if (canApprove)
+                                {
+                                    <td class="text-end">
+                                        @if (payment.StatusCode ==
+                                             HouseholdContributionPaymentStatuses.Pending)
+                                        {
+                                            <div class="household-contribution-review-actions">
+                                                <form asp-action="ApproveContributionPayment"
+                                                      method="post">
+                                                    <input type="hidden"
+                                                           name="paymentRequestId"
+                                                           value="@payment.PaymentRequestId" />
+
+                                                    <button type="submit"
+                                                            class="btn btn-sm btn-success">
+                                                        Akceptuj
+                                                    </button>
+                                                </form>
+
+                                                <form asp-action="RejectContributionPayment"
+                                                      method="post">
+                                                    <input type="hidden"
+                                                           name="paymentRequestId"
+                                                           value="@payment.PaymentRequestId" />
+
+                                                    <button type="submit"
+                                                            class="btn btn-sm btn-outline-danger">
+                                                        Odrzuć
+                                                    </button>
+                                                </form>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-muted">
+                                                Rozpatrzona
+                                            </span>
+                                        }
+                                    </td>
+                                }
                             </tr>
                         }
                         </tbody>
@@ -365,11 +547,12 @@
         </section>
 
         <div class="household-finance-foundation-note">
-            <strong>M04.3 – reguły i zobowiązania.</strong>
+            <strong>M04.4 – wpłata domownika → akceptacja administratora.</strong>
             <span>
-                Ta paczka nie pobiera jeszcze pieniędzy z prywatnego konta
-                domownika. Płatność składki i wpłaty częściowe będą kolejnym
-                etapem M04.
+                Domownik może wysłać pełną albo częściową wpłatę z własnego
+                konta. Administrator nie widzi prywatnego salda ani historii;
+                przy akceptacji system ponownie sprawdza dostępne środki
+                i dopiero wtedy księguje obie strony operacji atomowo.
             </span>
         </div>
     }

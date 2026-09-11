@@ -96,3 +96,19 @@ public static class HouseholdContributionMath
                 result));
     }
 }
+
+public static class HouseholdContributionPaymentStatuses
+{
+    public const string Pending = "Pending";
+    public const string Approved = "Approved";
+    public const string Rejected = "Rejected";
+
+    public static string GetNamePl(string code) =>
+        code switch
+        {
+            Pending => "Oczekuje na akceptację",
+            Approved => "Zaakceptowana",
+            Rejected => "Odrzucona",
+            _ => code
+        };
+}

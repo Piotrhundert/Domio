@@ -539,3 +539,87 @@
   font-size: 0.7rem;
   line-height: 1.45;
 }
+
+
+.household-contribution-payment-waiting {
+  display: inline-flex;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #fff6df;
+  color: #8a671c;
+  font-size: 0.64rem;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.household-contribution-payment-status {
+  display: inline-flex;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #f0f3f4;
+  color: #536267;
+  font-size: 0.65rem;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.household-contribution-payment-status.pending {
+  background: #fff6df;
+  color: #8a671c;
+}
+
+.household-contribution-payment-status.approved {
+  background: #eaf8f0;
+  color: #2d7550;
+}
+
+.household-contribution-payment-status.rejected {
+  background: #fdeeee;
+  color: #9a4545;
+}
+
+.household-contribution-review-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.household-contribution-payment-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  margin-bottom: 18px;
+  border: 1px solid var(--domio-border);
+  border-radius: 12px;
+  background: var(--domio-border);
+}
+
+.household-contribution-payment-summary > div {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  background: #fff;
+}
+
+.household-contribution-payment-summary span {
+  color: var(--domio-muted);
+  font-size: 0.68rem;
+}
+
+.household-contribution-payment-summary strong {
+  font-size: 0.82rem;
+}
+
+@media (max-width: 760px) {
+  .household-contribution-payment-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .household-contribution-review-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
