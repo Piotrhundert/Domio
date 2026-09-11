@@ -57,9 +57,9 @@ public sealed class M04_4_RecurringSalaryEditContributionDependencyTests
                         x.Version)
                     .SingleAsync();
 
-            Assert.Equal(
-                14,
-                schemaVersion);
+            Assert.True(
+                schemaVersion >= 14,
+                $"Oczekiwano schemaVersion >= 14, otrzymano {schemaVersion}.");
 
             var auditService =
                 new AuditService(

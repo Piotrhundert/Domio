@@ -109,3 +109,67 @@ public static class HouseholdFinanceMoney
     public static decimal FromMinorUnits(long amountMinor) =>
         amountMinor / 100m;
 }
+
+public static class HouseholdInvoiceStatuses
+{
+    public const string Unpaid = "Unpaid";
+    public const string PartiallyPaid = "PartiallyPaid";
+    public const string Paid = "Paid";
+    public const string Cancelled = "Cancelled";
+
+    public static string GetNamePl(string code) =>
+        code switch
+        {
+            Unpaid => "Nieopłacona",
+            PartiallyPaid => "Częściowo opłacona",
+            Paid => "Opłacona",
+            Cancelled => "Anulowana",
+            _ => code
+        };
+}
+
+public static class HouseholdInvoiceCategories
+{
+    public const string Electricity = "Electricity";
+    public const string Water = "Water";
+    public const string Gas = "Gas";
+    public const string Internet = "Internet";
+    public const string Waste = "Waste";
+    public const string Heating = "Heating";
+    public const string Insurance = "Insurance";
+    public const string Taxes = "Taxes";
+    public const string Other = "Other";
+
+    public static readonly IReadOnlyList<HouseholdFinanceCodeItem> All =
+    [
+        new(Electricity, "Prąd"),
+        new(Water, "Woda"),
+        new(Gas, "Gaz"),
+        new(Internet, "Internet"),
+        new(Waste, "Odpady"),
+        new(Heating, "Ogrzewanie / opał"),
+        new(Insurance, "Ubezpieczenie"),
+        new(Taxes, "Podatki i opłaty"),
+        new(Other, "Inne")
+    ];
+
+    public static bool IsValid(string code) =>
+        All.Any(x => x.Code == code);
+
+    public static string GetNamePl(string code) =>
+        All.FirstOrDefault(x => x.Code == code)?.NamePl ?? code;
+
+    public static string ToHouseholdFinanceCategory(string code) =>
+        code switch
+        {
+            Electricity or
+            Water or
+            Gas or
+            Internet or
+            Waste or
+            Heating => HouseholdFinanceCategories.Utilities,
+            Insurance => HouseholdFinanceCategories.Insurance,
+            Taxes => HouseholdFinanceCategories.Taxes,
+            _ => HouseholdFinanceCategories.OtherExpense
+        };
+}

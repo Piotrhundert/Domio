@@ -1,0 +1,305 @@
+@model Domio.Web.Models.HouseholdFinance.CreateHouseholdInvoiceViewModel
+@using Domio.Domain.HouseholdFinance
+@using System.Linq
+@{
+    ViewData["Title"] = "Dodaj fakturę domu";
+
+    var categoryTiles =
+        new[]
+        {
+            new
+            {
+                Code = HouseholdInvoiceCategories.Electricity,
+                Label = "Prąd",
+                Caption = "faktura operatora + snapshot licznika i podliczników",
+                RequiresMeterSnapshot = true,
+                MeterHint = "Dodaj okres rozliczeniowy, stan licznika głównego oraz — jeśli masz — stany podliczników przypisanych do pokoi lub lokatorów."
+            },
+            new
+            {
+                Code = HouseholdInvoiceCategories.Water,
+                Label = "Woda",
+                Caption = "faktura operatora + licznik główny / odczyty pomocnicze",
+                RequiresMeterSnapshot = true,
+                MeterHint = "Dodaj okres rozliczeniowy i stan licznika głównego. W polu podliczników możesz wpisać odczyty pomocnicze lub rozpisanie stref."
+            },
+            new
+            {
+                Code = HouseholdInvoiceCategories.Gas,
+                Label = "Gaz",
+                Caption = "faktura gazu + stan licznika",
+                RequiresMeterSnapshot = true,
+                MeterHint = "Dodaj okres i stan licznika głównego. Jednostką domyślną dla gazu jest m3."
+            },
+            new
+            {
+                Code = HouseholdInvoiceCategories.Heating,
+                Label = "Pellet",
+                Caption = "rzeczywista faktura zakupu opału do puli rocznej",
+                RequiresMeterSnapshot = false,
+                MeterHint = "Dla pelletu nie są wymagane liczniki — zapisujesz faktyczną fakturę zakupu."
+            },
+            new
+            {
+                Code = HouseholdInvoiceCategories.Waste,
+                Label = "Śmieci",
+                Caption = "odpady komunalne / deklaracje i opłaty",
+                RequiresMeterSnapshot = false,
+                MeterHint = "Dla śmieci nie są wymagane odczyty liczników."
+            },
+            new
+            {
+                Code = HouseholdInvoiceCategories.Other,
+                Label = "Inne",
+                Caption = "internet i pozostałe faktury domu",
+                RequiresMeterSnapshot = false,
+                MeterHint = "Dla pozostałych kategorii pola licznikowe są opcjonalne i zwykle nie są używane."
+            }
+        };
+
+    var selectedTile =
+        categoryTiles.FirstOrDefault(x =>
+            x.Code == Model.CategoryCode)
+        ?? categoryTiles.Last();
+}
+
+<div class="household-finance-form-page">
+    <div class="household-finance-form-card household-invoice-form-card">
+        <div class="household-finance-form-heading">
+            <div class="household-finance-kicker">
+                M04.6 · NOWA FAKTURA
+            </div>
+            <h1>Dodaj fakturę domu</h1>
+            <p>
+                Wybierz kategorię faktury w formie kafelka. Dla prądu, wody i gazu
+                możesz od razu zapisać snapshot stanu licznika głównego i podliczników,
+                zgodnie z założeniami dokumentacji. Zapisanie faktury nadal nie zmienia salda —
+                wydatek powstaje dopiero przy płatności z konta domu.
+            </p>
+        </div>
+
+        <form asp-action="CreateInvoice"
+              method="post">
+            <div asp-validation-summary="ModelOnly"
+                 class="text-danger mb-3"></div>
+
+            <div class="household-invoice-category-section">
+                <div class="household-invoice-section-title">
+                    <h2>Kategoria faktury</h2>
+                    <p>Wybierz jedną kategorię. Kafelki sterują także sekcją snapshotu liczników.</p>
+                </div>
+
+                <div class="household-invoice-category-grid">
+                    @foreach (var tile in categoryTiles)
+                    {
+                        var isSelected =
+                            string.Equals(
+                                Model.CategoryCode,
+                                tile.Code,
+                                StringComparison.Ordinal);
+
+                        <label class="household-invoice-category-tile @(isSelected ? "is-selected" : null)">
+                            <input asp-for="CategoryCode"
+                                   type="radio"
+                                   value="@tile.Code"
+                                   class="household-invoice-category-input"
+                                   data-requires-meter="@(tile.RequiresMeterSnapshot ? "true" : "false")"
+                                   data-meter-hint="@tile.MeterHint" />
+
+                            <span class="household-invoice-category-title">@tile.Label</span>
+                            <span class="household-invoice-category-caption">@tile.Caption</span>
+                        </label>
+                    }
+                </div>
+                <span asp-validation-for="CategoryCode"
+                      class="text-danger"></span>
+            </div>
+
+            <div class="row g-3 mt-1">
+                <div class="col-md-7">
+                    <label asp-for="Supplier"
+                           class="form-label"></label>
+                    <input asp-for="Supplier"
+                           class="form-control" />
+                    <span asp-validation-for="Supplier"
+                          class="text-danger"></span>
+                </div>
+
+                <div class="col-md-5">
+                    <label asp-for="InvoiceNumber"
+                           class="form-label"></label>
+                    <input asp-for="InvoiceNumber"
+                           class="form-control" />
+                    <span asp-validation-for="InvoiceNumber"
+                          class="text-danger"></span>
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="IssueDate"
+                           class="form-label"></label>
+                    <input asp-for="IssueDate"
+                           class="form-control" />
+                    <span asp-validation-for="IssueDate"
+                          class="text-danger"></span>
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="DueDate"
+                           class="form-label"></label>
+                    <input asp-for="DueDate"
+                           class="form-control" />
+                    <span asp-validation-for="DueDate"
+                          class="text-danger"></span>
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="GrossAmount"
+                           class="form-label"></label>
+                    <div class="input-group">
+                        <input asp-for="GrossAmount"
+                               class="form-control" />
+                        <span class="input-group-text">PLN</span>
+                    </div>
+                    <span asp-validation-for="GrossAmount"
+                          class="text-danger"></span>
+                </div>
+            </div>
+
+            <section id="meterSnapshotSection"
+                     class="household-invoice-meter-panel @(selectedTile.RequiresMeterSnapshot ? string.Empty : "is-hidden")">
+                <div class="household-invoice-section-title">
+                    <h2>Snapshot liczników / podliczników</h2>
+                    <p id="meterSnapshotHint">@selectedTile.MeterHint</p>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label asp-for="BillingPeriodFrom"
+                               class="form-label"></label>
+                        <input asp-for="BillingPeriodFrom"
+                               class="form-control" />
+                        <span asp-validation-for="BillingPeriodFrom"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label asp-for="BillingPeriodTo"
+                               class="form-label"></label>
+                        <input asp-for="BillingPeriodTo"
+                               class="form-control" />
+                        <span asp-validation-for="BillingPeriodTo"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label asp-for="MainMeterNumber"
+                               class="form-label"></label>
+                        <input asp-for="MainMeterNumber"
+                               class="form-control"
+                               placeholder="np. ENEA-01 / WOD-GŁ-1" />
+                        <span asp-validation-for="MainMeterNumber"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label asp-for="MainMeterUnit"
+                               class="form-label"></label>
+                        <input asp-for="MainMeterUnit"
+                               class="form-control"
+                               placeholder="np. kWh, m3" />
+                        <span asp-validation-for="MainMeterUnit"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label asp-for="MainMeterPreviousReading"
+                               class="form-label"></label>
+                        <input asp-for="MainMeterPreviousReading"
+                               class="form-control"
+                               placeholder="np. 12540,200" />
+                        <span asp-validation-for="MainMeterPreviousReading"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label asp-for="MainMeterCurrentReading"
+                               class="form-label"></label>
+                        <input asp-for="MainMeterCurrentReading"
+                               class="form-control"
+                               placeholder="np. 12840,500" />
+                        <span asp-validation-for="MainMeterCurrentReading"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="col-12">
+                        <label asp-for="SubmeterReadingsSnapshot"
+                               class="form-label"></label>
+                        <textarea asp-for="SubmeterReadingsSnapshot"
+                                  class="form-control"
+                                  rows="5"
+                                  placeholder="Jedna pozycja w linii, np. Pokój 1 / podlicznik P1: 245,1 → 268,9 kWh&#10;Pokój 2 / podlicznik P2: 132,0 → 149,4 kWh"></textarea>
+                        <span asp-validation-for="SubmeterReadingsSnapshot"
+                              class="text-danger"></span>
+                    </div>
+                </div>
+            </section>
+
+            <div class="household-invoice-inline-note mt-3">
+                <strong>Uwaga:</strong>
+                W M04.6 zapisujesz tu uporządkowany snapshot faktury i odczytów.
+                Pełny rejestr liczników, podliczników i osobnych odczytów będzie rozwijany
+                jako kolejny krok modułu mediów.
+            </div>
+
+            <div class="household-finance-form-actions mt-4">
+                <a asp-action="Invoices"
+                   class="btn btn-outline-secondary">
+                    Anuluj
+                </a>
+
+                <button type="submit"
+                        class="btn btn-primary">
+                    Zapisz fakturę
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        (() => {
+            const tiles = Array.from(document.querySelectorAll('.household-invoice-category-input'));
+            const labels = Array.from(document.querySelectorAll('.household-invoice-category-tile'));
+            const meterSection = document.getElementById('meterSnapshotSection');
+            const hint = document.getElementById('meterSnapshotHint');
+
+            const syncCategoryUi = () => {
+                const selected = tiles.find(x => x.checked);
+                const requiresMeter = selected?.dataset.requiresMeter === 'true';
+                const selectedHint = selected?.dataset.meterHint ?? '';
+
+                labels.forEach(label => {
+                    const input = label.querySelector('input[type="radio"]');
+                    label.classList.toggle('is-selected', !!input?.checked);
+                });
+
+                if (meterSection) {
+                    meterSection.classList.toggle('is-hidden', !requiresMeter);
+                }
+
+                if (hint) {
+                    hint.textContent = selectedHint;
+                }
+            };
+
+            tiles.forEach(input => {
+                input.addEventListener('change', syncCategoryUi);
+            });
+
+            syncCategoryUi();
+        })();
+    </script>
+}

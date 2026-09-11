@@ -1,0 +1,126 @@
+
+@model Domio.Web.Models.HouseholdFinance.PayHouseholdInvoiceViewModel
+@{
+    ViewData["Title"] = "Zapłać fakturę";
+}
+
+<div class="household-finance-form-page">
+    <div class="household-finance-form-card household-invoice-form-card">
+        <div class="household-finance-form-heading">
+            <div class="household-finance-kicker">
+                M04.6 · PŁATNOŚĆ FAKTURY
+            </div>
+            <h1>Zapłać fakturę</h1>
+            <p>
+                Płatność zostanie zaksięgowana jako wydatek tylko na wskazanym
+                koncie domu i tylko dla tej faktury.
+            </p>
+        </div>
+
+        <div class="household-invoice-payment-summary">
+            <div>
+                <span>Dostawca</span>
+                <strong>@Model.Supplier</strong>
+            </div>
+            <div>
+                <span>Numer</span>
+                <strong>@Model.InvoiceNumber</strong>
+            </div>
+            <div>
+                <span>Kategoria</span>
+                <strong>@Model.CategoryNamePl</strong>
+            </div>
+            <div>
+                <span>Brutto</span>
+                <strong>@Model.GrossAmount.ToString("N2") @Model.CurrencyCode</strong>
+            </div>
+            <div>
+                <span>Zapłacono</span>
+                <strong>@Model.PaidAmount.ToString("N2") @Model.CurrencyCode</strong>
+            </div>
+            <div>
+                <span>Pozostało</span>
+                <strong>@Model.RemainingAmount.ToString("N2") @Model.CurrencyCode</strong>
+            </div>
+        </div>
+
+        <form asp-action="PayInvoice"
+              method="post">
+            <input asp-for="CommandId"
+                   type="hidden" />
+            <input asp-for="InvoiceId"
+                   type="hidden" />
+
+            <div asp-validation-summary="ModelOnly"
+                 class="text-danger mb-3"></div>
+
+            @if (Model.Accounts.Count == 0)
+            {
+                <div class="alert alert-warning">
+                    Brak aktywnego konta domu w walucie faktury.
+                </div>
+            }
+            else
+            {
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label asp-for="HouseholdAccountId"
+                               class="form-label"></label>
+                        <select asp-for="HouseholdAccountId"
+                                asp-items="Model.Accounts"
+                                class="form-select"></select>
+                        <span asp-validation-for="HouseholdAccountId"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label asp-for="Amount"
+                               class="form-label"></label>
+                        <div class="input-group">
+                            <input asp-for="Amount"
+                                   class="form-control"
+                                   max="@Model.RemainingAmount.ToString(System.Globalization.CultureInfo.InvariantCulture)" />
+                            <span class="input-group-text">@Model.CurrencyCode</span>
+                        </div>
+                        <span asp-validation-for="Amount"
+                              class="text-danger"></span>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label asp-for="PaidOn"
+                               class="form-label"></label>
+                        <input asp-for="PaidOn"
+                               class="form-control" />
+                        <span asp-validation-for="PaidOn"
+                              class="text-danger"></span>
+                    </div>
+                </div>
+            }
+
+            <div class="household-finance-form-actions mt-4">
+                <a asp-action="Invoices"
+                   class="btn btn-outline-secondary">
+                    Wróć
+                </a>
+
+                @if (Model.Accounts.Count > 0)
+                {
+                    <button type="submit"
+                            class="btn btn-primary">
+                        Zaksięguj płatność
+                    </button>
+                }
+            </div>
+        </form>
+
+        <div class="household-invoice-payment-note">
+            Domio ponownie sprawdzi saldo konta w momencie zapisu. Jeżeli środków
+            będzie za mało, płatność zostanie w całości odrzucona i status faktury
+            pozostanie bez zmian.
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

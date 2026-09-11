@@ -705,3 +705,208 @@
   background: #fdeaea;
   color: #994242;
 }
+
+
+.household-invoice-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.household-invoice-summary-card {
+  display: grid;
+  gap: 4px;
+  padding: 16px 18px;
+  border: 1px solid var(--domio-border);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.household-invoice-summary-card > span,
+.household-invoice-summary-card > small {
+  color: var(--domio-muted);
+  font-size: 0.68rem;
+}
+
+.household-invoice-summary-card > strong {
+  font-size: 1.35rem;
+  line-height: 1.1;
+}
+
+.household-invoice-summary-card > strong small {
+  font-size: 0.68rem;
+}
+
+.household-invoice-summary-card.is-overdue {
+  border-color: #edcccc;
+  background: #fff7f7;
+}
+
+.household-invoice-status {
+  display: inline-flex;
+  padding: 5px 8px;
+  border-radius: 9px;
+  font-size: 0.64rem;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.household-invoice-status.unpaid {
+  background: #eef2f6;
+  color: #5b6570;
+}
+
+.household-invoice-status.partiallypaid {
+  background: #fff3d9;
+  color: #84631a;
+}
+
+.household-invoice-status.paid {
+  background: #eaf8f0;
+  color: #2f7652;
+}
+
+.household-invoice-status.cancelled {
+  background: #f1f2f3;
+  color: #858b91;
+}
+
+.household-invoice-cancelled-row {
+  opacity: 0.58;
+}
+
+.household-invoice-overdue-date {
+  color: #9a3f3f;
+  font-weight: 720;
+}
+
+.household-invoice-overdue-label {
+  margin-top: 3px;
+  color: #9a3f3f;
+  font-size: 0.62rem;
+  font-weight: 720;
+}
+
+.household-invoice-form-card {
+  max-width: 900px;
+}
+
+.household-invoice-payment-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.household-invoice-payment-summary > div {
+  display: grid;
+  gap: 3px;
+  padding: 11px 12px;
+  border: 1px solid var(--domio-border);
+  border-radius: 11px;
+  background: #fafbfc;
+}
+
+.household-invoice-payment-summary span {
+  color: var(--domio-muted);
+  font-size: 0.64rem;
+}
+
+.household-invoice-payment-summary strong {
+  font-size: 0.76rem;
+  overflow-wrap: anywhere;
+}
+
+.household-invoice-payment-note {
+  margin-top: 16px;
+  padding: 11px 12px;
+  border-radius: 11px;
+  background: #f7f9fb;
+  color: var(--domio-muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+
+.household-invoice-category-section,
+.household-invoice-meter-panel {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--domio-border);
+  border-radius: 16px;
+  background: #fbfcfd;
+}
+
+.household-invoice-section-title h2 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  font-weight: 760;
+}
+
+.household-invoice-section-title p {
+  margin: 0;
+  color: var(--domio-muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.household-invoice-category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.household-invoice-category-tile {
+  display: grid;
+  gap: 8px;
+  min-height: 132px;
+  padding: 16px;
+  border: 1px solid var(--domio-border);
+  border-radius: 14px;
+  background: #fff;
+  cursor: pointer;
+  transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
+}
+
+.household-invoice-category-tile:hover {
+  transform: translateY(-1px);
+  border-color: #c4d5e8;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .06);
+}
+
+.household-invoice-category-tile.is-selected {
+  border-color: #9dc2eb;
+  background: #f6fbff;
+  box-shadow: 0 0 0 1px rgba(157, 194, 235, .35);
+}
+
+.household-invoice-category-input {
+  margin: 0;
+}
+
+.household-invoice-category-title {
+  font-size: 1rem;
+  font-weight: 780;
+}
+
+.household-invoice-category-caption {
+  color: var(--domio-muted);
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.household-invoice-meter-panel.is-hidden {
+  display: none;
+}
+
+.household-invoice-inline-note {
+  padding: 14px 16px;
+  border: 1px dashed #cbd7df;
+  border-radius: 14px;
+  background: #fbfcfe;
+  color: #425466;
+  font-size: 0.77rem;
+  line-height: 1.55;
+}

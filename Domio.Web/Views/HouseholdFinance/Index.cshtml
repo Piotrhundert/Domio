@@ -17,7 +17,7 @@
     <div class="household-finance-header">
         <div>
             <div class="household-finance-kicker">
-                M04.5 · FINANSE DOMU
+                M04.6 · FINANSE DOMU
             </div>
 
             <h1>Finanse domu</h1>
@@ -28,11 +28,26 @@
             </p>
         </div>
 
+        @if (overview is not null && !canManage)
+        {
+            <div class="household-finance-header-actions">
+                <a asp-action="Invoices"
+                   class="btn btn-outline-secondary">
+                    Faktury domu
+                </a>
+            </div>
+        }
+
         @if (canManage)
         {
             <div class="household-finance-header-actions">
                 @if (overview is not null)
                 {
+                    <a asp-action="Invoices"
+                       class="btn btn-outline-secondary">
+                        Faktury domu
+                    </a>
+
                     <a asp-action="Contributions"
                        class="btn btn-outline-secondary">
                         Składki domowników

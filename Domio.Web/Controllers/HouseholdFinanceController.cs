@@ -928,6 +928,288 @@ public sealed class HouseholdFinanceController(
             nameof(Contributions));
     }
 
+    [HttpGet]
+    [Authorize(
+        Policy = SystemPermissions.FinanceHouseholdView)]
+    public async Task<IActionResult> Invoices(
+        CancellationToken cancellationToken = default)
+    {
+        var overview =
+            await householdFinanceService
+                .GetInvoiceOverviewAsync(
+                    GetCurrentUserId(),
+                    cancellationToken);
+
+        return View(
+            overview);
+    }
+
+    [HttpGet]
+    [Authorize(
+        Policy = SystemPermissions.FinanceHouseholdManage)]
+    public IActionResult CreateInvoice()
+    {
+        var model =
+            new CreateHouseholdInvoiceViewModel
+            {
+                CategoryCode =
+                    HouseholdInvoiceCategories.Other,
+                IssueDate =
+                    DateTime.Today,
+                DueDate =
+                    DateTime.Today.AddDays(14),
+                GrossAmount =
+                    0.01m
+            };
+
+        RebuildInvoiceCategoryOptions(
+            model);
+
+        return View(
+            model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(
+        Policy = SystemPermissions.FinanceHouseholdManage)]
+    public async Task<IActionResult> CreateInvoice(
+        CreateHouseholdInvoiceViewModel model,
+        CancellationToken cancellationToken = default)
+    {
+        RebuildInvoiceCategoryOptions(
+            model);
+
+        if (!ModelState.IsValid)
+        {
+            return View(
+                model);
+        }
+
+        try
+        {
+            await householdFinanceService
+                .CreateInvoiceAsync(
+                    new CreateHouseholdInvoiceRequest(
+                        model.Supplier,
+                        model.InvoiceNumber,
+                        DateTime.SpecifyKind(
+                            model.IssueDate.Date,
+                            DateTimeKind.Utc),
+                        DateTime.SpecifyKind(
+                            model.DueDate.Date,
+                            DateTimeKind.Utc),
+                        model.GrossAmount,
+                        model.CategoryCode,
+                        null,
+                        model.BillingPeriodFrom.HasValue
+                            ? DateTime.SpecifyKind(
+                                model.BillingPeriodFrom.Value.Date,
+                                DateTimeKind.Utc)
+                            : null,
+                        model.BillingPeriodTo.HasValue
+                            ? DateTime.SpecifyKind(
+                                model.BillingPeriodTo.Value.Date,
+                                DateTimeKind.Utc)
+                            : null,
+                        model.MainMeterNumber,
+                        model.MainMeterUnit,
+                        model.MainMeterPreviousReading,
+                        model.MainMeterCurrentReading,
+                        model.SubmeterReadingsSnapshot),
+                    GetCurrentUserId(),
+                    HttpContext.TraceIdentifier,
+                    cancellationToken);
+        }
+        catch (ArgumentException exception)
+        {
+            ModelState.AddModelError(
+                string.Empty,
+                exception.Message);
+
+            return View(
+                model);
+        }
+        catch (InvalidOperationException exception)
+        {
+            ModelState.AddModelError(
+                string.Empty,
+                exception.Message);
+
+            return View(
+                model);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        TempData["HouseholdFinanceMessage"] =
+            "Faktura domu została zapisana. Jej dodanie nie zmieniło jeszcze salda konta domu.";
+
+        return RedirectToAction(
+            nameof(Invoices));
+    }
+
+    [HttpGet]
+    [Authorize(
+        Policy = SystemPermissions.FinanceHouseholdManage)]
+    public async Task<IActionResult> PayInvoice(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var form =
+                await householdFinanceService
+                    .GetInvoicePaymentFormAsync(
+                        id,
+                        GetCurrentUserId(),
+                        cancellationToken);
+
+            if (form is null)
+            {
+                TempData["HouseholdFinanceError"] =
+                    "Nie znaleziono aktywnej faktury z kwotą pozostałą do zapłaty.";
+
+                return RedirectToAction(
+                    nameof(Invoices));
+            }
+
+            return View(
+                BuildInvoicePaymentViewModel(
+                    form));
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(
+        Policy = SystemPermissions.FinanceHouseholdManage)]
+    public async Task<IActionResult> PayInvoice(
+        PayHouseholdInvoiceViewModel model,
+        CancellationToken cancellationToken = default)
+    {
+        HouseholdInvoicePaymentForm? form =
+            null;
+
+        try
+        {
+            form =
+                await householdFinanceService
+                    .GetInvoicePaymentFormAsync(
+                        model.InvoiceId,
+                        GetCurrentUserId(),
+                        cancellationToken);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        if (form is null)
+        {
+            TempData["HouseholdFinanceError"] =
+                "Faktura została już opłacona, anulowana albo nie istnieje.";
+
+            return RedirectToAction(
+                nameof(Invoices));
+        }
+
+        RebuildInvoicePaymentViewModel(
+            model,
+            form);
+
+        if (!ModelState.IsValid)
+        {
+            return View(
+                model);
+        }
+
+        try
+        {
+            await householdFinanceService
+                .PayInvoiceAsync(
+                    new PayHouseholdInvoiceRequest(
+                        model.CommandId,
+                        model.InvoiceId,
+                        model.HouseholdAccountId,
+                        model.Amount,
+                        DateTime.SpecifyKind(
+                            model.PaidOn.Date,
+                            DateTimeKind.Utc)),
+                    GetCurrentUserId(),
+                    HttpContext.TraceIdentifier,
+                    cancellationToken);
+        }
+        catch (ArgumentException exception)
+        {
+            ModelState.AddModelError(
+                string.Empty,
+                exception.Message);
+
+            return View(
+                model);
+        }
+        catch (InvalidOperationException exception)
+        {
+            ModelState.AddModelError(
+                string.Empty,
+                exception.Message);
+
+            return View(
+                model);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        TempData["HouseholdFinanceMessage"] =
+            "Płatność faktury została zaksięgowana na wskazanym koncie domu.";
+
+        return RedirectToAction(
+            nameof(Invoices));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(
+        Policy = SystemPermissions.FinanceHouseholdManage)]
+    public async Task<IActionResult> CancelInvoice(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await householdFinanceService
+                .CancelInvoiceAsync(
+                    id,
+                    GetCurrentUserId(),
+                    HttpContext.TraceIdentifier,
+                    cancellationToken);
+
+            TempData["HouseholdFinanceMessage"] =
+                "Faktura została anulowana. Historia rekordu pozostała zachowana.";
+        }
+        catch (InvalidOperationException exception)
+        {
+            TempData["HouseholdFinanceError"] =
+                exception.Message;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        return RedirectToAction(
+            nameof(Invoices));
+    }
+
     private Guid GetCurrentUserId()
     {
         var value =
@@ -1188,6 +1470,103 @@ public sealed class HouseholdFinanceController(
                         Selected =
                             x.AccountId ==
                             model.SourcePersonalAccountId
+                    })
+                .ToList();
+    }
+
+    private static void RebuildInvoiceCategoryOptions(
+        CreateHouseholdInvoiceViewModel model)
+    {
+        model.Categories =
+            HouseholdInvoiceCategories.All
+                .Select(x =>
+                    new SelectListItem
+                    {
+                        Value = x.Code,
+                        Text = x.NamePl,
+                        Selected =
+                            x.Code ==
+                            model.CategoryCode
+                    })
+                .ToList();
+    }
+
+    private static PayHouseholdInvoiceViewModel
+        BuildInvoicePaymentViewModel(
+            HouseholdInvoicePaymentForm form)
+    {
+        var model =
+            new PayHouseholdInvoiceViewModel
+            {
+                CommandId =
+                    Guid.NewGuid(),
+                InvoiceId =
+                    form.InvoiceId,
+                HouseholdAccountId =
+                    form.Accounts
+                        .FirstOrDefault(x =>
+                            x.Balance > 0m)?
+                        .AccountId
+                    ?? form.Accounts
+                        .FirstOrDefault()?
+                        .AccountId
+                    ?? Guid.Empty,
+                Amount =
+                    form.RemainingAmount,
+                PaidOn =
+                    DateTime.Today
+            };
+
+        RebuildInvoicePaymentViewModel(
+            model,
+            form);
+
+        return model;
+    }
+
+    private static void RebuildInvoicePaymentViewModel(
+        PayHouseholdInvoiceViewModel model,
+        HouseholdInvoicePaymentForm form)
+    {
+        model.InvoiceId =
+            form.InvoiceId;
+
+        model.Supplier =
+            form.Supplier;
+
+        model.InvoiceNumber =
+            form.InvoiceNumber;
+
+        model.DueDateUtc =
+            form.DueDateUtc;
+
+        model.GrossAmount =
+            form.GrossAmount;
+
+        model.PaidAmount =
+            form.PaidAmount;
+
+        model.RemainingAmount =
+            form.RemainingAmount;
+
+        model.CategoryNamePl =
+            form.CategoryNamePl;
+
+        model.CurrencyCode =
+            form.CurrencyCode;
+
+        model.Accounts =
+            form.Accounts
+                .Select(x =>
+                    new SelectListItem
+                    {
+                        Value =
+                            x.AccountId.ToString(),
+                        Text =
+                            $"{x.Name} · {x.Balance:N2} {x.CurrencyCode}",
+                        Selected =
+                            x.AccountId ==
+                            model.HouseholdAccountId
                     })
                 .ToList();
     }

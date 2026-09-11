@@ -74,4 +74,31 @@ public interface IHouseholdFinanceService
         Guid actorUserId,
         string correlationId,
         CancellationToken cancellationToken = default);
+
+    Task<HouseholdInvoiceOverview?> GetInvoiceOverviewAsync(
+        Guid actorUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<Guid> CreateInvoiceAsync(
+        CreateHouseholdInvoiceRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
+
+    Task<HouseholdInvoicePaymentForm?> GetInvoicePaymentFormAsync(
+        Guid invoiceId,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<Guid> PayInvoiceAsync(
+        PayHouseholdInvoiceRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
+
+    Task CancelInvoiceAsync(
+        Guid invoiceId,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
 }

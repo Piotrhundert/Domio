@@ -2908,6 +2908,1025 @@ public sealed class HouseholdFinanceService(
             cancellationToken);
     }
 
+    public async Task<HouseholdInvoiceOverview?> GetInvoiceOverviewAsync(
+        Guid actorUserId,
+        CancellationToken cancellationToken = default)
+    {
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinanceHouseholdView,
+            cancellationToken);
+
+        var actorPersonId =
+            await GetActorPersonIdAsync(
+                actorUserId,
+                cancellationToken);
+
+        var household =
+            await GetActiveHouseholdForPersonAsync(
+                actorPersonId,
+                cancellationToken);
+
+        if (household is null)
+        {
+            return null;
+        }
+
+        var canManage =
+            await PermissionEnforcement.HasUserAsync(
+                dbContext,
+                actorUserId,
+                SystemPermissions.FinanceHouseholdManage,
+                cancellationToken);
+
+        var accountRows =
+            await dbContext.HouseholdAccounts
+                .AsNoTracking()
+                .Where(x =>
+                    x.HouseholdId ==
+                        household.Id)
+                .OrderByDescending(x =>
+                    x.IsActive)
+                .ThenBy(x =>
+                    x.Name)
+                .ToArrayAsync(
+                    cancellationToken);
+
+        var accountBalances =
+            await dbContext.HouseholdEntries
+                .AsNoTracking()
+                .Where(x =>
+                    x.HouseholdId ==
+                        household.Id)
+                .GroupBy(x =>
+                    x.AccountId)
+                .Select(x =>
+                    new
+                    {
+                        AccountId = x.Key,
+                        BalanceMinor = x.Sum(y => y.AmountMinor)
+                    })
+                .ToDictionaryAsync(
+                    x => x.AccountId,
+                    x => x.BalanceMinor,
+                    cancellationToken);
+
+        var accounts =
+            accountRows
+                .Select(x =>
+                    new HouseholdAccountSummary(
+                        x.Id,
+                        x.Name,
+                        x.AccountTypeCode,
+                        HouseholdAccountTypes.GetNamePl(
+                            x.AccountTypeCode),
+                        x.CurrencyCode,
+                        HouseholdFinanceMoney.FromMinorUnits(
+                            accountBalances.GetValueOrDefault(
+                                x.Id)),
+                        x.IsActive))
+                .ToArray();
+
+        var paidByInvoice =
+            await dbContext.HouseholdInvoicePayments
+                .AsNoTracking()
+                .Where(x =>
+                    x.HouseholdId ==
+                        household.Id)
+                .GroupBy(x =>
+                    x.InvoiceId)
+                .Select(x =>
+                    new
+                    {
+                        InvoiceId = x.Key,
+                        PaidMinor = x.Sum(y => y.AmountMinor)
+                    })
+                .ToDictionaryAsync(
+                    x => x.InvoiceId,
+                    x => x.PaidMinor,
+                    cancellationToken);
+
+        var invoiceRows =
+            await dbContext.HouseholdInvoices
+                .AsNoTracking()
+                .Where(x =>
+                    x.HouseholdId ==
+                        household.Id)
+                .OrderBy(x =>
+                    x.StatusCode ==
+                        HouseholdInvoiceStatuses.Paid ||
+                    x.StatusCode ==
+                        HouseholdInvoiceStatuses.Cancelled)
+                .ThenBy(x =>
+                    x.DueDateUtc)
+                .ThenByDescending(x =>
+                    x.IssueDateUtc)
+                .Take(250)
+                .ToArrayAsync(
+                    cancellationToken);
+
+        var invoices =
+            invoiceRows
+                .Select(invoice =>
+                {
+                    var paidMinor =
+                        paidByInvoice.GetValueOrDefault(
+                            invoice.Id);
+
+                    var remainingMinor =
+                        Math.Max(
+                            0,
+                            invoice.GrossAmountMinor -
+                            paidMinor);
+
+                    var effectiveStatus =
+                        ResolveHouseholdInvoiceStatus(
+                            invoice.StatusCode,
+                            invoice.GrossAmountMinor,
+                            paidMinor);
+
+                    return new HouseholdInvoiceSummary(
+                        invoice.Id,
+                        invoice.Supplier,
+                        invoice.InvoiceNumber,
+                        invoice.IssueDateUtc,
+                        invoice.DueDateUtc,
+                        HouseholdFinanceMoney.FromMinorUnits(
+                            invoice.GrossAmountMinor),
+                        HouseholdFinanceMoney.FromMinorUnits(
+                            paidMinor),
+                        HouseholdFinanceMoney.FromMinorUnits(
+                            remainingMinor),
+                        effectiveStatus,
+                        HouseholdInvoiceStatuses.GetNamePl(
+                            effectiveStatus),
+                        invoice.CategoryCode,
+                        HouseholdInvoiceCategories.GetNamePl(
+                            invoice.CategoryCode),
+                        invoice.UtilityInvoiceId,
+                        invoice.CreatedAtUtc);
+                })
+                .ToArray();
+
+        var recentPaymentRows =
+            await (
+                from payment in dbContext.HouseholdInvoicePayments
+                    .AsNoTracking()
+                join invoice in dbContext.HouseholdInvoices
+                    .AsNoTracking()
+                    on payment.InvoiceId equals invoice.Id
+                join account in dbContext.HouseholdAccounts
+                    .AsNoTracking()
+                    on payment.HouseholdAccountId equals account.Id
+                where
+                    payment.HouseholdId ==
+                        household.Id &&
+                    invoice.HouseholdId ==
+                        household.Id &&
+                    account.HouseholdId ==
+                        household.Id
+                orderby
+                    payment.PaidAtUtc descending,
+                    payment.CreatedAtUtc descending
+                select new
+                {
+                    Payment = payment,
+                    Invoice = invoice,
+                    Account = account
+                })
+                .Take(100)
+                .ToArrayAsync(
+                    cancellationToken);
+
+        var recentPayments =
+            recentPaymentRows
+                .Select(x =>
+                    new HouseholdInvoicePaymentItem(
+                        x.Payment.Id,
+                        x.Invoice.Id,
+                        x.Invoice.Supplier,
+                        x.Invoice.InvoiceNumber,
+                        x.Account.Id,
+                        x.Account.Name,
+                        HouseholdFinanceMoney.FromMinorUnits(
+                            x.Payment.AmountMinor),
+                        x.Account.CurrencyCode,
+                        x.Payment.PaidAtUtc,
+                        x.Payment.HouseholdEntryId))
+                .ToArray();
+
+        return new HouseholdInvoiceOverview(
+            household.Id,
+            household.Name,
+            household.CurrencyCode,
+            canManage,
+            accounts,
+            invoices,
+            recentPayments);
+    }
+
+    private static string? NormalizeOptionalSnapshotText(
+        string? value,
+        int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var normalized =
+            value.Trim();
+
+        if (normalized.Length > maxLength)
+        {
+            throw new ArgumentException(
+                $"Wartość nie może przekroczyć {maxLength} znaków.");
+        }
+
+        return normalized;
+    }
+
+    private static bool IsUtilityMeterSnapshotCategory(
+        string categoryCode) =>
+        string.Equals(
+            categoryCode,
+            HouseholdInvoiceCategories.Electricity,
+            StringComparison.Ordinal) ||
+        string.Equals(
+            categoryCode,
+            HouseholdInvoiceCategories.Water,
+            StringComparison.Ordinal) ||
+        string.Equals(
+            categoryCode,
+            HouseholdInvoiceCategories.Gas,
+            StringComparison.Ordinal);
+
+    private static bool TryParseMeterReading(
+        string value,
+        out decimal result)
+    {
+        var normalized =
+            value.Trim()
+                .Replace(" ", string.Empty)
+                .Replace(',', '.');
+
+        return decimal.TryParse(
+            normalized,
+            System.Globalization.NumberStyles.Number,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out result);
+    }
+
+    public async Task<Guid> CreateInvoiceAsync(
+        CreateHouseholdInvoiceRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(
+            request);
+
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinanceHouseholdManage,
+            cancellationToken);
+
+        var actorPersonId =
+            await GetActorPersonIdAsync(
+                actorUserId,
+                cancellationToken);
+
+        var household =
+            await GetActiveHouseholdForPersonAsync(
+                actorPersonId,
+                cancellationToken)
+            ?? throw new UnauthorizedAccessException(
+                "Użytkownik nie jest przypisany do aktywnego gospodarstwa.");
+
+        var supplier =
+            NormalizeRequiredText(
+                request.Supplier,
+                "Dostawca",
+                200);
+
+        var invoiceNumber =
+            NormalizeRequiredText(
+                request.InvoiceNumber,
+                "Numer faktury",
+                100);
+
+        if (request.GrossAmount <= 0m)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(request.GrossAmount),
+                "Kwota brutto faktury musi być większa od zera.");
+        }
+
+        var grossAmountMinor =
+            HouseholdFinanceMoney.ToMinorUnits(
+                request.GrossAmount);
+
+        if (!HouseholdInvoiceCategories.IsValid(
+                request.CategoryCode))
+        {
+            throw new ArgumentException(
+                "Wybrano nieprawidłową kategorię faktury.");
+        }
+
+        var issueDateUtc =
+            NormalizeOccurredAtUtc(
+                request.IssueDateUtc,
+                DateTime.UtcNow)
+            .Date;
+
+        var dueDateUtc =
+            NormalizeOccurredAtUtc(
+                request.DueDateUtc,
+                DateTime.UtcNow)
+            .Date;
+
+        if (dueDateUtc < issueDateUtc)
+        {
+            throw new ArgumentException(
+                "Termin płatności nie może być wcześniejszy niż data wystawienia faktury.");
+        }
+
+        DateTime? billingPeriodFromUtc =
+            request.BillingPeriodFromUtc?
+                .Date;
+
+        DateTime? billingPeriodToUtc =
+            request.BillingPeriodToUtc?
+                .Date;
+
+        if (billingPeriodFromUtc.HasValue !=
+            billingPeriodToUtc.HasValue)
+        {
+            throw new ArgumentException(
+                "Dla snapshotu licznika podaj zarówno początek, jak i koniec okresu rozliczeniowego.");
+        }
+
+        if (billingPeriodFromUtc.HasValue &&
+            billingPeriodToUtc.HasValue &&
+            billingPeriodToUtc.Value < billingPeriodFromUtc.Value)
+        {
+            throw new ArgumentException(
+                "Koniec okresu rozliczeniowego nie może być wcześniejszy niż jego początek.");
+        }
+
+        var mainMeterNumber =
+            NormalizeOptionalSnapshotText(
+                request.MainMeterNumber,
+                100);
+
+        var mainMeterUnit =
+            NormalizeOptionalSnapshotText(
+                request.MainMeterUnit,
+                20);
+
+        if (string.IsNullOrWhiteSpace(mainMeterUnit) &&
+            IsUtilityMeterSnapshotCategory(
+                request.CategoryCode))
+        {
+            mainMeterUnit =
+                request.CategoryCode switch
+                {
+                    var category when string.Equals(
+                        category,
+                        HouseholdInvoiceCategories.Electricity,
+                        StringComparison.Ordinal) => "kWh",
+                    var category when string.Equals(
+                        category,
+                        HouseholdInvoiceCategories.Water,
+                        StringComparison.Ordinal) => "m3",
+                    var category when string.Equals(
+                        category,
+                        HouseholdInvoiceCategories.Gas,
+                        StringComparison.Ordinal) => "m3",
+                    _ => null
+                };
+        }
+
+        var mainMeterPreviousReading =
+            NormalizeOptionalSnapshotText(
+                request.MainMeterPreviousReading,
+                40);
+
+        var mainMeterCurrentReading =
+            NormalizeOptionalSnapshotText(
+                request.MainMeterCurrentReading,
+                40);
+
+        if ((mainMeterPreviousReading is null) !=
+            (mainMeterCurrentReading is null))
+        {
+            throw new ArgumentException(
+                "Dla licznika głównego podaj zarówno stan poprzedni, jak i bieżący.");
+        }
+
+        if (mainMeterPreviousReading is not null &&
+            mainMeterCurrentReading is not null &&
+            TryParseMeterReading(
+                mainMeterPreviousReading,
+                out var previousValue) &&
+            TryParseMeterReading(
+                mainMeterCurrentReading,
+                out var currentValue) &&
+            currentValue < previousValue)
+        {
+            throw new ArgumentException(
+                "Stan bieżący licznika głównego nie może być mniejszy od poprzedniego.");
+        }
+
+        var submeterReadingsSnapshot =
+            NormalizeOptionalSnapshotText(
+                request.SubmeterReadingsSnapshot,
+                4000);
+
+        await using var transaction =
+            await dbContext.Database.BeginTransactionAsync(
+                cancellationToken);
+
+        var duplicateExists =
+            await dbContext.HouseholdInvoices
+                .AsNoTracking()
+                .AnyAsync(
+                    x =>
+                        x.HouseholdId ==
+                            household.Id &&
+                        x.Supplier.ToUpper() ==
+                            supplier.ToUpper() &&
+                        x.InvoiceNumber.ToUpper() ==
+                            invoiceNumber.ToUpper(),
+                    cancellationToken);
+
+        if (duplicateExists)
+        {
+            throw new InvalidOperationException(
+                "Faktura tego dostawcy o podanym numerze już istnieje.");
+        }
+
+        var now =
+            DateTime.UtcNow;
+
+        var invoice =
+            new HouseholdInvoice
+            {
+                Id = Guid.NewGuid(),
+                HouseholdId = household.Id,
+                Supplier = supplier,
+                InvoiceNumber = invoiceNumber,
+                IssueDateUtc = issueDateUtc,
+                DueDateUtc = dueDateUtc,
+                GrossAmountMinor = grossAmountMinor,
+                StatusCode = HouseholdInvoiceStatuses.Unpaid,
+                CategoryCode = request.CategoryCode,
+                BillingPeriodFromUtc = billingPeriodFromUtc,
+                BillingPeriodToUtc = billingPeriodToUtc,
+                MainMeterNumber = mainMeterNumber,
+                MainMeterUnit = mainMeterUnit,
+                MainMeterPreviousReading = mainMeterPreviousReading,
+                MainMeterCurrentReading = mainMeterCurrentReading,
+                SubmeterReadingsSnapshot = submeterReadingsSnapshot,
+                UtilityInvoiceId = request.UtilityInvoiceId,
+                CreatedByUserId = actorUserId,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now
+            };
+
+        dbContext.HouseholdInvoices.Add(
+            invoice);
+
+        await dbContext.SaveChangesAsync(
+            cancellationToken);
+
+        await auditService.WriteAsync(
+            new AuditEntry(
+                EventType:
+                    "M04.6.HouseholdInvoiceCreated",
+                EntityType:
+                    "HouseholdInvoice",
+                EntityId:
+                    invoice.Id.ToString(),
+                ActorId:
+                    actorUserId.ToString(),
+                CorrelationId:
+                    correlationId,
+                Description:
+                    "Utworzono fakturę gospodarstwa. Kwota, numer faktury i nazwa dostawcy nie są zapisywane w audycie."),
+            cancellationToken);
+
+        await transaction.CommitAsync(
+            cancellationToken);
+
+        return invoice.Id;
+    }
+
+    public async Task<HouseholdInvoicePaymentForm?> GetInvoicePaymentFormAsync(
+        Guid invoiceId,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default)
+    {
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinanceHouseholdManage,
+            cancellationToken);
+
+        var actorPersonId =
+            await GetActorPersonIdAsync(
+                actorUserId,
+                cancellationToken);
+
+        var household =
+            await GetActiveHouseholdForPersonAsync(
+                actorPersonId,
+                cancellationToken);
+
+        if (household is null)
+        {
+            return null;
+        }
+
+        var invoice =
+            await dbContext.HouseholdInvoices
+                .AsNoTracking()
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id == invoiceId &&
+                        x.HouseholdId ==
+                            household.Id,
+                    cancellationToken);
+
+        if (invoice is null ||
+            invoice.StatusCode ==
+                HouseholdInvoiceStatuses.Cancelled)
+        {
+            return null;
+        }
+
+        var paidMinor =
+            await dbContext.HouseholdInvoicePayments
+                .AsNoTracking()
+                .Where(x =>
+                    x.InvoiceId ==
+                        invoice.Id &&
+                    x.HouseholdId ==
+                        household.Id)
+                .SumAsync(
+                    x => x.AmountMinor,
+                    cancellationToken);
+
+        var remainingMinor =
+            Math.Max(
+                0,
+                invoice.GrossAmountMinor -
+                paidMinor);
+
+        if (remainingMinor <= 0)
+        {
+            return null;
+        }
+
+        var activeAccounts =
+            await dbContext.HouseholdAccounts
+                .AsNoTracking()
+                .Where(x =>
+                    x.HouseholdId ==
+                        household.Id &&
+                    x.IsActive &&
+                    x.CurrencyCode ==
+                        household.CurrencyCode)
+                .OrderBy(x =>
+                    x.Name)
+                .ToArrayAsync(
+                    cancellationToken);
+
+        var accountIds =
+            activeAccounts
+                .Select(x => x.Id)
+                .ToArray();
+
+        var balances =
+            await dbContext.HouseholdEntries
+                .AsNoTracking()
+                .Where(x =>
+                    x.HouseholdId ==
+                        household.Id &&
+                    accountIds.Contains(
+                        x.AccountId))
+                .GroupBy(x =>
+                    x.AccountId)
+                .Select(x =>
+                    new
+                    {
+                        AccountId = x.Key,
+                        BalanceMinor = x.Sum(y => y.AmountMinor)
+                    })
+                .ToDictionaryAsync(
+                    x => x.AccountId,
+                    x => x.BalanceMinor,
+                    cancellationToken);
+
+        var accounts =
+            activeAccounts
+                .Select(x =>
+                    new HouseholdInvoicePaymentAccount(
+                        x.Id,
+                        x.Name,
+                        HouseholdAccountTypes.GetNamePl(
+                            x.AccountTypeCode),
+                        x.CurrencyCode,
+                        HouseholdFinanceMoney.FromMinorUnits(
+                            balances.GetValueOrDefault(
+                                x.Id))))
+                .ToArray();
+
+        return new HouseholdInvoicePaymentForm(
+            invoice.Id,
+            invoice.Supplier,
+            invoice.InvoiceNumber,
+            invoice.DueDateUtc,
+            HouseholdFinanceMoney.FromMinorUnits(
+                invoice.GrossAmountMinor),
+            HouseholdFinanceMoney.FromMinorUnits(
+                paidMinor),
+            HouseholdFinanceMoney.FromMinorUnits(
+                remainingMinor),
+            HouseholdInvoiceCategories.GetNamePl(
+                invoice.CategoryCode),
+            household.CurrencyCode,
+            accounts);
+    }
+
+    public async Task<Guid> PayInvoiceAsync(
+        PayHouseholdInvoiceRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(
+            request);
+
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinanceHouseholdManage,
+            cancellationToken);
+
+        if (request.CommandId == Guid.Empty)
+        {
+            throw new ArgumentException(
+                "Brak identyfikatora polecenia płatności.");
+        }
+
+        if (request.Amount <= 0m)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(request.Amount),
+                "Kwota płatności musi być większa od zera.");
+        }
+
+        var amountMinor =
+            HouseholdFinanceMoney.ToMinorUnits(
+                request.Amount);
+
+        var actorPersonId =
+            await GetActorPersonIdAsync(
+                actorUserId,
+                cancellationToken);
+
+        var household =
+            await GetActiveHouseholdForPersonAsync(
+                actorPersonId,
+                cancellationToken)
+            ?? throw new UnauthorizedAccessException(
+                "Użytkownik nie jest przypisany do aktywnego gospodarstwa.");
+
+        await using var transaction =
+            await dbContext.Database.BeginTransactionAsync(
+                cancellationToken);
+
+        var existingPayment =
+            await dbContext.HouseholdInvoicePayments
+                .AsNoTracking()
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.HouseholdId ==
+                            household.Id &&
+                        x.CommandId ==
+                            request.CommandId,
+                    cancellationToken);
+
+        if (existingPayment is not null)
+        {
+            if (existingPayment.InvoiceId !=
+                    request.InvoiceId ||
+                existingPayment.HouseholdAccountId !=
+                    request.HouseholdAccountId ||
+                existingPayment.AmountMinor !=
+                    amountMinor)
+            {
+                throw new InvalidOperationException(
+                    "Ten identyfikator polecenia został już użyty dla innej płatności.");
+            }
+
+            await transaction.CommitAsync(
+                cancellationToken);
+
+            return existingPayment.Id;
+        }
+
+        var invoice =
+            await dbContext.HouseholdInvoices
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id ==
+                            request.InvoiceId &&
+                        x.HouseholdId ==
+                            household.Id,
+                    cancellationToken)
+            ?? throw new UnauthorizedAccessException(
+                "Faktura nie istnieje albo należy do innego gospodarstwa.");
+
+        if (invoice.StatusCode ==
+            HouseholdInvoiceStatuses.Cancelled)
+        {
+            throw new InvalidOperationException(
+                "Anulowanej faktury nie można opłacić.");
+        }
+
+        var paidMinor =
+            await dbContext.HouseholdInvoicePayments
+                .Where(x =>
+                    x.InvoiceId ==
+                        invoice.Id &&
+                    x.HouseholdId ==
+                        household.Id)
+                .SumAsync(
+                    x => x.AmountMinor,
+                    cancellationToken);
+
+        var remainingMinor =
+            invoice.GrossAmountMinor -
+            paidMinor;
+
+        if (remainingMinor <= 0)
+        {
+            throw new InvalidOperationException(
+                "Faktura jest już w pełni opłacona.");
+        }
+
+        if (amountMinor >
+            remainingMinor)
+        {
+            throw new InvalidOperationException(
+                "Kwota płatności nie może przekraczać kwoty pozostałej do zapłaty.");
+        }
+
+        var account =
+            await dbContext.HouseholdAccounts
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id ==
+                            request.HouseholdAccountId &&
+                        x.HouseholdId ==
+                            household.Id &&
+                        x.IsActive,
+                    cancellationToken)
+            ?? throw new UnauthorizedAccessException(
+                "Konto domu nie istnieje, jest nieaktywne albo należy do innego gospodarstwa.");
+
+        if (!string.Equals(
+                account.CurrencyCode,
+                household.CurrencyCode,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Waluta konta domu jest inna niż waluta faktury.");
+        }
+
+        var currentBalanceMinor =
+            await dbContext.HouseholdEntries
+                .Where(x =>
+                    x.HouseholdId ==
+                        household.Id &&
+                    x.AccountId ==
+                        account.Id)
+                .SumAsync(
+                    x => x.AmountMinor,
+                    cancellationToken);
+
+        if (currentBalanceMinor <
+            amountMinor)
+        {
+            throw new InvalidOperationException(
+                "Niewystarczające środki na koncie domu. Faktura i saldo pozostały bez zmian.");
+        }
+
+        var now =
+            DateTime.UtcNow;
+
+        var paidAtUtc =
+            NormalizeOccurredAtUtc(
+                request.PaidAtUtc,
+                now);
+
+        var paymentId =
+            Guid.NewGuid();
+
+        var entryId =
+            Guid.NewGuid();
+
+        var payment =
+            new HouseholdInvoicePayment
+            {
+                Id = paymentId,
+                HouseholdId = household.Id,
+                InvoiceId = invoice.Id,
+                HouseholdAccountId = account.Id,
+                CommandId = request.CommandId,
+                AmountMinor = amountMinor,
+                PaidAtUtc = paidAtUtc,
+                HouseholdEntryId = entryId,
+                CreatedByUserId = actorUserId,
+                CreatedAtUtc = now
+            };
+
+        var entry =
+            new HouseholdEntry
+            {
+                Id = entryId,
+                HouseholdId = household.Id,
+                AccountId = account.Id,
+                EntryTypeCode = HouseholdEntryTypes.Expense,
+                AmountMinor = -amountMinor,
+                OccurredAtUtc = paidAtUtc,
+                CategoryCode =
+                    HouseholdInvoiceCategories
+                        .ToHouseholdFinanceCategory(
+                            invoice.CategoryCode),
+                Description =
+                    $"Płatność faktury {invoice.InvoiceNumber} · {invoice.Supplier}",
+                SourceType = "HouseholdInvoicePayment",
+                SourceId = paymentId.ToString(),
+                CreatedByUserId = actorUserId,
+                CreatedAtUtc = now
+            };
+
+        dbContext.HouseholdInvoicePayments.Add(
+            payment);
+
+        dbContext.HouseholdEntries.Add(
+            entry);
+
+        var newPaidMinor =
+            checked(
+                paidMinor +
+                amountMinor);
+
+        invoice.StatusCode =
+            newPaidMinor >=
+                invoice.GrossAmountMinor
+                ? HouseholdInvoiceStatuses.Paid
+                : HouseholdInvoiceStatuses.PartiallyPaid;
+
+        invoice.UpdatedAtUtc =
+            now;
+
+        account.UpdatedAtUtc =
+            now;
+
+        await dbContext.SaveChangesAsync(
+            cancellationToken);
+
+        await auditService.WriteAsync(
+            new AuditEntry(
+                EventType:
+                    "M04.6.HouseholdInvoicePaid",
+                EntityType:
+                    "HouseholdInvoicePayment",
+                EntityId:
+                    payment.Id.ToString(),
+                ActorId:
+                    actorUserId.ToString(),
+                CorrelationId:
+                    correlationId,
+                Description:
+                    "Zaksięgowano płatność przypisaną do jednej faktury gospodarstwa. Kwota, numer faktury i konto nie są zapisywane w audycie."),
+            cancellationToken);
+
+        await transaction.CommitAsync(
+            cancellationToken);
+
+        return payment.Id;
+    }
+
+    public async Task CancelInvoiceAsync(
+        Guid invoiceId,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinanceHouseholdManage,
+            cancellationToken);
+
+        var actorPersonId =
+            await GetActorPersonIdAsync(
+                actorUserId,
+                cancellationToken);
+
+        var household =
+            await GetActiveHouseholdForPersonAsync(
+                actorPersonId,
+                cancellationToken)
+            ?? throw new UnauthorizedAccessException(
+                "Użytkownik nie jest przypisany do aktywnego gospodarstwa.");
+
+        await using var transaction =
+            await dbContext.Database.BeginTransactionAsync(
+                cancellationToken);
+
+        var invoice =
+            await dbContext.HouseholdInvoices
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id == invoiceId &&
+                        x.HouseholdId ==
+                            household.Id,
+                    cancellationToken)
+            ?? throw new UnauthorizedAccessException(
+                "Faktura nie istnieje albo należy do innego gospodarstwa.");
+
+        if (invoice.StatusCode ==
+            HouseholdInvoiceStatuses.Cancelled)
+        {
+            await transaction.CommitAsync(
+                cancellationToken);
+
+            return;
+        }
+
+        var hasPayments =
+            await dbContext.HouseholdInvoicePayments
+                .AsNoTracking()
+                .AnyAsync(
+                    x =>
+                        x.InvoiceId ==
+                            invoice.Id &&
+                        x.HouseholdId ==
+                            household.Id,
+                    cancellationToken);
+
+        if (hasPayments)
+        {
+            throw new InvalidOperationException(
+                "Faktura ma już zaksięgowane płatności. Nie można jej anulować bez procesu korekty lub zwrotu środków.");
+        }
+
+        var now =
+            DateTime.UtcNow;
+
+        invoice.StatusCode =
+            HouseholdInvoiceStatuses.Cancelled;
+
+        invoice.CancelledByUserId =
+            actorUserId;
+
+        invoice.CancelledAtUtc =
+            now;
+
+        invoice.UpdatedAtUtc =
+            now;
+
+        await dbContext.SaveChangesAsync(
+            cancellationToken);
+
+        await auditService.WriteAsync(
+            new AuditEntry(
+                EventType:
+                    "M04.6.HouseholdInvoiceCancelled",
+                EntityType:
+                    "HouseholdInvoice",
+                EntityId:
+                    invoice.Id.ToString(),
+                ActorId:
+                    actorUserId.ToString(),
+                CorrelationId:
+                    correlationId,
+                Description:
+                    "Anulowano nieopłaconą fakturę gospodarstwa. Rekord i historia pozostają zachowane."),
+            cancellationToken);
+
+        await transaction.CommitAsync(
+            cancellationToken);
+    }
+
     private async Task ResolveContributionIncomeRulesAsync(
         Guid householdId,
         CancellationToken cancellationToken)
@@ -3282,6 +4301,31 @@ public sealed class HouseholdFinanceService(
 
         await dbContext.SaveChangesAsync(
             cancellationToken);
+    }
+
+    private static string ResolveHouseholdInvoiceStatus(
+        string persistedStatus,
+        long grossAmountMinor,
+        long paidAmountMinor)
+    {
+        if (persistedStatus ==
+            HouseholdInvoiceStatuses.Cancelled)
+        {
+            return HouseholdInvoiceStatuses.Cancelled;
+        }
+
+        if (paidAmountMinor <= 0)
+        {
+            return HouseholdInvoiceStatuses.Unpaid;
+        }
+
+        if (paidAmountMinor >=
+            grossAmountMinor)
+        {
+            return HouseholdInvoiceStatuses.Paid;
+        }
+
+        return HouseholdInvoiceStatuses.PartiallyPaid;
     }
 
     private static string ResolveContributionStatus(

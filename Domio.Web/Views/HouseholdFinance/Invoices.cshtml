@@ -1,0 +1,468 @@
+
+@using Domio.Domain.HouseholdFinance
+@model Domio.Application.HouseholdFinance.HouseholdInvoiceOverview
+@{
+    ViewData["Title"] = "Faktury domu";
+
+    var today =
+        DateTime.UtcNow.Date;
+
+    var selectedCategory =
+        Context.Request.Query["category"]
+            .ToString();
+
+    var activeInvoices =
+        Model?.Invoices
+            .Where(x =>
+                x.StatusCode !=
+                    HouseholdInvoiceStatuses.Cancelled)
+            .ToArray()
+        ?? [];
+
+    bool MatchesInvoiceCategory(
+        Domio.Application.HouseholdFinance.HouseholdInvoiceSummary invoice,
+        string categoryKey) =>
+        categoryKey switch
+        {
+            "Electricity" =>
+                invoice.CategoryCode ==
+                    HouseholdInvoiceCategories.Electricity,
+            "Water" =>
+                invoice.CategoryCode ==
+                    HouseholdInvoiceCategories.Water,
+            "Gas" =>
+                invoice.CategoryCode ==
+                    HouseholdInvoiceCategories.Gas,
+            "Pellet" =>
+                invoice.CategoryCode ==
+                    HouseholdInvoiceCategories.Heating,
+            "Waste" =>
+                invoice.CategoryCode ==
+                    HouseholdInvoiceCategories.Waste,
+            "Other" =>
+                invoice.CategoryCode ==
+                    HouseholdInvoiceCategories.Other,
+            _ => true
+        };
+
+    var displayedInvoices =
+        string.IsNullOrWhiteSpace(
+            selectedCategory)
+            ? Model?.Invoices
+                .ToArray()
+              ?? []
+            : Model?.Invoices
+                .Where(x =>
+                    MatchesInvoiceCategory(
+                        x,
+                        selectedCategory))
+                .ToArray()
+              ?? [];
+
+    var selectedCategoryLabel =
+        selectedCategory switch
+        {
+            "Electricity" => "Prąd",
+            "Water" => "Woda",
+            "Gas" => "Gaz",
+            "Pellet" => "Pellet",
+            "Waste" => "Śmieci",
+            "Other" => "Inne",
+            _ => "Wszystkie"
+        };
+
+    var invoiceCategoryTiles =
+        new[]
+        {
+            new { Key = "", Label = "Wszystkie", Caption = "pełny rejestr" },
+            new { Key = "Electricity", Label = "Prąd", Caption = "energia elektryczna" },
+            new { Key = "Water", Label = "Woda", Caption = "faktury operatora wody" },
+            new { Key = "Gas", Label = "Gaz", Caption = "gaz i paliwo gazowe" },
+            new { Key = "Pellet", Label = "Pellet", Caption = "opał / ogrzewanie" },
+            new { Key = "Waste", Label = "Śmieci", Caption = "odpady komunalne" },
+            new { Key = "Other", Label = "Inne", Caption = "pozostałe dokumenty" }
+        };
+
+    var unpaidCount =
+        activeInvoices.Count(x =>
+            x.RemainingAmount > 0m);
+
+    var overdueCount =
+        activeInvoices.Count(x =>
+            x.RemainingAmount > 0m &&
+            x.DueDateUtc.Date < today);
+
+    var totalRemaining =
+        activeInvoices.Sum(x =>
+            x.RemainingAmount);
+}
+
+<div class="household-finance-page">
+    <div class="household-finance-header">
+        <div>
+            <div class="household-finance-kicker">
+                M04.6 · FAKTURY DOMU
+            </div>
+
+            <h1>Faktury domu</h1>
+
+            <p>
+                Faktura jest dokumentem kosztowym. Dopiero jej płatność
+                tworzy rzeczywisty wydatek na wskazanym koncie gospodarstwa.
+            </p>
+        </div>
+
+        <div class="household-finance-header-actions">
+            <a asp-action="Index"
+               class="btn btn-outline-secondary">
+                Wróć do finansów domu
+            </a>
+
+            @if (Model?.CanManage == true)
+            {
+                <a asp-action="CreateInvoice"
+                   class="btn btn-primary">
+                    + Dodaj fakturę
+                </a>
+            }
+        </div>
+    </div>
+
+    @if (TempData["HouseholdFinanceMessage"] is string message)
+    {
+        <div class="alert alert-success mb-4"
+             role="alert">
+            @message
+        </div>
+    }
+
+    @if (TempData["HouseholdFinanceError"] is string error)
+    {
+        <div class="alert alert-danger mb-4"
+             role="alert">
+            @error
+        </div>
+    }
+
+    @if (Model is null)
+    {
+        <div class="household-finance-empty">
+            <h2>Brak aktywnego gospodarstwa</h2>
+            <p>
+                Najpierw utwórz konto domu w module Finanse domu.
+            </p>
+        </div>
+    }
+    else
+    {
+        <div class="household-invoice-summary-grid">
+            <article class="household-invoice-summary-card">
+                <span>Do zapłaty</span>
+                <strong>@unpaidCount</strong>
+                <small>faktur z pozostałą kwotą</small>
+            </article>
+
+            <article class="household-invoice-summary-card">
+                <span>Pozostała kwota</span>
+                <strong>
+                    @totalRemaining.ToString("N2")
+                    <small>@Model.CurrencyCode</small>
+                </strong>
+                <small>łącznie dla aktywnych faktur</small>
+            </article>
+
+            <article class="household-invoice-summary-card @(overdueCount > 0 ? "is-overdue" : "")">
+                <span>Po terminie</span>
+                <strong>@overdueCount</strong>
+                <small>nieopłaconych faktur</small>
+            </article>
+        </div>
+
+        <section class="household-finance-section">
+            <div class="household-finance-section-heading">
+                <div>
+                    <div class="household-finance-section-number">KATEGORIE</div>
+                    <h2>Kafelki kategorii faktur</h2>
+                    <p>
+                        Szybki wykaz najważniejszych kategorii: prąd, woda, gaz,
+                        pellet, śmieci i inne. Kliknij kafelek, aby zawęzić rejestr.
+                    </p>
+                </div>
+            </div>
+
+            <div class="household-invoice-category-grid">
+                @foreach (var tile in invoiceCategoryTiles)
+                {
+                    var tileInvoices =
+                        string.IsNullOrWhiteSpace(tile.Key)
+                            ? Model.Invoices
+                                .ToArray()
+                            : Model.Invoices
+                                .Where(x =>
+                                    MatchesInvoiceCategory(
+                                        x,
+                                        tile.Key))
+                                .ToArray();
+
+                    var tileRemaining =
+                        tileInvoices.Sum(x =>
+                            x.RemainingAmount);
+
+                    var tileOpenCount =
+                        tileInvoices.Count(x =>
+                            x.StatusCode != HouseholdInvoiceStatuses.Cancelled &&
+                            x.RemainingAmount > 0m);
+
+                    var isTileActive =
+                        string.Equals(
+                            selectedCategory,
+                            tile.Key,
+                            StringComparison.OrdinalIgnoreCase) ||
+                        (string.IsNullOrWhiteSpace(selectedCategory) &&
+                         string.IsNullOrWhiteSpace(tile.Key));
+
+                    <a asp-action="Invoices"
+                       asp-route-category="@(string.IsNullOrWhiteSpace(tile.Key) ? null : tile.Key)"
+                       class="household-invoice-category-card @(isTileActive ? "is-active" : null)">
+                        <div class="household-invoice-category-top">
+                            <strong>@tile.Label</strong>
+                            @if (isTileActive)
+                            {
+                                <span>aktywny widok</span>
+                            }
+                        </div>
+
+                        <div class="household-invoice-category-metric">
+                            <span>Faktury</span>
+                            <strong>@tileInvoices.Length</strong>
+                        </div>
+
+                        <div class="household-invoice-category-meta">
+                            <div>
+                                <span>Do zapłaty</span>
+                                <strong>@tileOpenCount</strong>
+                            </div>
+                            <div>
+                                <span>Pozostało</span>
+                                <strong>
+                                    @tileRemaining.ToString("N2")
+                                    @Model.CurrencyCode
+                                </strong>
+                            </div>
+                        </div>
+
+                        <small>@tile.Caption</small>
+                    </a>
+                }
+            </div>
+        </section>
+
+        <section class="household-finance-section">
+            <div class="household-finance-section-heading">
+                <div>
+                    <div class="household-finance-section-number">01</div>
+                    <h2>Rejestr faktur · @selectedCategoryLabel</h2>
+                    <p>
+                        Każda faktura ma własny status. Płatność jednej faktury
+                        nie może zmienić statusu żadnej innej.
+                    </p>
+                </div>
+            </div>
+
+            @if (displayedInvoices.Length == 0)
+            {
+                <div class="household-finance-empty compact">
+                    <h3>Brak faktur</h3>
+                    <p>
+                        @if (string.IsNullOrWhiteSpace(selectedCategory))
+                        {
+                            <text>Dodaj pierwszą fakturę gospodarstwa.</text>
+                        }
+                        else
+                        {
+                            <text>Brak faktur w kategorii „@selectedCategoryLabel”.</text>
+                        }
+                    </p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive household-finance-table-wrap">
+                    <table class="table household-finance-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Faktura</th>
+                                <th>Kategoria</th>
+                                <th>Wystawiona</th>
+                                <th>Termin</th>
+                                <th>Status</th>
+                                <th class="text-end">Brutto</th>
+                                <th class="text-end">Zapłacono</th>
+                                <th class="text-end">Pozostało</th>
+                                <th class="text-end">Akcja</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var invoice in displayedInvoices)
+                        {
+                            var isOverdue =
+                                invoice.RemainingAmount > 0m &&
+                                invoice.StatusCode !=
+                                    HouseholdInvoiceStatuses.Cancelled &&
+                                invoice.DueDateUtc.Date < today;
+
+                            <tr class="@(invoice.StatusCode == HouseholdInvoiceStatuses.Cancelled ? "household-invoice-cancelled-row" : null)">
+                                <td>
+                                    <strong>@invoice.Supplier</strong>
+                                    <div class="household-entry-source">
+                                        @invoice.InvoiceNumber
+                                    </div>
+                                </td>
+                                <td>@invoice.CategoryNamePl</td>
+                                <td>
+                                    @(invoice.IssueDateUtc
+                                        .ToLocalTime()
+                                        .ToString("dd.MM.yyyy"))
+                                </td>
+                                <td>
+                                    <span class="@(isOverdue ? "household-invoice-overdue-date" : null)">
+                                        @(invoice.DueDateUtc
+                                            .ToLocalTime()
+                                            .ToString("dd.MM.yyyy"))
+                                    </span>
+
+                                    @if (isOverdue)
+                                    {
+                                        <div class="household-invoice-overdue-label">
+                                            Po terminie
+                                        </div>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="household-invoice-status @invoice.StatusCode.ToLowerInvariant()">
+                                        @invoice.StatusNamePl
+                                    </span>
+                                </td>
+                                <td class="text-end">
+                                    @invoice.GrossAmount.ToString("N2")
+                                    @Model.CurrencyCode
+                                </td>
+                                <td class="text-end">
+                                    @invoice.PaidAmount.ToString("N2")
+                                    @Model.CurrencyCode
+                                </td>
+                                <td class="text-end">
+                                    <strong>
+                                        @invoice.RemainingAmount.ToString("N2")
+                                        @Model.CurrencyCode
+                                    </strong>
+                                </td>
+                                <td class="text-end">
+                                    @if (Model.CanManage &&
+                                         invoice.RemainingAmount > 0m &&
+                                         invoice.StatusCode != HouseholdInvoiceStatuses.Cancelled)
+                                    {
+                                        <a asp-action="PayInvoice"
+                                           asp-route-id="@invoice.InvoiceId"
+                                           class="btn btn-sm btn-outline-primary">
+                                            Zapłać
+                                        </a>
+                                    }
+
+                                    @if (Model.CanManage &&
+                                         invoice.PaidAmount == 0m &&
+                                         invoice.StatusCode == HouseholdInvoiceStatuses.Unpaid)
+                                    {
+                                        <form asp-action="CancelInvoice"
+                                              method="post"
+                                              class="d-inline">
+                                            <input type="hidden"
+                                                   name="id"
+                                                   value="@invoice.InvoiceId" />
+                                            <button type="submit"
+                                                    class="btn btn-sm btn-outline-danger"
+                                                    onclick="return confirm('Anulować tę fakturę? Rekord pozostanie w historii.');">
+                                                Anuluj
+                                            </button>
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+
+        <section class="household-finance-section">
+            <div class="household-finance-section-heading">
+                <div>
+                    <div class="household-finance-section-number">02</div>
+                    <h2>Historia płatności faktur</h2>
+                    <p>
+                        Każda płatność tworzy dokładnie jeden wydatek na koncie domu
+                        i pozostaje przypisana do konkretnej faktury.
+                    </p>
+                </div>
+            </div>
+
+            @if (Model.RecentPayments.Count == 0)
+            {
+                <div class="household-finance-empty compact">
+                    Brak zaksięgowanych płatności faktur.
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive household-finance-table-wrap">
+                    <table class="table household-finance-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Faktura</th>
+                                <th>Konto domu</th>
+                                <th class="text-end">Kwota</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var payment in Model.RecentPayments)
+                        {
+                            <tr>
+                                <td>
+                                    @(payment.PaidAtUtc
+                                        .ToLocalTime()
+                                        .ToString("dd.MM.yyyy"))
+                                </td>
+                                <td>
+                                    <strong>@payment.Supplier</strong>
+                                    <div class="household-entry-source">
+                                        @payment.InvoiceNumber
+                                    </div>
+                                </td>
+                                <td>@payment.HouseholdAccountName</td>
+                                <td class="text-end">
+                                    <strong>
+                                        @payment.Amount.ToString("N2")
+                                        @payment.CurrencyCode
+                                    </strong>
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+
+        <div class="household-finance-foundation-note">
+            <strong>M04.6 – faktury domu i płatności częściowe.</strong>
+            <span>
+                Dodanie faktury nie księguje wydatku. Dopiero płatność zmniejsza
+                wskazane konto domu. Płatność jest blokowana przy braku środków,
+                nie może przekroczyć pozostałej kwoty i zmienia status wyłącznie
+                tej jednej faktury.
+            </span>
+        </div>
+    }
+</div>
