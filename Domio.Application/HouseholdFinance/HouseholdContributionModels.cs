@@ -62,7 +62,12 @@ public sealed record HouseholdContributionObligationItem(
     Guid TargetHouseholdAccountId,
     string TargetHouseholdAccountName,
     string CurrencyCode,
-    bool IsOwn);
+    bool IsOwn,
+    int ReminderDays,
+    string ReminderStateCode,
+    string ReminderStateNamePl,
+    int DaysToDue,
+    bool ReminderActive);
 
 public sealed record HouseholdContributionOverview(
     Guid HouseholdId,

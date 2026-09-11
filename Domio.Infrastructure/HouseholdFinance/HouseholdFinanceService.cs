@@ -1353,6 +1353,9 @@ public sealed class HouseholdFinanceService(
             await (
                 from obligation in dbContext.HouseholdContributionObligations
                     .AsNoTracking()
+                join contributionRule in dbContext.HouseholdContributionRules
+                    .AsNoTracking()
+                    on obligation.ContributionRuleId equals contributionRule.Id
                 join membership in dbContext.HouseholdMembers
                     .AsNoTracking()
                     on obligation.HouseholdMemberId equals membership.Id
@@ -1365,6 +1368,8 @@ public sealed class HouseholdFinanceService(
                 where
                     obligation.HouseholdId ==
                         household.Id &&
+                    contributionRule.HouseholdId ==
+                        household.Id &&
                     visibleMemberIds.Contains(
                         obligation.HouseholdMemberId)
                 orderby
@@ -1374,6 +1379,7 @@ public sealed class HouseholdFinanceService(
                 select new
                 {
                     Obligation = obligation,
+                    ContributionRule = contributionRule,
                     Person = person,
                     TargetAccount = targetAccount
                 })
@@ -1393,6 +1399,20 @@ public sealed class HouseholdFinanceService(
                             x.Obligation,
                             todayUtc);
 
+                    var outstandingMinor =
+                        Math.Max(
+                            0,
+                            x.Obligation.AmountMinor -
+                            x.Obligation.PaidAmountMinor);
+
+                    var reminder =
+                        HouseholdContributionReminderStates.Resolve(
+                            x.Obligation.DueDateUtc,
+                            x.ContributionRule.ReminderDays,
+                            outstandingMinor,
+                            effectiveStatus,
+                            todayUtc);
+
                     return new HouseholdContributionObligationItem(
                         x.Obligation.Id,
                         x.Obligation.ContributionRuleId,
@@ -1405,10 +1425,7 @@ public sealed class HouseholdFinanceService(
                         HouseholdFinanceMoney.FromMinorUnits(
                             x.Obligation.PaidAmountMinor),
                         HouseholdFinanceMoney.FromMinorUnits(
-                            Math.Max(
-                                0,
-                                x.Obligation.AmountMinor -
-                                x.Obligation.PaidAmountMinor)),
+                            outstandingMinor),
                         x.Obligation.DueDateUtc,
                         effectiveStatus,
                         HouseholdContributionStatuses.GetNamePl(
@@ -1427,7 +1444,12 @@ public sealed class HouseholdFinanceService(
                         x.TargetAccount.CurrencyCode,
                         actorMembership is not null &&
                         x.Obligation.HouseholdMemberId ==
-                            actorMembership.Membership.Id);
+                            actorMembership.Membership.Id,
+                        x.ContributionRule.ReminderDays,
+                        reminder.Code,
+                        reminder.NamePl,
+                        reminder.DaysToDue,
+                        reminder.IsActive);
                 })
                 .ToArray();
 

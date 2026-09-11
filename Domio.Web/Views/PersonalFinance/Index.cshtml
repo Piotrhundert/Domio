@@ -39,7 +39,7 @@
     <div class="finance-page-header">
         <div>
             <div class="finance-kicker">
-                M04.4 · FINANSE OSOBISTE
+                M04.5 · FINANSE OSOBISTE
             </div>
             <h1>Moje finanse</h1>
             <p>
@@ -189,6 +189,35 @@
                                 <strong>@contribution.TargetHouseholdAccountName</strong>
                             </div>
                         </div>
+
+                        @if (!isPaid &&
+                             pendingPayment is null &&
+                             contribution.ReminderActive)
+                        {
+                            <div class="finance-contribution-reminder @contribution.ReminderStateCode.ToLowerInvariant()">
+                                <strong>@contribution.ReminderStateNamePl</strong>
+
+                                @if (contribution.ReminderStateCode ==
+                                     HouseholdContributionReminderStates.Overdue)
+                                {
+                                    <span>
+                                        Do wpłaty pozostało
+                                        @contribution.OutstandingAmount.ToString("N2")
+                                        @contribution.CurrencyCode.
+                                    </span>
+                                }
+                                else if (contribution.ReminderStateCode ==
+                                          HouseholdContributionReminderStates.Upcoming)
+                                {
+                                    <span>
+                                        Termin:
+                                        @(contribution.DueDateUtc
+                                            .ToLocalTime()
+                                            .ToString("dd.MM.yyyy")).
+                                    </span>
+                                }
+                            </div>
+                        }
 
                         <div class="finance-contribution-card-action">
                             @if (isPaid)

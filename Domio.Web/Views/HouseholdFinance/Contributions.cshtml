@@ -24,7 +24,7 @@
     <div class="household-finance-header">
         <div>
             <div class="household-finance-kicker">
-                M04.4 · WPŁATY SKŁADEK
+                M04.5 · TERMINY I PRZYPOMNIENIA
             </div>
 
             <h1>Składki domowników</h1>
@@ -82,6 +82,68 @@
     }
     else
     {
+        var upcomingCount =
+            overview.Obligations.Count(x =>
+                x.ReminderStateCode ==
+                    HouseholdContributionReminderStates.Upcoming);
+
+        var dueTodayCount =
+            overview.Obligations.Count(x =>
+                x.ReminderStateCode ==
+                    HouseholdContributionReminderStates.DueToday);
+
+        var overdueCount =
+            overview.Obligations.Count(x =>
+                x.ReminderStateCode ==
+                    HouseholdContributionReminderStates.Overdue);
+
+        var pendingApprovalCount =
+            overview.PaymentRequests.Count(x =>
+                x.StatusCode ==
+                    HouseholdContributionPaymentStatuses.Pending);
+
+        <section class="household-finance-section household-reminder-summary">
+            <div class="household-finance-section-heading">
+                <div>
+                    <div class="household-finance-section-number">TERMINY</div>
+                    <h2>Terminy i zaległości</h2>
+                    <p>
+                        Domio przypomina o składce zgodnie z ustawieniem
+                        „Przypomnienie przed terminem” w regule składki.
+                    </p>
+                </div>
+            </div>
+
+            <div class="household-reminder-summary-grid">
+                <div class="household-reminder-summary-card upcoming">
+                    <span>Zbliża się termin</span>
+                    <strong>@upcomingCount</strong>
+                    <small>w okresie przypomnienia</small>
+                </div>
+
+                <div class="household-reminder-summary-card due-today">
+                    <span>Termin dzisiaj</span>
+                    <strong>@dueTodayCount</strong>
+                    <small>wymaga uwagi</small>
+                </div>
+
+                <div class="household-reminder-summary-card overdue">
+                    <span>Po terminie</span>
+                    <strong>@overdueCount</strong>
+                    <small>pozostała kwota do wpłaty</small>
+                </div>
+
+                @if (canApprove)
+                {
+                    <div class="household-reminder-summary-card approval">
+                        <span>Do akceptacji</span>
+                        <strong>@pendingApprovalCount</strong>
+                        <small>wpłat domowników</small>
+                    </div>
+                }
+            </div>
+        </section>
+
         @if (canManage)
         {
             <section class="household-finance-section">
@@ -357,6 +419,13 @@
                                     <span class="household-contribution-status @obligation.StatusCode.ToLowerInvariant()">
                                         @obligation.StatusNamePl
                                     </span>
+
+                                    @if (obligation.ReminderActive)
+                                    {
+                                        <div class="household-contribution-reminder @obligation.ReminderStateCode.ToLowerInvariant()">
+                                            @obligation.ReminderStateNamePl
+                                        </div>
+                                    }
                                 </td>
 
                                 <td class="text-end">
@@ -547,12 +616,12 @@
         </section>
 
         <div class="household-finance-foundation-note">
-            <strong>M04.4 – wpłata domownika → akceptacja administratora.</strong>
+            <strong>M04.5 – terminy, zaległości i przypomnienia w aplikacji.</strong>
             <span>
-                Domownik może wysłać pełną albo częściową wpłatę z własnego
-                konta. Administrator nie widzi prywatnego salda ani historii;
-                przy akceptacji system ponownie sprawdza dostępne środki
-                i dopiero wtedy księguje obie strony operacji atomowo.
+                Przypomnienie pojawia się dopiero w okresie ustawionym
+                w regule składki. W dniu terminu zmienia się na „Termin dzisiaj”,
+                a po terminie system pokazuje zaległość i nadal wskazuje
+                pozostałą kwotę do wpłaty.
             </span>
         </div>
     }

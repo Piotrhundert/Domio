@@ -112,3 +112,93 @@ public static class HouseholdContributionPaymentStatuses
             _ => code
         };
 }
+
+public sealed record HouseholdContributionReminderInfo(
+    string Code,
+    string NamePl,
+    int DaysToDue,
+    bool IsActive);
+
+public static class HouseholdContributionReminderStates
+{
+    public const string None = "None";
+    public const string Upcoming = "Upcoming";
+    public const string DueToday = "DueToday";
+    public const string Overdue = "Overdue";
+
+    public static HouseholdContributionReminderInfo Resolve(
+        DateTime dueDateUtc,
+        int reminderDays,
+        long outstandingAmountMinor,
+        string statusCode,
+        DateTime todayUtc)
+    {
+        var normalizedReminderDays =
+            Math.Clamp(
+                reminderDays,
+                0,
+                31);
+
+        var daysToDue =
+            (dueDateUtc.Date -
+             todayUtc.Date)
+            .Days;
+
+        if (outstandingAmountMinor <= 0 ||
+            statusCode ==
+                HouseholdContributionStatuses.Paid ||
+            statusCode ==
+                HouseholdContributionStatuses.Cancelled ||
+            statusCode ==
+                HouseholdContributionStatuses.Corrected)
+        {
+            return new HouseholdContributionReminderInfo(
+                None,
+                string.Empty,
+                daysToDue,
+                false);
+        }
+
+        if (daysToDue < 0)
+        {
+            var daysOverdue =
+                Math.Abs(
+                    daysToDue);
+
+            return new HouseholdContributionReminderInfo(
+                Overdue,
+                daysOverdue == 1
+                    ? "Po terminie o 1 dzień"
+                    : $"Po terminie o {daysOverdue} dni",
+                daysToDue,
+                true);
+        }
+
+        if (daysToDue == 0)
+        {
+            return new HouseholdContributionReminderInfo(
+                DueToday,
+                "Termin składki jest dzisiaj",
+                0,
+                true);
+        }
+
+        if (daysToDue <=
+            normalizedReminderDays)
+        {
+            return new HouseholdContributionReminderInfo(
+                Upcoming,
+                daysToDue == 1
+                    ? "Termin jutro"
+                    : $"Termin za {daysToDue} dni",
+                daysToDue,
+                true);
+        }
+
+        return new HouseholdContributionReminderInfo(
+            None,
+            string.Empty,
+            daysToDue,
+            false);
+    }
+}

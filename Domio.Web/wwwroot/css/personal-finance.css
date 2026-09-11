@@ -838,3 +838,35 @@
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+
+.finance-contribution-reminder {
+  display: grid;
+  gap: 3px;
+  padding: 10px 11px;
+  border-radius: 11px;
+  font-size: 0.7rem;
+  line-height: 1.4;
+}
+
+.finance-contribution-reminder.upcoming {
+  border: 1px solid #d7e5f2;
+  background: #f4f9fd;
+  color: #486b8e;
+}
+
+.finance-contribution-reminder.duetoday {
+  border: 1px solid #ead7a8;
+  background: #fff8e8;
+  color: #80601b;
+}
+
+.finance-contribution-reminder.overdue {
+  border: 1px solid #ebcccc;
+  background: #fff5f5;
+  color: #934343;
+}
+
+.finance-contribution-reminder strong {
+  font-size: 0.72rem;
+}
