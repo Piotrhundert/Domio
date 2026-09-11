@@ -403,7 +403,7 @@ app.MapGet("/health", async (
                 ? "Healthy"
                 : "Unhealthy",
             application = "Domio",
-            module = "M03",
+            module = "M04",
             package = "M04.6",
             environment =
                 app.Environment.EnvironmentName,
