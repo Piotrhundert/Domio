@@ -121,3 +121,79 @@ public sealed class FamilyBudgetLinksViewModel
     public List<SelectListItem> Categories { get; set; } = [];
     public List<SelectListItem> Beneficiaries { get; set; } = [];
 }
+
+public sealed class PayFamilyExpenseViewModel
+{
+    public Guid FamilyGroupId { get; set; }
+
+    public Guid OccurrenceId { get; set; }
+
+    public int Year { get; set; }
+
+    public int Month { get; set; }
+
+    public string FamilyGroupName { get; set; } = string.Empty;
+
+    public string RuleName { get; set; } = string.Empty;
+
+    public string CategoryNamePl { get; set; } = string.Empty;
+
+    public decimal Amount { get; set; }
+
+    public DateTime PlannedDateUtc { get; set; }
+
+    public string? BeneficiaryDisplayName { get; set; }
+
+    [Required(ErrorMessage = "Wybierz konto, z którego ma zostać opłacony koszt.")]
+    [Display(Name = "Zapłać z konta")]
+    public string SelectedAccountKey { get; set; } = string.Empty;
+
+    [DataType(DataType.Date)]
+    [Display(Name = "Data płatności")]
+    public DateTime PaidAtUtc { get; set; } = DateTime.Today;
+
+    public List<SelectListItem> Accounts { get; set; } = [];
+}
+
+public sealed class CreateFamilyChildIncomeViewModel
+{
+    public Guid FamilyGroupId { get; set; }
+
+    public Guid BeneficiaryPersonId { get; set; }
+
+    public string FamilyGroupName { get; set; } = string.Empty;
+
+    public string BeneficiaryDisplayName { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Wybierz rodzaj przychodu.")]
+    [Display(Name = "Rodzaj przychodu")]
+    public string IncomeKindCode { get; set; } = string.Empty;
+
+    [MaxLength(160)]
+    [Display(Name = "Własna nazwa (dla opcji Inny)")]
+    public string? CustomName { get; set; }
+
+    [Range(typeof(decimal), "0.01", "999999999.99", ParseLimitsInInvariantCulture = true, ConvertValueInInvariantCulture = true, ErrorMessage = "Kwota musi być większa od zera.")]
+    [Display(Name = "Planowana kwota")]
+    public decimal PlannedAmount { get; set; }
+
+    [Required(ErrorMessage = "Wybierz częstotliwość.")]
+    [Display(Name = "Częstotliwość")]
+    public string FrequencyCode { get; set; } = string.Empty;
+
+    [Range(1, 31, ErrorMessage = "Dzień wpływu musi mieścić się w zakresie 1-31.")]
+    [Display(Name = "Dzień wpływu")]
+    public int DueDay { get; set; } = 1;
+
+    [DataType(DataType.Date)]
+    [Display(Name = "Od kiedy")]
+    public DateTime ActiveFromUtc { get; set; } = DateTime.Today;
+
+    [DataType(DataType.Date)]
+    [Display(Name = "Do kiedy (opcjonalnie)")]
+    public DateTime? ActiveToUtc { get; set; }
+
+    public List<SelectListItem> IncomeKinds { get; set; } = [];
+
+    public List<SelectListItem> Frequencies { get; set; } = [];
+}

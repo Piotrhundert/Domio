@@ -163,6 +163,53 @@ public sealed class M04_8_2_FamilyBudgetTests
                 .Accounts.Single(x => x.AccountId == privateAccountId).Balance;
             Assert.Equal(balanceBeforePlan, balanceAfterPlan);
 
+            var everyTwoMonthsStart = new DateTime(
+                now.Year,
+                now.Month,
+                1,
+                0,
+                0,
+                0,
+                DateTimeKind.Utc).AddMonths(1);
+
+            await familyBudgetService.CreateRecurringExpenseAsync(
+                new CreateFamilyRecurringExpenseRequest(
+                    familyGroupId,
+                    "Przegląd cykliczny co dwa miesiące",
+                    FamilyBudgetCategories.Home,
+                    25m,
+                    FamilyRecurringFrequencies.Every2Months,
+                    15,
+                    null,
+                    everyTwoMonthsStart,
+                    null),
+                administrator.UserId,
+                Guid.NewGuid().ToString("N"));
+
+            var firstEveryTwoMonthsPeriod = await familyBudgetService.GetOverviewAsync(
+                familyGroupId,
+                administrator.UserId,
+                everyTwoMonthsStart.Year,
+                everyTwoMonthsStart.Month);
+
+            var skippedEveryTwoMonthsPeriodDate = everyTwoMonthsStart.AddMonths(1);
+            var skippedEveryTwoMonthsPeriod = await familyBudgetService.GetOverviewAsync(
+                familyGroupId,
+                administrator.UserId,
+                skippedEveryTwoMonthsPeriodDate.Year,
+                skippedEveryTwoMonthsPeriodDate.Month);
+
+            var secondEveryTwoMonthsPeriodDate = everyTwoMonthsStart.AddMonths(2);
+            var secondEveryTwoMonthsPeriod = await familyBudgetService.GetOverviewAsync(
+                familyGroupId,
+                administrator.UserId,
+                secondEveryTwoMonthsPeriodDate.Year,
+                secondEveryTwoMonthsPeriodDate.Month);
+
+            Assert.Equal(205m, firstEveryTwoMonthsPeriod.PlannedExpenseTotal);
+            Assert.Equal(180m, skippedEveryTwoMonthsPeriod.PlannedExpenseTotal);
+            Assert.Equal(205m, secondEveryTwoMonthsPeriod.PlannedExpenseTotal);
+
             var expenseId = await personalService.PostOwnOperationAsync(
                 new PostPersonalOperationRequest(
                     privateAccountId,

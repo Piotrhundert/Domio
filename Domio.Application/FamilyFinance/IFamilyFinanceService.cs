@@ -42,4 +42,17 @@ public interface IFamilyFinanceService
         Guid actorUserId,
         string correlationId,
         CancellationToken cancellationToken = default);
+
+    Task<Guid> CreateChildIncomeAsync(
+        CreateFamilyChildIncomeRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
+
+    Task DeactivateChildIncomeAsync(
+        Guid ruleId,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
 }
+

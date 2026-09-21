@@ -39,4 +39,16 @@ public interface IFamilyBudgetService
         Guid actorUserId,
         string correlationId,
         CancellationToken cancellationToken = default);
+
+    Task<FamilyExpensePaymentForm?> GetExpensePaymentFormAsync(
+        Guid familyGroupId,
+        Guid occurrenceId,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<FamilyExpensePaymentResult> PayExpenseAsync(
+        PayFamilyExpenseRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
 }

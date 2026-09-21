@@ -20,6 +20,22 @@ public sealed record FamilyMemberBudgetSummary(
     decimal? PlannedIncome,
     decimal? ActualIncome);
 
+public sealed record FamilyChildIncomeRuleSummary(
+    Guid RuleId,
+    Guid BeneficiaryPersonId,
+    string BeneficiaryDisplayName,
+    string IncomeKindCode,
+    string IncomeKindNamePl,
+    string Name,
+    decimal PlannedAmount,
+    string FrequencyCode,
+    string FrequencyNamePl,
+    int DueDay,
+    DateTime ActiveFromUtc,
+    DateTime? ActiveToUtc,
+    bool IsActive,
+    bool AppliesInSelectedMonth);
+
 public sealed record FamilySharingSnapshot(
     Guid FamilyGroupId,
     string FamilyGroupName,
@@ -44,6 +60,7 @@ public sealed record FamilyFinanceOverview(
     IReadOnlyList<FamilyMemberBudgetSummary> Members,
     decimal PlannedIncomeTotal,
     decimal ActualIncomeTotal,
+    IReadOnlyList<FamilyChildIncomeRuleSummary> ChildIncomeRules,
     FamilySharingSnapshot? OwnSharing)
 {
     public bool HasHousehold => HouseholdId.HasValue;
@@ -73,3 +90,15 @@ public sealed record UpdateFamilySharingRequest(
     bool ShareActualIncome,
     bool ShareFamilyExpenses,
     bool ShareRecurringRules);
+
+
+public sealed record CreateFamilyChildIncomeRequest(
+    Guid FamilyGroupId,
+    Guid BeneficiaryPersonId,
+    string IncomeKindCode,
+    string? CustomName,
+    decimal PlannedAmount,
+    string FrequencyCode,
+    int DueDay,
+    DateTime ActiveFromUtc,
+    DateTime? ActiveToUtc);

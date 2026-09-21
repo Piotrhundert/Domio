@@ -54,20 +54,58 @@ public static class FamilyBudgetSourceTypes
 public static class FamilyRecurringRuleTypes
 {
     public const string Expense = "Expense";
+    public const string Income = "Income";
+}
+
+public static class FamilyIncomeKinds
+{
+    public const string ChildBenefit800Plus = "ChildBenefit800Plus";
+    public const string CareAllowance = "CareAllowance";
+    public const string CareBenefit = "CareBenefit";
+    public const string Other = "Other";
+
+    public static readonly IReadOnlyList<FamilyFinanceCodeItem> All =
+    [
+        new(ChildBenefit800Plus, "Świadczenie wychowawcze 800+"),
+        new(CareAllowance, "Zasiłek pielęgnacyjny"),
+        new(CareBenefit, "Świadczenie pielęgnacyjne"),
+        new(Other, "Inny przychód związany z dzieckiem")
+    ];
+
+    public static bool IsValid(string code) =>
+        All.Any(x => x.Code == code);
+
+    public static string GetNamePl(string code) =>
+        All.FirstOrDefault(x => x.Code == code)?.NamePl ?? code;
+
+    public static decimal? GetSuggestedAmount(string code) =>
+        code switch
+        {
+            ChildBenefit800Plus => 800m,
+            CareAllowance => 215.84m,
+            CareBenefit => 3386m,
+            _ => null
+        };
 }
 
 public static class FamilyRecurringFrequencies
 {
     public const string Once = "Once";
     public const string Monthly = "Monthly";
+    public const string Every2Months = "Every2Months";
     public const string Quarterly = "Quarterly";
+    public const string Every4Months = "Every4Months";
+    public const string SemiAnnual = "SemiAnnual";
     public const string Yearly = "Yearly";
 
     public static readonly IReadOnlyList<FamilyFinanceCodeItem> All =
     [
         new(Once, "Jednorazowo"),
         new(Monthly, "Co miesiąc"),
+        new(Every2Months, "Co 2 miesiące"),
         new(Quarterly, "Co 3 miesiące"),
+        new(Every4Months, "Co 4 miesiące"),
+        new(SemiAnnual, "Co 6 miesięcy"),
         new(Yearly, "Co rok")
     ];
 
@@ -81,7 +119,17 @@ public static class FamilyRecurringFrequencies
 public static class FamilyRecurringOccurrenceStatuses
 {
     public const string Planned = "Planned";
+    public const string Paid = "Paid";
     public const string Cancelled = "Cancelled";
+
+    public static string GetNamePl(string code) =>
+        code switch
+        {
+            Planned => "Do opłacenia",
+            Paid => "Opłacono",
+            Cancelled => "Anulowano",
+            _ => code
+        };
 }
 
 public static class FamilyBudgetCategories
@@ -162,4 +210,22 @@ public static class FamilyFinanceMoney
 
     public static decimal FromMinorUnits(long amountMinor) =>
         amountMinor / (decimal)MinorUnitsPerMajorUnit;
+}
+
+public static class FamilyExpensePaymentAccountTypes
+{
+    public const string PersonalAccount = "PersonalAccount";
+    public const string HouseholdAccount = "HouseholdAccount";
+
+    public static readonly IReadOnlyList<FamilyFinanceCodeItem> All =
+    [
+        new(PersonalAccount, "Konto osobiste"),
+        new(HouseholdAccount, "Konto domowe")
+    ];
+
+    public static bool IsValid(string code) =>
+        All.Any(x => x.Code == code);
+
+    public static string GetNamePl(string code) =>
+        All.FirstOrDefault(x => x.Code == code)?.NamePl ?? code;
 }

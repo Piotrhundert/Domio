@@ -30,7 +30,12 @@ public sealed record FamilyRecurringCostSummary(
     string? BeneficiaryDisplayName,
     DateTime ActiveFromUtc,
     DateTime? ActiveToUtc,
-    bool IsActive);
+    bool IsActive,
+    Guid? OccurrenceId,
+    DateTime? PlannedDateUtc,
+    string? OccurrenceStatusCode,
+    string? OccurrenceStatusNamePl,
+    bool CanPay);
 
 public sealed record FamilyBudgetLinkSummary(
     Guid LinkId,
@@ -104,3 +109,37 @@ public sealed record CreateFamilyBudgetLinkRequest(
     Guid SourceId,
     string CategoryCode,
     Guid? BeneficiaryPersonId);
+
+public sealed record FamilyExpensePaymentAccount(
+    string PaymentAccountType,
+    string PaymentAccountTypeNamePl,
+    Guid AccountId,
+    string AccountName,
+    string CurrencyCode,
+    decimal Balance);
+
+public sealed record FamilyExpensePaymentForm(
+    Guid FamilyGroupId,
+    string FamilyGroupName,
+    Guid OccurrenceId,
+    Guid RuleId,
+    string RuleName,
+    string CategoryCode,
+    string CategoryNamePl,
+    decimal Amount,
+    DateTime PlannedDateUtc,
+    Guid? BeneficiaryPersonId,
+    string? BeneficiaryDisplayName,
+    IReadOnlyList<FamilyExpensePaymentAccount> Accounts);
+
+public sealed record PayFamilyExpenseRequest(
+    Guid FamilyGroupId,
+    Guid OccurrenceId,
+    string PaymentAccountType,
+    Guid AccountId,
+    DateTime PaidAtUtc);
+
+public sealed record FamilyExpensePaymentResult(
+    Guid PaymentId,
+    string SourceType,
+    Guid SourceId);

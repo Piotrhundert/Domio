@@ -50,6 +50,7 @@ public sealed class FamilyFinanceService(
                 [],
                 0m,
                 0m,
+                [],
                 null);
         }
 
@@ -89,6 +90,7 @@ public sealed class FamilyFinanceService(
                 [],
                 0m,
                 0m,
+                [],
                 null);
         }
 
@@ -176,6 +178,51 @@ public sealed class FamilyFinanceService(
                         x => x.AmountMinor,
                         cancellationToken);
 
+        var childIncomeRows =
+            await GetChildIncomeRuleRowsAsync(
+                selectedGroup.FamilyGroupId,
+                cancellationToken);
+
+        var childPlannedIncome =
+            childIncomeRows
+                .Where(x => AppliesInMonth(x, monthStart))
+                .GroupBy(x => x.BeneficiaryPersonId)
+                .ToDictionary(
+                    x => x.Key,
+                    x => x.Sum(y => y.PlannedAmountMinor));
+
+        var memberNames =
+            members.ToDictionary(
+                x => x.PersonId,
+                x => x.DisplayName);
+
+        var childIncomeRules =
+            childIncomeRows
+                .OrderByDescending(x => x.IsActive)
+                .ThenBy(x => x.Name)
+                .Select(x =>
+                    new FamilyChildIncomeRuleSummary(
+                        x.Id,
+                        x.BeneficiaryPersonId,
+                        memberNames.GetValueOrDefault(
+                            x.BeneficiaryPersonId,
+                            "Dziecko"),
+                        x.IncomeKindCode,
+                        FamilyIncomeKinds.GetNamePl(
+                            x.IncomeKindCode),
+                        x.Name,
+                        FamilyFinanceMoney.FromMinorUnits(
+                            x.PlannedAmountMinor),
+                        x.FrequencyCode,
+                        FamilyRecurringFrequencies.GetNamePl(
+                            x.FrequencyCode),
+                        x.DueDay,
+                        x.ActiveFromUtc,
+                        x.ActiveToUtc,
+                        x.IsActive,
+                        AppliesInMonth(x, monthStart)))
+                .ToArray();
+
         var memberSummaries =
             members
                 .Select(member =>
@@ -191,16 +238,22 @@ public sealed class FamilyFinanceService(
                         member.ShareActualIncome,
                         member.ShareFamilyExpenses,
                         member.ShareRecurringRules,
-                        member.SharePlannedIncome
+                        member.FamilyRoleCode == FamilyRoles.Child
                             ? FamilyFinanceMoney.FromMinorUnits(
-                                plannedIncome.GetValueOrDefault(
+                                childPlannedIncome.GetValueOrDefault(
                                     member.PersonId))
-                            : null,
-                        member.ShareActualIncome
-                            ? FamilyFinanceMoney.FromMinorUnits(
-                                actualIncome.GetValueOrDefault(
-                                    member.PersonId))
-                            : null))
+                            : member.SharePlannedIncome
+                                ? FamilyFinanceMoney.FromMinorUnits(
+                                    plannedIncome.GetValueOrDefault(
+                                        member.PersonId))
+                                : null,
+                        member.FamilyRoleCode == FamilyRoles.Child
+                            ? null
+                            : member.ShareActualIncome
+                                ? FamilyFinanceMoney.FromMinorUnits(
+                                    actualIncome.GetValueOrDefault(
+                                        member.PersonId))
+                                : null))
                 .ToArray();
 
         var ownMember =
@@ -243,6 +296,7 @@ public sealed class FamilyFinanceService(
             memberSummaries
                 .Where(x => x.ActualIncome.HasValue)
                 .Sum(x => x.ActualIncome!.Value),
+            childIncomeRules,
             ownSharing);
     }
 
@@ -662,6 +716,28 @@ public sealed class FamilyFinanceService(
             ],
             cancellationToken);
 
+        await ExecuteAsync(
+            """
+            UPDATE FamilyRecurringRules
+            SET IsActive = 0,
+                ActiveToUtc = CASE
+                    WHEN ActiveToUtc IS NULL OR ActiveToUtc > $now THEN $now
+                    ELSE ActiveToUtc
+                END,
+                UpdatedAtUtc = $now
+            WHERE FamilyGroupId = $groupId
+              AND BeneficiaryPersonId = $personId
+              AND RuleTypeCode = $typeCode
+              AND IsActive = 1;
+            """,
+            [
+                P("$now", now),
+                P("$groupId", target.FamilyGroupId),
+                P("$personId", target.PersonId),
+                P("$typeCode", FamilyRecurringRuleTypes.Income)
+            ],
+            cancellationToken);
+
         await auditService.WriteAsync(
             new AuditEntry(
                 EventType: "M04.8.1.FamilyMembershipEnded",
@@ -833,6 +909,236 @@ public sealed class FamilyFinanceService(
 
         await transaction.CommitAsync(
             cancellationToken);
+    }
+
+    public async Task<Guid> CreateChildIncomeAsync(
+        CreateFamilyChildIncomeRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            FamilyFinancePermissions.Manage,
+            cancellationToken);
+
+        if (!FamilyIncomeKinds.IsValid(request.IncomeKindCode))
+        {
+            throw new ArgumentException(
+                "Wybierz poprawny rodzaj przychodu dziecka.");
+        }
+
+        if (!FamilyRecurringFrequencies.IsValid(request.FrequencyCode))
+        {
+            throw new ArgumentException(
+                "Wybierz poprawną częstotliwość przychodu.");
+        }
+
+        if (request.DueDay < 1 || request.DueDay > 31)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(request.DueDay),
+                "Dzień wpływu musi mieścić się w zakresie 1-31.");
+        }
+
+        var actor =
+            await GetActorContextAsync(
+                actorUserId,
+                cancellationToken);
+
+        if (actor.HouseholdId is null)
+        {
+            throw new InvalidOperationException(
+                "Brak aktywnego gospodarstwa.");
+        }
+
+        await EnsureActiveMembershipAsync(
+            request.FamilyGroupId,
+            actor.HouseholdId.Value,
+            actor.PersonId,
+            cancellationToken);
+
+        var child =
+            (await GetActiveMembersAsync(
+                request.FamilyGroupId,
+                cancellationToken))
+            .SingleOrDefault(x =>
+                x.PersonId == request.BeneficiaryPersonId &&
+                x.FamilyRoleCode == FamilyRoles.Child)
+            ?? throw new InvalidOperationException(
+                "Wybrana osoba nie jest aktywnym dzieckiem w tej rodzinie.");
+
+        var amountMinor =
+            FamilyFinanceMoney.ToMinorUnits(
+                request.PlannedAmount);
+
+        var activeFrom =
+            DateTime.SpecifyKind(
+                request.ActiveFromUtc.Date,
+                DateTimeKind.Utc);
+
+        DateTime? activeTo =
+            request.ActiveToUtc.HasValue
+                ? DateTime.SpecifyKind(
+                    request.ActiveToUtc.Value.Date,
+                    DateTimeKind.Utc)
+                : null;
+
+        if (request.FrequencyCode == FamilyRecurringFrequencies.Once)
+        {
+            activeTo = activeFrom;
+        }
+
+        if (activeTo.HasValue && activeTo.Value < activeFrom)
+        {
+            throw new ArgumentException(
+                "Data końca nie może być wcześniejsza od daty początku.");
+        }
+
+        var name =
+            request.IncomeKindCode == FamilyIncomeKinds.Other
+                ? NormalizeRequiredText(
+                    request.CustomName,
+                    "Nazwa przychodu",
+                    160)
+                : FamilyIncomeKinds.GetNamePl(
+                    request.IncomeKindCode);
+
+        var now = DateTime.UtcNow;
+        var ruleId = Guid.NewGuid();
+
+        await using var transaction =
+            await dbContext.Database.BeginTransactionAsync(
+                cancellationToken);
+
+        await ExecuteAsync(
+            """
+            INSERT INTO FamilyRecurringRules
+                (Id, FamilyGroupId, Name, RuleTypeCode, CategoryCode,
+                 PlannedAmountMinor, FrequencyCode, DueDay, BeneficiaryPersonId,
+                 ActiveFromUtc, ActiveToUtc, IsActive,
+                 CreatedByUserId, CreatedAtUtc, UpdatedAtUtc)
+            VALUES
+                ($id, $groupId, $name, $typeCode, $incomeKindCode,
+                 $amountMinor, $frequencyCode, $dueDay, $beneficiaryPersonId,
+                 $activeFromUtc, $activeToUtc, 1,
+                 $actorUserId, $now, $now);
+            """,
+            [
+                P("$id", ruleId),
+                P("$groupId", request.FamilyGroupId),
+                P("$name", name),
+                P("$typeCode", FamilyRecurringRuleTypes.Income),
+                P("$incomeKindCode", request.IncomeKindCode),
+                P("$amountMinor", amountMinor),
+                P("$frequencyCode", request.FrequencyCode),
+                P("$dueDay", request.DueDay),
+                P("$beneficiaryPersonId", child.PersonId),
+                P("$activeFromUtc", activeFrom),
+                P("$activeToUtc", activeTo),
+                P("$actorUserId", actorUserId),
+                P("$now", now)
+            ],
+            cancellationToken);
+
+        await auditService.WriteAsync(
+            new AuditEntry(
+                EventType: "M04.8.4.ChildIncomeCreated",
+                EntityType: "FamilyRecurringRule",
+                EntityId: ruleId.ToString(),
+                ActorId: actorUserId.ToString(),
+                CorrelationId: correlationId,
+                Description:
+                    "Dodano planowany przychód przypisany do dziecka. Kwota nie jest zapisywana w audycie i nie tworzy salda na koncie dziecka."),
+            cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
+
+        return ruleId;
+    }
+
+    public async Task DeactivateChildIncomeAsync(
+        Guid ruleId,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            FamilyFinancePermissions.Manage,
+            cancellationToken);
+
+        var actor =
+            await GetActorContextAsync(
+                actorUserId,
+                cancellationToken);
+
+        if (actor.HouseholdId is null)
+        {
+            throw new InvalidOperationException(
+                "Brak aktywnego gospodarstwa.");
+        }
+
+        var rule =
+            await GetChildIncomeRuleByIdAsync(
+                ruleId,
+                cancellationToken)
+            ?? throw new InvalidOperationException(
+                "Nie znaleziono przychodu dziecka.");
+
+        await EnsureActiveMembershipAsync(
+            rule.FamilyGroupId,
+            actor.HouseholdId.Value,
+            actor.PersonId,
+            cancellationToken);
+
+        if (!rule.IsActive)
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+
+        await using var transaction =
+            await dbContext.Database.BeginTransactionAsync(
+                cancellationToken);
+
+        await ExecuteAsync(
+            """
+            UPDATE FamilyRecurringRules
+            SET IsActive = 0,
+                ActiveToUtc = CASE
+                    WHEN ActiveToUtc IS NULL OR ActiveToUtc > $now THEN $now
+                    ELSE ActiveToUtc
+                END,
+                UpdatedAtUtc = $now
+            WHERE Id = $id
+              AND RuleTypeCode = $typeCode
+              AND IsActive = 1;
+            """,
+            [
+                P("$now", now),
+                P("$id", ruleId),
+                P("$typeCode", FamilyRecurringRuleTypes.Income)
+            ],
+            cancellationToken);
+
+        await auditService.WriteAsync(
+            new AuditEntry(
+                EventType: "M04.8.4.ChildIncomeDeactivated",
+                EntityType: "FamilyRecurringRule",
+                EntityId: ruleId.ToString(),
+                ActorId: actorUserId.ToString(),
+                CorrelationId: correlationId,
+                Description:
+                    "Zakończono planowany przychód przypisany do dziecka. Historia reguły pozostaje zachowana."),
+            cancellationToken);
+
+        await transaction.CommitAsync(cancellationToken);
     }
 
     private async Task<ActorContext> GetActorContextAsync(
@@ -1094,6 +1400,169 @@ public sealed class FamilyFinanceService(
         return result;
     }
 
+    private async Task<IReadOnlyList<ChildIncomeRuleRow>> GetChildIncomeRuleRowsAsync(
+        Guid familyGroupId,
+        CancellationToken cancellationToken)
+    {
+        var result = new List<ChildIncomeRuleRow>();
+
+        await WithConnectionAsync(
+            async connection =>
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText =
+                    """
+                    SELECT Id, FamilyGroupId, CategoryCode, Name,
+                           PlannedAmountMinor, FrequencyCode, DueDay,
+                           BeneficiaryPersonId, ActiveFromUtc, ActiveToUtc,
+                           IsActive
+                    FROM FamilyRecurringRules
+                    WHERE FamilyGroupId = $groupId
+                      AND RuleTypeCode = $typeCode
+                      AND BeneficiaryPersonId IS NOT NULL
+                    ORDER BY Name;
+                    """;
+
+                AddParameter(command, "$groupId", familyGroupId);
+                AddParameter(command, "$typeCode", FamilyRecurringRuleTypes.Income);
+                AttachCurrentTransaction(command);
+
+                await using var reader =
+                    await command.ExecuteReaderAsync(
+                        cancellationToken);
+
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    result.Add(
+                        new ChildIncomeRuleRow(
+                            reader.GetGuid(0),
+                            reader.GetGuid(1),
+                            reader.GetString(2),
+                            reader.GetString(3),
+                            reader.GetInt64(4),
+                            reader.GetString(5),
+                            reader.GetInt32(6),
+                            reader.GetGuid(7),
+                            ReadDateTime(reader, 8),
+                            reader.IsDBNull(9)
+                                ? (DateTime?)null
+                                : ReadDateTime(reader, 9),
+                            reader.GetInt64(10) != 0));
+                }
+            },
+            cancellationToken);
+
+        return result;
+    }
+
+    private async Task<ChildIncomeRuleRow?> GetChildIncomeRuleByIdAsync(
+        Guid ruleId,
+        CancellationToken cancellationToken)
+    {
+        ChildIncomeRuleRow? result = null;
+
+        await WithConnectionAsync(
+            async connection =>
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText =
+                    """
+                    SELECT Id, FamilyGroupId, CategoryCode, Name,
+                           PlannedAmountMinor, FrequencyCode, DueDay,
+                           BeneficiaryPersonId, ActiveFromUtc, ActiveToUtc,
+                           IsActive
+                    FROM FamilyRecurringRules
+                    WHERE Id = $id
+                      AND RuleTypeCode = $typeCode
+                      AND BeneficiaryPersonId IS NOT NULL
+                    LIMIT 1;
+                    """;
+
+                AddParameter(command, "$id", ruleId);
+                AddParameter(command, "$typeCode", FamilyRecurringRuleTypes.Income);
+                AttachCurrentTransaction(command);
+
+                await using var reader =
+                    await command.ExecuteReaderAsync(
+                        cancellationToken);
+
+                if (await reader.ReadAsync(cancellationToken))
+                {
+                    result = new ChildIncomeRuleRow(
+                        reader.GetGuid(0),
+                        reader.GetGuid(1),
+                        reader.GetString(2),
+                        reader.GetString(3),
+                        reader.GetInt64(4),
+                        reader.GetString(5),
+                        reader.GetInt32(6),
+                        reader.GetGuid(7),
+                        ReadDateTime(reader, 8),
+                        reader.IsDBNull(9)
+                            ? (DateTime?)null
+                            : ReadDateTime(reader, 9),
+                        reader.GetInt64(10) != 0);
+                }
+            },
+            cancellationToken);
+
+        return result;
+    }
+
+    private static bool AppliesInMonth(
+        ChildIncomeRuleRow rule,
+        DateTime monthStart)
+    {
+        var startMonth =
+            new DateTime(
+                rule.ActiveFromUtc.Year,
+                rule.ActiveFromUtc.Month,
+                1,
+                0,
+                0,
+                0,
+                DateTimeKind.Utc);
+
+        if (monthStart < startMonth)
+        {
+            return false;
+        }
+
+        if (rule.ActiveToUtc.HasValue)
+        {
+            var endMonth =
+                new DateTime(
+                    rule.ActiveToUtc.Value.Year,
+                    rule.ActiveToUtc.Value.Month,
+                    1,
+                    0,
+                    0,
+                    0,
+                    DateTimeKind.Utc);
+
+            if (monthStart > endMonth)
+            {
+                return false;
+            }
+        }
+
+        var months =
+            (monthStart.Year - startMonth.Year) * 12 +
+            monthStart.Month - startMonth.Month;
+
+        return rule.FrequencyCode switch
+        {
+            FamilyRecurringFrequencies.Once => months == 0,
+            FamilyRecurringFrequencies.Monthly => true,
+            FamilyRecurringFrequencies.Every2Months => months % 2 == 0,
+            FamilyRecurringFrequencies.Quarterly => months % 3 == 0,
+            FamilyRecurringFrequencies.Every4Months => months % 4 == 0,
+            FamilyRecurringFrequencies.SemiAnnual => months % 6 == 0,
+            FamilyRecurringFrequencies.Yearly => months % 12 == 0,
+            _ => false
+        };
+    }
+
     private async Task<long> ScalarLongAsync(
         string sql,
         IReadOnlyList<ParameterValue> parameters,
@@ -1306,6 +1775,19 @@ public sealed class FamilyFinanceService(
         bool ShareFamilyExpenses,
         bool ShareRecurringRules,
         DateTime? SharingEffectiveFromUtc);
+
+    private sealed record ChildIncomeRuleRow(
+        Guid Id,
+        Guid FamilyGroupId,
+        string IncomeKindCode,
+        string Name,
+        long PlannedAmountMinor,
+        string FrequencyCode,
+        int DueDay,
+        Guid BeneficiaryPersonId,
+        DateTime ActiveFromUtc,
+        DateTime? ActiveToUtc,
+        bool IsActive);
 
     private sealed record ParameterValue(
         string Name,

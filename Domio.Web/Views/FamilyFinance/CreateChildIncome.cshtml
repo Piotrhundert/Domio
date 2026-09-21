@@ -1,0 +1,173 @@
+@using Domio.Domain.FamilyFinance
+@model Domio.Web.Models.FamilyFinance.CreateFamilyChildIncomeViewModel
+@{
+    ViewData["Title"] = "Dodaj przychód dziecka";
+}
+
+<div class="family-finance-page">
+    <div class="family-finance-form-header">
+        <div>
+            <div class="family-finance-kicker">M04.8.4 · PRZYCHODY DZIECKA</div>
+            <h1>Dodaj przychód przypisany do dziecka</h1>
+            <p>
+                Rodzina: <strong>@Model.FamilyGroupName</strong> ·
+                beneficjent: <strong>@Model.BeneficiaryDisplayName</strong>.
+                Wpis tworzy plan rodziny i nie zakłada dziecku konta ani rachunku.
+            </p>
+        </div>
+        <a asp-action="Index"
+           asp-route-familyGroupId="@Model.FamilyGroupId"
+           class="btn btn-outline-secondary">Wróć</a>
+    </div>
+
+    <form asp-action="CreateChildIncome" method="post" class="family-finance-form-card">
+        <input type="hidden" asp-for="FamilyGroupId" />
+        <input type="hidden" asp-for="BeneficiaryPersonId" />
+        <input type="hidden" asp-for="FamilyGroupName" />
+        <input type="hidden" asp-for="BeneficiaryDisplayName" />
+
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+        <div class="row g-3">
+            <div class="col-md-7">
+                <label asp-for="IncomeKindCode" class="form-label"></label>
+                <select asp-for="IncomeKindCode"
+                        asp-items="Model.IncomeKinds"
+                        class="form-select"
+                        id="incomeKind"></select>
+                <span asp-validation-for="IncomeKindCode" class="text-danger"></span>
+            </div>
+            <div class="col-md-5">
+                <label asp-for="PlannedAmount" class="form-label"></label>
+                <div class="input-group">
+                    <input asp-for="PlannedAmount"
+                           type="text"
+                           class="form-control"
+                           inputmode="decimal"
+                           autocomplete="off"
+                           id="plannedAmount" />
+                    <span class="input-group-text">zł</span>
+                </div>
+                <span asp-validation-for="PlannedAmount" class="text-danger"></span>
+            </div>
+        </div>
+
+        <div class="mb-3 mt-3" id="customNameRow">
+            <label asp-for="CustomName" class="form-label"></label>
+            <input asp-for="CustomName"
+                   class="form-control"
+                   placeholder="np. stypendium, alimenty, inne świadczenie" />
+            <span asp-validation-for="CustomName" class="text-danger"></span>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label asp-for="FrequencyCode" class="form-label"></label>
+                <select asp-for="FrequencyCode"
+                        asp-items="Model.Frequencies"
+                        class="form-select"></select>
+                <span asp-validation-for="FrequencyCode" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="DueDay" class="form-label"></label>
+                <input asp-for="DueDay" type="number" min="1" max="31" class="form-control" />
+                <span asp-validation-for="DueDay" class="text-danger"></span>
+            </div>
+        </div>
+
+        <div class="row g-3 mt-0">
+            <div class="col-md-6">
+                <label asp-for="ActiveFromUtc" class="form-label"></label>
+                <input asp-for="ActiveFromUtc" type="date" class="form-control" />
+            </div>
+            <div class="col-md-6">
+                <label asp-for="ActiveToUtc" class="form-label"></label>
+                <input asp-for="ActiveToUtc" type="date" class="form-control" />
+            </div>
+        </div>
+
+        <div class="family-finance-form-note mt-4">
+            Kwoty dla 800+, zasiłku pielęgnacyjnego i świadczenia pielęgnacyjnego
+            są podpowiedziami i możesz je zmienić. Przypisanie świadczenia do dziecka
+            służy raportowaniu w budżecie rodzinnym i nie określa prawnego odbiorcy świadczenia.
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mt-4">
+            <a asp-action="Index"
+               asp-route-familyGroupId="@Model.FamilyGroupId"
+               class="btn btn-outline-secondary">Anuluj</a>
+            <button type="submit" class="btn btn-primary">Zapisz przychód</button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (() => {
+            const kind = document.getElementById('incomeKind');
+            const amount = document.getElementById('plannedAmount');
+            const customRow = document.getElementById('customNameRow');
+            if (!kind || !amount || !customRow) return;
+
+            // Polski interfejs pokazuje przecinek jako separator dziesiętny.
+            // Wartości z kropką też są akceptowane przez walidację poniżej.
+            const defaults = {
+                '@FamilyIncomeKinds.ChildBenefit800Plus': '800,00',
+                '@FamilyIncomeKinds.CareAllowance': '215,84',
+                '@FamilyIncomeKinds.CareBenefit': '3386,00'
+            };
+
+            const update = (replaceAmount) => {
+                customRow.style.display =
+                    kind.value === '@FamilyIncomeKinds.Other' ? '' : 'none';
+
+                if (replaceAmount && defaults[kind.value]) {
+                    amount.value = defaults[kind.value];
+                }
+            };
+
+            kind.addEventListener('change', () => update(true));
+            update(false);
+        })();
+
+        (() => {
+            // jQuery Validation domyślnie rozpoznaje tylko kropkę jako separator
+            // dziesiętny. Domio działa po polsku, dlatego akceptujemy przecinek
+            // (oraz kropkę jako wygodny wariant) także dla walidacji zakresu.
+            if (!window.jQuery || !window.jQuery.validator) return;
+
+            const parseDomioNumber = (value) => {
+                if (typeof value === 'number') return value;
+                const normalized = String(value)
+                    .trim()
+                    .replace(/\s+/g, '')
+                    .replace(',', '.');
+                return Number(normalized);
+            };
+
+            window.jQuery.validator.methods.number = function (value, element) {
+                if (this.optional(element)) return true;
+                return Number.isFinite(parseDomioNumber(value));
+            };
+
+            const originalRange = window.jQuery.validator.methods.range;
+            window.jQuery.validator.methods.range = function (value, element, param) {
+                if (this.optional(element)) return true;
+
+                const numericValue = parseDomioNumber(value);
+                const minimum = parseDomioNumber(param[0]);
+                const maximum = parseDomioNumber(param[1]);
+
+                if (Number.isFinite(numericValue) &&
+                    Number.isFinite(minimum) &&
+                    Number.isFinite(maximum)) {
+                    return numericValue >= minimum && numericValue <= maximum;
+                }
+
+                return originalRange.call(this, value, element, param);
+            };
+        })();
+
+    </script>
+}

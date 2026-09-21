@@ -22,12 +22,12 @@
 <div class="family-finance-page">
     <div class="family-finance-header">
         <div>
-            <div class="family-finance-kicker">M04.8.2 · FINANSE RODZINNE</div>
+            <div class="family-finance-kicker">M04.8.4 · FINANSE RODZINNE</div>
             <h1>Finanse rodzinne</h1>
             <p>
                 Wspólny plan i wykonanie rodziny bez tworzenia trzeciego salda.
-                M04.8.2 dodaje planowane koszty, subskrypcje, koszty dziecka
-                oraz jawne powiązania z rzeczywistymi operacjami.
+                M04.8.4 dodaje także planowane przychody przypisane do dzieci,
+                bez konieczności zakładania dziecku konta użytkownika lub rachunku.
             </p>
         </div>
 
@@ -184,7 +184,7 @@
             <article class="family-finance-summary-card">
                 <span>Planowane przychody</span>
                 <strong>@overview.PlannedIncomeTotal.ToString("N2") zł</strong>
-                <small>Tylko od osób, które włączyły udostępnianie planu.</small>
+                <small>Udostępnione plany dorosłych oraz przychody przypisane dzieciom.</small>
             </article>
 
             <article class="family-finance-summary-card">
@@ -218,8 +218,8 @@
                     <div class="family-finance-section-number">01</div>
                     <h2>Członkowie i przychody</h2>
                     <p>
-                        Brak udostępnienia nie jest traktowany jako 0 zł.
-                        Domio pokazuje wtedy „Prywatne”, bez odczytu salda ani historii konta.
+                        Brak udostępnienia dorosłego nie jest traktowany jako 0 zł.
+                        Przychody przypisane dziecku są częścią planu rodziny i nie wymagają konta dziecka.
                     </p>
                 </div>
             </div>
@@ -262,13 +262,13 @@
                                 </span>
                             </td>
                             <td>
-                                @if (member.FamilyRoleCode == FamilyRoles.Child)
-                                {
-                                    <span class="family-finance-private">Nie dotyczy</span>
-                                }
-                                else if (member.PlannedIncome.HasValue)
+                                @if (member.PlannedIncome.HasValue)
                                 {
                                     <strong>@member.PlannedIncome.Value.ToString("N2") zł</strong>
+                                    @if (member.FamilyRoleCode == FamilyRoles.Child)
+                                    {
+                                        <small class="d-block text-muted">plan przypisany do dziecka</small>
+                                    }
                                 }
                                 else
                                 {
@@ -278,7 +278,7 @@
                             <td>
                                 @if (member.FamilyRoleCode == FamilyRoles.Child)
                                 {
-                                    <span class="family-finance-private">Nie dotyczy</span>
+                                    <span class="family-finance-private">Nie rozliczono</span>
                                 }
                                 else if (member.ActualIncome.HasValue)
                                 {
@@ -344,6 +344,15 @@
                             @if (canManage)
                             {
                                 <td class="text-end">
+                                    @if (member.FamilyRoleCode == FamilyRoles.Child)
+                                    {
+                                        <a asp-action="CreateChildIncome"
+                                           asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
+                                           asp-route-personId="@member.PersonId"
+                                           class="btn btn-sm btn-primary me-1">
+                                            + Przychód
+                                        </a>
+                                    }
                                     @if (!isSelf)
                                     {
                                         <form asp-action="EndMember"
@@ -370,6 +379,87 @@
                 </table>
             </div>
         </section>
+
+        @if (overview.ChildIncomeRules.Count > 0)
+        {
+            <section class="family-finance-section">
+                <div class="family-finance-section-heading">
+                    <div>
+                        <h2>Przychody przypisane do dzieci</h2>
+                        <p>
+                            To plan budżetu rodzinnego. Przypisanie świadczenia do dziecka
+                            nie oznacza, że dziecko musi mieć własny rachunek bankowy.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="table-responsive family-finance-table-wrap">
+                    <table class="table family-finance-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Dziecko</th>
+                                <th>Przychód</th>
+                                <th>Kwota</th>
+                                <th>Częstotliwość</th>
+                                <th>W tym miesiącu</th>
+                                <th>Status</th>
+                                @if (canManage)
+                                {
+                                    <th class="text-end">Akcja</th>
+                                }
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var income in overview.ChildIncomeRules)
+                        {
+                            <tr>
+                                <td><strong>@income.BeneficiaryDisplayName</strong></td>
+                                <td>
+                                    @income.Name
+                                    @if (income.Name != income.IncomeKindNamePl)
+                                    {
+                                        <small class="d-block text-muted">@income.IncomeKindNamePl</small>
+                                    }
+                                </td>
+                                <td><strong>@income.PlannedAmount.ToString("N2") zł</strong></td>
+                                <td>@income.FrequencyNamePl · dzień @income.DueDay</td>
+                                <td>
+                                    @if (income.AppliesInSelectedMonth)
+                                    {
+                                        <span class="family-finance-sharing-pill on">Tak</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="family-finance-sharing-pill neutral">Nie</span>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="family-finance-sharing-pill @(income.IsActive ? "on" : "neutral")">
+                                        @(income.IsActive ? "Aktywny" : "Zakończony")
+                                    </span>
+                                </td>
+                                @if (canManage)
+                                {
+                                    <td class="text-end">
+                                        @if (income.IsActive)
+                                        {
+                                            <form asp-action="DeactivateChildIncome" method="post" class="d-inline">
+                                                <input type="hidden" name="ruleId" value="@income.RuleId" />
+                                                <input type="hidden" name="familyGroupId" value="@overview.SelectedFamilyGroupId" />
+                                                <input type="hidden" name="year" value="@overview.Year" />
+                                                <input type="hidden" name="month" value="@overview.Month" />
+                                                <button type="submit" class="btn btn-sm btn-outline-secondary">Zakończ</button>
+                                            </form>
+                                        }
+                                    </td>
+                                }
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        }
 
         @if (Model.Budget is not null)
         {
@@ -408,8 +498,8 @@
                                     <th>Kwota</th>
                                     <th>Częstotliwość</th>
                                     <th>Beneficjent</th>
-                                    <th>Status</th>
-                                    @if (canManage) { <th class="text-end">Akcja</th> }
+                                    <th>Status miesiąca</th>
+                                    <th class="text-end">Akcja</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -422,27 +512,50 @@
                                     <td>@rule.FrequencyNamePl · dzień @rule.DueDay</td>
                                     <td>@(rule.BeneficiaryDisplayName ?? "Koszt wspólny")</td>
                                     <td>
-                                        <span class="family-finance-sharing-pill @(rule.IsActive ? "on" : "off")">
-                                            @(rule.IsActive ? "Aktywna" : "Zakończona")
-                                        </span>
-                                    </td>
-                                    @if (canManage)
-                                    {
-                                        <td class="text-end">
-                                            @if (rule.IsActive)
+                                        @if (rule.OccurrenceId.HasValue)
+                                        {
+                                            <span class="family-finance-sharing-pill @(rule.CanPay ? "neutral" : "on")">
+                                                @rule.OccurrenceStatusNamePl
+                                            </span>
+                                            @if (rule.PlannedDateUtc.HasValue)
                                             {
-                                                <form asp-action="DeactivateExpense" method="post" class="d-inline">
-                                                    <input type="hidden" name="ruleId" value="@rule.RuleId" />
-                                                    <input type="hidden" name="familyGroupId" value="@overview.SelectedFamilyGroupId" />
-                                                    <input type="hidden" name="year" value="@overview.Year" />
-                                                    <input type="hidden" name="month" value="@overview.Month" />
-                                                    <button type="submit" class="btn btn-sm btn-outline-secondary">
-                                                        Zakończ
-                                                    </button>
-                                                </form>
+                                                <small class="d-block text-muted mt-1">
+                                                    termin @rule.PlannedDateUtc.Value.ToString("dd.MM.yyyy")
+                                                </small>
                                             }
-                                        </td>
-                                    }
+                                        }
+                                        else
+                                        {
+                                            <span class="family-finance-sharing-pill neutral">
+                                                Nie przypada w tym miesiącu
+                                            </span>
+                                        }
+                                    </td>
+                                    <td class="text-end">
+                                        @if (rule.CanPay && rule.OccurrenceId.HasValue)
+                                        {
+                                            <a asp-action="PayExpense"
+                                               asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
+                                               asp-route-occurrenceId="@rule.OccurrenceId.Value"
+                                               asp-route-year="@overview.Year"
+                                               asp-route-month="@overview.Month"
+                                               class="btn btn-sm btn-primary me-1">
+                                                Opłać
+                                            </a>
+                                        }
+                                        @if (canManage && rule.IsActive)
+                                        {
+                                            <form asp-action="DeactivateExpense" method="post" class="d-inline">
+                                                <input type="hidden" name="ruleId" value="@rule.RuleId" />
+                                                <input type="hidden" name="familyGroupId" value="@overview.SelectedFamilyGroupId" />
+                                                <input type="hidden" name="year" value="@overview.Year" />
+                                                <input type="hidden" name="month" value="@overview.Month" />
+                                                <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                                    Zakończ
+                                                </button>
+                                            </form>
+                                        }
+                                    </td>
                                 </tr>
                             }
                             </tbody>

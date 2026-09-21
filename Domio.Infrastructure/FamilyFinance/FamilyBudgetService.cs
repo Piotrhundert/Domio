@@ -5,6 +5,7 @@ using Domio.Application.FamilyFinance;
 using Domio.Domain.FamilyFinance;
 using Domio.Domain.HouseholdFinance;
 using Domio.Domain.PersonalFinance;
+using Domio.Domain.Users;
 using Domio.Infrastructure.Authorization;
 using Domio.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -178,6 +179,7 @@ public sealed class FamilyBudgetService(
         var rules = await GetRuleSummariesAsync(
             familyGroupId,
             members,
+            familyOccurrences,
             cancellationToken);
 
         var publicActualLinks = actualSummaries
@@ -845,6 +847,27 @@ public sealed class FamilyBudgetService(
             }
         }
 
+        var paymentLinkCount = await ScalarLongAsync(
+            """
+            SELECT COUNT(1)
+            FROM FamilyExpensePayments
+            WHERE FamilyGroupId = $groupId
+              AND SourceType = $sourceType
+              AND SourceId = $sourceId;
+            """,
+            [
+                P("$groupId", link.FamilyGroupId),
+                P("$sourceType", link.SourceType),
+                P("$sourceId", link.SourceId)
+            ],
+            cancellationToken);
+
+        if (paymentLinkCount > 0)
+        {
+            throw new InvalidOperationException(
+                "Powiązania utworzonego przez opłacenie planowanego kosztu nie można odłączyć ręcznie. Płatność jest częścią historii wykonania budżetu.");
+        }
+
         var changed = await ExecuteAsync(
             """
             UPDATE FamilyBudgetLinks
@@ -870,6 +893,438 @@ public sealed class FamilyBudgetService(
                 Description:
                     "Odłączono źródło od bieżącego budżetu rodzinnego. Źródłowa operacja finansowa i audyt pozostały bez zmian."),
             cancellationToken);
+    }
+
+    public async Task<FamilyExpensePaymentForm?> GetExpensePaymentFormAsync(
+        Guid familyGroupId,
+        Guid occurrenceId,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default)
+    {
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            FamilyFinancePermissions.View,
+            cancellationToken);
+
+        var actor = await GetActorAsync(actorUserId, cancellationToken);
+        var familyGroup = await EnsureMembershipAsync(
+            familyGroupId,
+            actor.PersonId,
+            actor.HouseholdId,
+            cancellationToken);
+
+        var occurrence = await GetPaymentOccurrenceAsync(
+            familyGroupId,
+            occurrenceId,
+            cancellationToken);
+
+        if (occurrence is null)
+        {
+            return null;
+        }
+
+        if (occurrence.StatusCode != FamilyRecurringOccurrenceStatuses.Planned)
+        {
+            throw new InvalidOperationException(
+                occurrence.StatusCode == FamilyRecurringOccurrenceStatuses.Paid
+                    ? "Ten koszt został już opłacony."
+                    : "Tego wystąpienia kosztu nie można już opłacić.");
+        }
+
+        var accounts = new List<FamilyExpensePaymentAccount>();
+
+        var canUsePersonalAccount = await PermissionEnforcement.HasUserAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinancePersonalManageOwn,
+            cancellationToken);
+
+        if (canUsePersonalAccount)
+        {
+            var personalAccounts = await dbContext.PersonalFinancialAccounts
+                .AsNoTracking()
+                .Where(x =>
+                    x.OwnerPersonId == actor.PersonId &&
+                    x.IsActive &&
+                    x.CurrencyCode == "PLN")
+                .OrderBy(x => x.Name)
+                .ToArrayAsync(cancellationToken);
+
+            var accountIds = personalAccounts.Select(x => x.Id).ToArray();
+            var balances = accountIds.Length == 0
+                ? new Dictionary<Guid, long>()
+                : await dbContext.PersonalFinancialTransactions
+                    .AsNoTracking()
+                    .Where(x =>
+                        x.OwnerPersonId == actor.PersonId &&
+                        accountIds.Contains(x.AccountId))
+                    .GroupBy(x => x.AccountId)
+                    .Select(x => new
+                    {
+                        AccountId = x.Key,
+                        BalanceMinor = x.Sum(y => y.AmountMinor)
+                    })
+                    .ToDictionaryAsync(
+                        x => x.AccountId,
+                        x => x.BalanceMinor,
+                        cancellationToken);
+
+            accounts.AddRange(
+                personalAccounts.Select(account =>
+                    new FamilyExpensePaymentAccount(
+                        FamilyExpensePaymentAccountTypes.PersonalAccount,
+                        FamilyExpensePaymentAccountTypes.GetNamePl(
+                            FamilyExpensePaymentAccountTypes.PersonalAccount),
+                        account.Id,
+                        account.Name,
+                        account.CurrencyCode,
+                        FamilyFinanceMoney.FromMinorUnits(
+                            balances.GetValueOrDefault(account.Id)))));
+        }
+
+        var canManageFamily = await PermissionEnforcement.HasUserAsync(
+            dbContext,
+            actorUserId,
+            FamilyFinancePermissions.Manage,
+            cancellationToken);
+        var canManageHousehold = await PermissionEnforcement.HasUserAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinanceHouseholdManage,
+            cancellationToken);
+
+        if (canManageFamily && canManageHousehold)
+        {
+            var householdAccounts = await dbContext.HouseholdAccounts
+                .AsNoTracking()
+                .Where(x =>
+                    x.HouseholdId == familyGroup.HouseholdId &&
+                    x.IsActive &&
+                    x.CurrencyCode == "PLN")
+                .OrderBy(x => x.Name)
+                .ToArrayAsync(cancellationToken);
+
+            var accountIds = householdAccounts.Select(x => x.Id).ToArray();
+            var balances = accountIds.Length == 0
+                ? new Dictionary<Guid, long>()
+                : await dbContext.HouseholdEntries
+                    .AsNoTracking()
+                    .Where(x =>
+                        x.HouseholdId == familyGroup.HouseholdId &&
+                        accountIds.Contains(x.AccountId))
+                    .GroupBy(x => x.AccountId)
+                    .Select(x => new
+                    {
+                        AccountId = x.Key,
+                        BalanceMinor = x.Sum(y => y.AmountMinor)
+                    })
+                    .ToDictionaryAsync(
+                        x => x.AccountId,
+                        x => x.BalanceMinor,
+                        cancellationToken);
+
+            accounts.AddRange(
+                householdAccounts.Select(account =>
+                    new FamilyExpensePaymentAccount(
+                        FamilyExpensePaymentAccountTypes.HouseholdAccount,
+                        FamilyExpensePaymentAccountTypes.GetNamePl(
+                            FamilyExpensePaymentAccountTypes.HouseholdAccount),
+                        account.Id,
+                        account.Name,
+                        account.CurrencyCode,
+                        FamilyFinanceMoney.FromMinorUnits(
+                            balances.GetValueOrDefault(account.Id)))));
+        }
+
+        string? beneficiaryName = null;
+        if (occurrence.BeneficiaryPersonId.HasValue)
+        {
+            var names = await GetPersonNamesAsync(
+                [occurrence.BeneficiaryPersonId.Value],
+                cancellationToken);
+            beneficiaryName = names.GetValueOrDefault(
+                occurrence.BeneficiaryPersonId.Value);
+        }
+
+        return new FamilyExpensePaymentForm(
+            familyGroupId,
+            familyGroup.Name,
+            occurrence.Id,
+            occurrence.RuleId,
+            occurrence.RuleName,
+            occurrence.CategoryCode,
+            FamilyBudgetCategories.GetNamePl(occurrence.CategoryCode),
+            FamilyFinanceMoney.FromMinorUnits(occurrence.PlannedAmountMinor),
+            occurrence.PlannedDateUtc,
+            occurrence.BeneficiaryPersonId,
+            beneficiaryName,
+            accounts);
+    }
+
+    public async Task<FamilyExpensePaymentResult> PayExpenseAsync(
+        PayFamilyExpenseRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            FamilyFinancePermissions.View,
+            cancellationToken);
+
+        if (!FamilyExpensePaymentAccountTypes.IsValid(request.PaymentAccountType))
+        {
+            throw new ArgumentException("Wybierz poprawny rodzaj konta do płatności.");
+        }
+
+        var actor = await GetActorAsync(actorUserId, cancellationToken);
+        var familyGroup = await EnsureMembershipAsync(
+            request.FamilyGroupId,
+            actor.PersonId,
+            actor.HouseholdId,
+            cancellationToken);
+
+        var occurrence = await GetPaymentOccurrenceAsync(
+            request.FamilyGroupId,
+            request.OccurrenceId,
+            cancellationToken)
+            ?? throw new InvalidOperationException(
+                "Nie znaleziono planowanego kosztu do opłacenia.");
+
+        if (occurrence.StatusCode != FamilyRecurringOccurrenceStatuses.Planned)
+        {
+            throw new InvalidOperationException(
+                occurrence.StatusCode == FamilyRecurringOccurrenceStatuses.Paid
+                    ? "Ten koszt został już opłacony."
+                    : "Tego wystąpienia kosztu nie można już opłacić.");
+        }
+
+        var paidAtUtc = request.PaidAtUtc == default
+            ? DateTime.UtcNow
+            : NormalizeUtcDate(request.PaidAtUtc);
+
+        if (paidAtUtc.Date > DateTime.UtcNow.Date)
+        {
+            throw new ArgumentException(
+                "Data płatności nie może być późniejsza niż dzisiaj.");
+        }
+
+        var now = DateTime.UtcNow;
+        var paymentId = Guid.NewGuid();
+        var sourceId = Guid.NewGuid();
+        string sourceType;
+        Guid? sourcePersonId;
+
+        await using var dbTransaction = await dbContext.Database.BeginTransactionAsync(
+            cancellationToken);
+
+        var occurrenceChanged = await ExecuteAsync(
+            """
+            UPDATE FamilyRecurringOccurrences
+            SET StatusCode = $paid,
+                UpdatedAtUtc = $now
+            WHERE Id = $occurrenceId
+              AND FamilyGroupId = $groupId
+              AND StatusCode = $planned;
+            """,
+            [
+                P("$paid", FamilyRecurringOccurrenceStatuses.Paid),
+                P("$now", now),
+                P("$occurrenceId", occurrence.Id),
+                P("$groupId", request.FamilyGroupId),
+                P("$planned", FamilyRecurringOccurrenceStatuses.Planned)
+            ],
+            cancellationToken);
+
+        if (occurrenceChanged != 1)
+        {
+            throw new InvalidOperationException(
+                "Ten koszt został już opłacony albo jego status uległ zmianie.");
+        }
+
+        if (request.PaymentAccountType == FamilyExpensePaymentAccountTypes.PersonalAccount)
+        {
+            await PermissionEnforcement.EnsureUserHasAsync(
+                dbContext,
+                actorUserId,
+                SystemPermissions.FinancePersonalManageOwn,
+                cancellationToken);
+
+            var account = await dbContext.PersonalFinancialAccounts
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id == request.AccountId &&
+                        x.OwnerPersonId == actor.PersonId &&
+                        x.IsActive &&
+                        x.CurrencyCode == "PLN",
+                    cancellationToken)
+                ?? throw new UnauthorizedAccessException(
+                    "Wybrane konto osobiste nie istnieje, jest zamknięte albo nie należy do zalogowanego użytkownika.");
+
+            var balanceMinor = await dbContext.PersonalFinancialTransactions
+                .Where(x =>
+                    x.AccountId == account.Id &&
+                    x.OwnerPersonId == actor.PersonId)
+                .SumAsync(x => x.AmountMinor, cancellationToken);
+
+            if (balanceMinor < occurrence.PlannedAmountMinor)
+            {
+                throw new InvalidOperationException(
+                    "Na wybranym koncie osobistym nie ma wystarczających środków.");
+            }
+
+            dbContext.PersonalFinancialTransactions.Add(
+                new PersonalFinancialTransaction
+                {
+                    Id = sourceId,
+                    AccountId = account.Id,
+                    OwnerPersonId = actor.PersonId,
+                    KindCode = PersonalTransactionKinds.Expense,
+                    AmountMinor = -occurrence.PlannedAmountMinor,
+                    OccurredAtUtc = paidAtUtc,
+                    CategoryCode = MapPersonalCategory(occurrence.CategoryCode),
+                    Description = $"Koszt rodzinny: {occurrence.RuleName}",
+                    CreatedByUserId = actorUserId,
+                    CreatedAtUtc = now
+                });
+
+            account.UpdatedAtUtc = now;
+            sourceType = FamilyBudgetSourceTypes.PersonalTransaction;
+            sourcePersonId = actor.PersonId;
+        }
+        else
+        {
+            await PermissionEnforcement.EnsureUserHasAsync(
+                dbContext,
+                actorUserId,
+                FamilyFinancePermissions.Manage,
+                cancellationToken);
+            await PermissionEnforcement.EnsureUserHasAsync(
+                dbContext,
+                actorUserId,
+                SystemPermissions.FinanceHouseholdManage,
+                cancellationToken);
+
+            var account = await dbContext.HouseholdAccounts
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id == request.AccountId &&
+                        x.HouseholdId == familyGroup.HouseholdId &&
+                        x.IsActive &&
+                        x.CurrencyCode == "PLN",
+                    cancellationToken)
+                ?? throw new UnauthorizedAccessException(
+                    "Wybrane konto domowe nie istnieje, jest zamknięte albo należy do innego gospodarstwa.");
+
+            var balanceMinor = await dbContext.HouseholdEntries
+                .Where(x =>
+                    x.AccountId == account.Id &&
+                    x.HouseholdId == familyGroup.HouseholdId)
+                .SumAsync(x => x.AmountMinor, cancellationToken);
+
+            if (balanceMinor < occurrence.PlannedAmountMinor)
+            {
+                throw new InvalidOperationException(
+                    "Na wybranym koncie domowym nie ma wystarczających środków.");
+            }
+
+            dbContext.HouseholdEntries.Add(
+                new HouseholdEntry
+                {
+                    Id = sourceId,
+                    HouseholdId = familyGroup.HouseholdId,
+                    AccountId = account.Id,
+                    EntryTypeCode = HouseholdEntryTypes.Expense,
+                    AmountMinor = -occurrence.PlannedAmountMinor,
+                    OccurredAtUtc = paidAtUtc,
+                    CategoryCode = MapHouseholdCategory(occurrence.CategoryCode),
+                    Description = $"Koszt rodzinny: {occurrence.RuleName}",
+                    SourceType = "FamilyExpensePayment",
+                    SourceId = paymentId.ToString(),
+                    CreatedByUserId = actorUserId,
+                    CreatedAtUtc = now
+                });
+
+            account.UpdatedAtUtc = now;
+            sourceType = FamilyBudgetSourceTypes.HouseholdEntry;
+            sourcePersonId = null;
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var linkId = Guid.NewGuid();
+        await ExecuteAsync(
+            """
+            INSERT INTO FamilyBudgetLinks
+                (Id, FamilyGroupId, PeriodKey, SourceType, SourceId, PersonId,
+                 CategoryCode, BeneficiaryPersonId, LinkedByUserId,
+                 LinkedAtUtc, UnlinkedAtUtc)
+            VALUES
+                ($id, $groupId, $periodKey, $sourceType, $sourceId, $personId,
+                 $categoryCode, $beneficiaryPersonId, $actorUserId,
+                 $now, NULL);
+            """,
+            [
+                P("$id", linkId),
+                P("$groupId", request.FamilyGroupId),
+                P("$periodKey", occurrence.PeriodKey),
+                P("$sourceType", sourceType),
+                P("$sourceId", sourceId),
+                P("$personId", sourcePersonId),
+                P("$categoryCode", occurrence.CategoryCode),
+                P("$beneficiaryPersonId", occurrence.BeneficiaryPersonId),
+                P("$actorUserId", actorUserId),
+                P("$now", now)
+            ],
+            cancellationToken);
+
+        await ExecuteAsync(
+            """
+            INSERT INTO FamilyExpensePayments
+                (Id, FamilyGroupId, OccurrenceId, SourceType, SourceId,
+                 PaidFromAccountId, PaidFromPersonId, AmountMinor,
+                 PaidByUserId, PaidAtUtc, CreatedAtUtc)
+            VALUES
+                ($id, $groupId, $occurrenceId, $sourceType, $sourceId,
+                 $accountId, $personId, $amountMinor,
+                 $actorUserId, $paidAtUtc, $now);
+            """,
+            [
+                P("$id", paymentId),
+                P("$groupId", request.FamilyGroupId),
+                P("$occurrenceId", occurrence.Id),
+                P("$sourceType", sourceType),
+                P("$sourceId", sourceId),
+                P("$accountId", request.AccountId),
+                P("$personId", sourcePersonId),
+                P("$amountMinor", occurrence.PlannedAmountMinor),
+                P("$actorUserId", actorUserId),
+                P("$paidAtUtc", paidAtUtc),
+                P("$now", now)
+            ],
+            cancellationToken);
+
+        await auditService.WriteAsync(
+            new AuditEntry(
+                EventType: "M04.8.3.FamilyExpensePaid",
+                EntityType: "FamilyExpensePayment",
+                EntityId: paymentId.ToString(),
+                ActorId: actorUserId.ToString(),
+                CorrelationId: correlationId,
+                Description:
+                    $"Opłacono planowany koszt rodzinny ze źródła {request.PaymentAccountType}. Kwota i nazwa kosztu nie są zapisywane w audycie."),
+            cancellationToken);
+
+        await dbTransaction.CommitAsync(cancellationToken);
+
+        return new FamilyExpensePaymentResult(
+            paymentId,
+            sourceType,
+            sourceId);
     }
 
     private async Task EnsureFamilyOccurrencesAsync(
@@ -955,7 +1410,10 @@ public sealed class FamilyBudgetService(
         {
             FamilyRecurringFrequencies.Once => months == 0,
             FamilyRecurringFrequencies.Monthly => true,
+            FamilyRecurringFrequencies.Every2Months => months % 2 == 0,
             FamilyRecurringFrequencies.Quarterly => months % 3 == 0,
+            FamilyRecurringFrequencies.Every4Months => months % 4 == 0,
+            FamilyRecurringFrequencies.SemiAnnual => months % 6 == 0,
             FamilyRecurringFrequencies.Yearly => months % 12 == 0,
             _ => false
         };
@@ -1169,16 +1627,23 @@ public sealed class FamilyBudgetService(
     private async Task<IReadOnlyList<FamilyRecurringCostSummary>> GetRuleSummariesAsync(
         Guid familyGroupId,
         IReadOnlyList<MemberRow> members,
+        IReadOnlyList<FamilyOccurrenceRow> occurrences,
         CancellationToken cancellationToken)
     {
         var rules = await GetRuleRowsAsync(familyGroupId, cancellationToken);
         var names = members.ToDictionary(x => x.PersonId, x => x.DisplayName);
+        var occurrenceByRule = occurrences
+            .GroupBy(x => x.RuleId)
+            .ToDictionary(x => x.Key, x => x.Single());
 
         return rules
             .OrderByDescending(x => x.IsActive)
             .ThenBy(x => x.Name)
             .Select(x =>
-                new FamilyRecurringCostSummary(
+            {
+                occurrenceByRule.TryGetValue(x.Id, out var occurrence);
+
+                return new FamilyRecurringCostSummary(
                     x.Id,
                     x.Name,
                     x.CategoryCode,
@@ -1193,7 +1658,17 @@ public sealed class FamilyBudgetService(
                         : null,
                     x.ActiveFromUtc,
                     x.ActiveToUtc,
-                    x.IsActive))
+                    x.IsActive,
+                    occurrence?.Id,
+                    occurrence?.PlannedDateUtc,
+                    occurrence?.StatusCode,
+                    occurrence is null
+                        ? null
+                        : FamilyRecurringOccurrenceStatuses.GetNamePl(
+                            occurrence.StatusCode),
+                    occurrence?.StatusCode ==
+                        FamilyRecurringOccurrenceStatuses.Planned);
+            })
             .ToArray();
     }
 
@@ -1211,16 +1686,19 @@ public sealed class FamilyBudgetService(
                 command.CommandText =
                     """
                     SELECT o.Id, o.RuleId, o.PlannedAmountMinor,
-                           r.CategoryCode, o.BeneficiaryPersonId
+                           r.CategoryCode, o.BeneficiaryPersonId,
+                           o.PlannedDateUtc, o.StatusCode
                     FROM FamilyRecurringOccurrences o
                     INNER JOIN FamilyRecurringRules r ON r.Id = o.RuleId
                     WHERE o.FamilyGroupId = $groupId
                       AND o.PeriodKey = $periodKey
+                      AND r.RuleTypeCode = $expenseType
                       AND o.StatusCode <> $cancelled
                     ORDER BY o.PlannedDateUtc, r.Name;
                     """;
                 AddParameter(command, "$groupId", familyGroupId);
                 AddParameter(command, "$periodKey", periodKey);
+                AddParameter(command, "$expenseType", FamilyRecurringRuleTypes.Expense);
                 AddParameter(command, "$cancelled", FamilyRecurringOccurrenceStatuses.Cancelled);
                 AttachCurrentTransaction(command);
 
@@ -1233,7 +1711,9 @@ public sealed class FamilyBudgetService(
                             reader.GetGuid(1),
                             reader.GetInt64(2),
                             reader.GetString(3),
-                            reader.IsDBNull(4) ? null : reader.GetGuid(4)));
+                            reader.IsDBNull(4) ? null : reader.GetGuid(4),
+                            ReadDateTime(reader, 5),
+                            reader.GetString(6)));
                 }
             },
             cancellationToken);
@@ -1258,9 +1738,11 @@ public sealed class FamilyBudgetService(
                            ActiveFromUtc, ActiveToUtc, IsActive
                     FROM FamilyRecurringRules
                     WHERE FamilyGroupId = $groupId
+                      AND RuleTypeCode = $expenseType
                     ORDER BY Name;
                     """;
                 AddParameter(command, "$groupId", familyGroupId);
+                AddParameter(command, "$expenseType", FamilyRecurringRuleTypes.Expense);
                 AttachCurrentTransaction(command);
 
                 await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -1302,9 +1784,11 @@ public sealed class FamilyBudgetService(
                            ActiveFromUtc, ActiveToUtc, IsActive
                     FROM FamilyRecurringRules
                     WHERE Id = $id
+                      AND RuleTypeCode = $expenseType
                     LIMIT 1;
                     """;
                 AddParameter(command, "$id", ruleId);
+                AddParameter(command, "$expenseType", FamilyRecurringRuleTypes.Expense);
                 AttachCurrentTransaction(command);
 
                 await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -1437,6 +1921,79 @@ public sealed class FamilyBudgetService(
             reader.IsDBNull(7) ? null : reader.GetGuid(7),
             ReadDateTime(reader, 8),
             reader.IsDBNull(9) ? (DateTime?)null : ReadDateTime(reader, 9));
+
+    private async Task<PaymentOccurrenceRow?> GetPaymentOccurrenceAsync(
+        Guid familyGroupId,
+        Guid occurrenceId,
+        CancellationToken cancellationToken)
+    {
+        PaymentOccurrenceRow? result = null;
+
+        await WithConnectionAsync(
+            async connection =>
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText =
+                    """
+                    SELECT o.Id, o.FamilyGroupId, o.RuleId, r.Name,
+                           r.CategoryCode, o.PlannedAmountMinor,
+                           o.PeriodKey, o.PlannedDateUtc, o.StatusCode,
+                           o.BeneficiaryPersonId
+                    FROM FamilyRecurringOccurrences o
+                    INNER JOIN FamilyRecurringRules r ON r.Id = o.RuleId
+                    WHERE o.Id = $occurrenceId
+                      AND o.FamilyGroupId = $groupId
+                      AND r.RuleTypeCode = $expenseType
+                    LIMIT 1;
+                    """;
+                AddParameter(command, "$occurrenceId", occurrenceId);
+                AddParameter(command, "$groupId", familyGroupId);
+                AddParameter(command, "$expenseType", FamilyRecurringRuleTypes.Expense);
+                AttachCurrentTransaction(command);
+
+                await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+                if (await reader.ReadAsync(cancellationToken))
+                {
+                    result = new PaymentOccurrenceRow(
+                        reader.GetGuid(0),
+                        reader.GetGuid(1),
+                        reader.GetGuid(2),
+                        reader.GetString(3),
+                        reader.GetString(4),
+                        reader.GetInt64(5),
+                        reader.GetString(6),
+                        ReadDateTime(reader, 7),
+                        reader.GetString(8),
+                        reader.IsDBNull(9) ? null : reader.GetGuid(9));
+                }
+            },
+            cancellationToken);
+
+        return result;
+    }
+
+    private static string MapPersonalCategory(string familyCategoryCode) =>
+        familyCategoryCode switch
+        {
+            FamilyBudgetCategories.Food => PersonalFinanceCategories.Food,
+            FamilyBudgetCategories.Home => PersonalFinanceCategories.Home,
+            FamilyBudgetCategories.Transport => PersonalFinanceCategories.Transport,
+            FamilyBudgetCategories.Health => PersonalFinanceCategories.Health,
+            FamilyBudgetCategories.Education => PersonalFinanceCategories.Education,
+            FamilyBudgetCategories.Leisure => PersonalFinanceCategories.Leisure,
+            FamilyBudgetCategories.Subscription => PersonalFinanceCategories.Subscription,
+            FamilyBudgetCategories.Insurance => PersonalFinanceCategories.Insurance,
+            _ => PersonalFinanceCategories.OtherExpense
+        };
+
+    private static string MapHouseholdCategory(string familyCategoryCode) =>
+        familyCategoryCode switch
+        {
+            FamilyBudgetCategories.Food => HouseholdFinanceCategories.Groceries,
+            FamilyBudgetCategories.Home => HouseholdFinanceCategories.HomeMaintenance,
+            FamilyBudgetCategories.Insurance => HouseholdFinanceCategories.Insurance,
+            _ => HouseholdFinanceCategories.OtherExpense
+        };
 
     private async Task<ActorRow> GetActorAsync(
         Guid actorUserId,
@@ -1802,6 +2359,18 @@ public sealed class FamilyBudgetService(
         }
     }
 
+    private sealed record PaymentOccurrenceRow(
+        Guid Id,
+        Guid FamilyGroupId,
+        Guid RuleId,
+        string RuleName,
+        string CategoryCode,
+        long PlannedAmountMinor,
+        string PeriodKey,
+        DateTime PlannedDateUtc,
+        string StatusCode,
+        Guid? BeneficiaryPersonId);
+
     private sealed record ActorRow(
         Guid PersonId,
         string DisplayName,
@@ -1837,7 +2406,9 @@ public sealed class FamilyBudgetService(
         Guid RuleId,
         long PlannedAmountMinor,
         string CategoryCode,
-        Guid? BeneficiaryPersonId);
+        Guid? BeneficiaryPersonId,
+        DateTime PlannedDateUtc,
+        string StatusCode);
 
     private sealed record BudgetLinkRow(
         Guid Id,
