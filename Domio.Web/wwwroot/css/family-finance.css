@@ -1,0 +1,506 @@
+.family-finance-page {
+  display: grid;
+  gap: 22px;
+}
+
+.family-finance-header,
+.family-finance-form-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 22px;
+}
+
+.family-finance-header h1,
+.family-finance-form-header h1 {
+  margin: 3px 0 8px;
+  font-size: clamp(1.55rem, 3vw, 2.15rem);
+  font-weight: 820;
+  letter-spacing: -.035em;
+}
+
+.family-finance-header p,
+.family-finance-form-header p {
+  max-width: 760px;
+  margin: 0;
+  color: var(--domio-muted);
+  font-size: .88rem;
+  line-height: 1.6;
+}
+
+.family-finance-kicker {
+  color: #687888;
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+.family-finance-header-actions,
+.family-finance-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.family-finance-empty {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 44px 24px;
+  border: 1px dashed #ccd5dc;
+  border-radius: 18px;
+  background: #fbfcfd;
+  text-align: center;
+}
+
+.family-finance-empty-icon {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border-radius: 15px;
+  background: #eaf2f9;
+  color: #40678d;
+  font-weight: 850;
+}
+
+.family-finance-empty h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.family-finance-empty p {
+  max-width: 660px;
+  margin: 0 0 5px;
+  color: var(--domio-muted);
+  font-size: .8rem;
+  line-height: 1.55;
+}
+
+.family-finance-group-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.family-finance-group-tab {
+  display: grid;
+  gap: 2px;
+  min-width: 160px;
+  padding: 11px 13px;
+  border: 1px solid var(--domio-border);
+  border-radius: 12px;
+  background: #fff;
+  color: inherit;
+  text-decoration: none;
+}
+
+.family-finance-group-tab:hover,
+.family-finance-group-tab.is-active {
+  border-color: #9ebfdf;
+  background: #f6faff;
+  color: inherit;
+  text-decoration: none;
+}
+
+.family-finance-group-tab strong {
+  font-size: .78rem;
+}
+
+.family-finance-group-tab span {
+  color: var(--domio-muted);
+  font-size: .64rem;
+}
+
+.family-finance-family-card {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--domio-border);
+  border-radius: 15px;
+  background: var(--domio-border);
+}
+
+.family-finance-family-card > div {
+  display: grid;
+  gap: 4px;
+  padding: 15px 16px;
+  background: #fff;
+}
+
+.family-finance-family-card span,
+.family-finance-summary-card span,
+.family-finance-summary-card small {
+  color: var(--domio-muted);
+  font-size: .68rem;
+}
+
+.family-finance-family-card strong {
+  font-size: .82rem;
+}
+
+.family-finance-period-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.family-finance-period-bar > strong {
+  min-width: 140px;
+  text-align: center;
+  font-size: .82rem;
+  text-transform: capitalize;
+}
+
+.family-finance-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.family-finance-summary-card {
+  display: grid;
+  gap: 5px;
+  padding: 17px 18px;
+  border: 1px solid var(--domio-border);
+  border-radius: 15px;
+  background: #fff;
+}
+
+.family-finance-summary-card > strong {
+  font-size: 1.45rem;
+  font-weight: 820;
+  line-height: 1.1;
+}
+
+.family-finance-summary-card small {
+  line-height: 1.4;
+}
+
+.family-finance-summary-card.is-muted {
+  background: #fafbfc;
+}
+
+.family-finance-summary-card.is-muted > strong {
+  color: #9aa4ae;
+}
+
+.family-finance-section {
+  display: grid;
+  gap: 14px;
+}
+
+.family-finance-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.family-finance-section-heading h2,
+.family-finance-privacy-note h2 {
+  margin: 3px 0 3px;
+  font-size: 1rem;
+  font-weight: 790;
+}
+
+.family-finance-section-heading p,
+.family-finance-privacy-note p {
+  max-width: 760px;
+  margin: 0;
+  color: var(--domio-muted);
+  font-size: .75rem;
+  line-height: 1.5;
+}
+
+.family-finance-section-number {
+  color: #8b9cab;
+  font-size: .63rem;
+  font-weight: 820;
+  letter-spacing: .12em;
+}
+
+.family-finance-table-wrap {
+  overflow: hidden;
+  border: 1px solid var(--domio-border);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.family-finance-table {
+  font-size: .73rem;
+}
+
+.family-finance-table thead th {
+  padding: 10px 12px;
+  border-bottom-color: var(--domio-border);
+  background: #f7f9fa;
+  color: #6b7885;
+  font-size: .63rem;
+  font-weight: 760;
+}
+
+.family-finance-table td {
+  padding: 12px;
+  border-bottom-color: #edf0f2;
+}
+
+.family-finance-self {
+  display: inline-flex;
+  margin-left: 5px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #eef4fb;
+  color: #4b7097;
+  font-size: .58rem;
+  font-weight: 760;
+}
+
+.family-finance-role,
+.family-finance-sharing-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 7px;
+  border-radius: 999px;
+  font-size: .61rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.family-finance-role.adult {
+  background: #eaf4ff;
+  color: #446b95;
+}
+
+.family-finance-role.child {
+  background: #fff3df;
+  color: #80611d;
+}
+
+.family-finance-sharing-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.family-finance-sharing-pill.on {
+  background: #eaf8f0;
+  color: #2f7552;
+}
+
+.family-finance-sharing-pill.off,
+.family-finance-sharing-pill.neutral,
+.family-finance-private {
+  background: #f1f3f5;
+  color: #737d86;
+}
+
+.family-finance-private {
+  display: inline-flex;
+  padding: 4px 7px;
+  border-radius: 8px;
+  font-size: .63rem;
+  font-weight: 700;
+}
+
+.family-finance-privacy-note {
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  padding: 17px 18px;
+  border: 1px solid #d7e4ef;
+  border-radius: 14px;
+  background: #f8fbfe;
+}
+
+.family-finance-form-card {
+  width: min(720px, 100%);
+  padding: 22px;
+  border: 1px solid var(--domio-border);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.family-finance-form-note {
+  margin-top: 16px;
+  padding: 12px 13px;
+  border: 1px dashed #cbd7df;
+  border-radius: 12px;
+  background: #fbfcfe;
+  color: #526170;
+  font-size: .72rem;
+  line-height: 1.55;
+}
+
+.family-finance-form-actions {
+  margin-top: 20px;
+}
+
+.family-finance-sharing-form {
+  width: min(820px, 100%);
+}
+
+.family-finance-sharing-option {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 18px;
+  align-items: center;
+  padding: 15px 0;
+  border-bottom: 1px solid #edf0f2;
+}
+
+.family-finance-sharing-option > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.family-finance-sharing-option strong {
+  font-size: .82rem;
+}
+
+.family-finance-sharing-option span {
+  color: var(--domio-muted);
+  font-size: .69rem;
+  line-height: 1.5;
+}
+
+.family-finance-sharing-option.is-future {
+  background: linear-gradient(90deg, transparent, #fbfcfd 25%, #fbfcfd 75%, transparent);
+}
+
+@media (max-width: 900px) {
+  .family-finance-summary-grid,
+  .family-finance-family-card {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .family-finance-header,
+  .family-finance-form-header {
+    flex-direction: column;
+  }
+
+  .family-finance-header-actions,
+  .family-finance-form-actions {
+    justify-content: flex-start;
+  }
+
+  .family-finance-summary-grid,
+  .family-finance-family-card {
+    grid-template-columns: 1fr;
+  }
+
+  .family-finance-period-bar {
+    justify-content: space-between;
+    gap: 6px;
+  }
+
+  .family-finance-period-bar > strong {
+    min-width: auto;
+    font-size: .72rem;
+  }
+}
+
+.family-finance-result-card {
+  border-color: #cbdde9;
+  background: #f8fbfe;
+}
+
+.family-finance-inline-empty {
+  padding: 15px 16px;
+  border: 1px dashed #ccd5dc;
+  border-radius: 13px;
+  background: #fbfcfd;
+  color: var(--domio-muted);
+  font-size: .73rem;
+}
+
+.family-finance-category-grid,
+.family-finance-child-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.family-finance-category-card,
+.family-finance-child-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px 15px;
+  border: 1px solid var(--domio-border);
+  border-radius: 13px;
+  background: #fff;
+}
+
+.family-finance-category-card > strong,
+.family-finance-child-card > strong {
+  font-size: .78rem;
+}
+
+.family-finance-category-card > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--domio-muted);
+  font-size: .68rem;
+}
+
+.family-finance-category-card > div b {
+  color: #2f3d49;
+  font-size: .72rem;
+}
+
+.family-finance-child-card span {
+  color: var(--domio-muted);
+  font-size: .68rem;
+}
+
+.family-finance-link-status-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--domio-border);
+  border-radius: 13px;
+  background: var(--domio-border);
+}
+
+.family-finance-link-status-grid > div {
+  display: grid;
+  gap: 4px;
+  padding: 13px 15px;
+  background: #fff;
+}
+
+.family-finance-link-status-grid span {
+  color: var(--domio-muted);
+  font-size: .65rem;
+}
+
+.family-finance-link-status-grid strong {
+  font-size: .72rem;
+}
+
+.family-finance-link-form {
+  width: min(900px, 100%);
+}
+
+@media (max-width: 900px) {
+  .family-finance-category-grid,
+  .family-finance-child-grid,
+  .family-finance-link-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .family-finance-category-grid,
+  .family-finance-child-grid,
+  .family-finance-link-status-grid {
+    grid-template-columns: 1fr;
+  }
+}

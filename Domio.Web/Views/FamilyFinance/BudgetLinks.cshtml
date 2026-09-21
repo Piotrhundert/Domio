@@ -1,0 +1,178 @@
+@model Domio.Web.Models.FamilyFinance.FamilyBudgetLinksViewModel
+@{
+    ViewData["Title"] = "Powiązania budżetu rodzinnego";
+    var period = new DateTime(Model.Form.Year, Model.Form.Month, 1);
+    var previous = period.AddMonths(-1);
+    var next = period.AddMonths(1);
+}
+
+<div class="family-finance-page">
+    <div class="family-finance-form-header">
+        <div>
+            <div class="family-finance-kicker">M04.8.2 · FAMILYBUDGETLINK</div>
+            <h1>Powiąż źródła z budżetem</h1>
+            <p>
+                Rodzina: <strong>@Model.Form.FamilyGroupName</strong>. Powiązanie nie tworzy
+                nowej transakcji — wskazuje istniejące źródło i zalicza je do budżetu dokładnie raz.
+            </p>
+        </div>
+        <a asp-action="Index"
+           asp-route-familyGroupId="@Model.Form.FamilyGroupId"
+           asp-route-year="@Model.Form.Year"
+           asp-route-month="@Model.Form.Month"
+           class="btn btn-outline-secondary">Wróć do budżetu</a>
+    </div>
+
+    @if (TempData["FamilyFinanceMessage"] is string message)
+    {
+        <div class="alert alert-success">@message</div>
+    }
+    @if (TempData["FamilyFinanceError"] is string error)
+    {
+        <div class="alert alert-danger">@error</div>
+    }
+
+    <div class="family-finance-period-bar">
+        <a asp-action="BudgetLinks"
+           asp-route-familyGroupId="@Model.Form.FamilyGroupId"
+           asp-route-year="@previous.Year"
+           asp-route-month="@previous.Month"
+           class="btn btn-sm btn-outline-secondary">← Poprzedni</a>
+        <strong>@period.ToString("MMMM yyyy")</strong>
+        <a asp-action="BudgetLinks"
+           asp-route-familyGroupId="@Model.Form.FamilyGroupId"
+           asp-route-year="@next.Year"
+           asp-route-month="@next.Month"
+           class="btn btn-sm btn-outline-secondary">Następny →</a>
+    </div>
+
+    <div class="family-finance-link-status-grid">
+        <div>
+            <span>Własne wydatki</span>
+            <strong>@(Model.Form.CanLinkOwnPersonalExpenses ? "udostępnianie włączone" : "prywatne")</strong>
+        </div>
+        <div>
+            <span>Własne reguły cykliczne</span>
+            <strong>@(Model.Form.CanLinkOwnRecurringRules ? "udostępnianie włączone" : "prywatne")</strong>
+        </div>
+        <div>
+            <span>Wydatki domu</span>
+            <strong>@(Model.Form.CanLinkHouseholdExpenses ? "możesz powiązać" : "brak uprawnienia")</strong>
+        </div>
+    </div>
+
+    <section class="family-finance-section">
+        <div class="family-finance-section-heading">
+            <div>
+                <div class="family-finance-section-number">01</div>
+                <h2>Nowe powiązanie</h2>
+                <p>
+                    Prywatne pozycje pojawiają się tylko wtedy, gdy włączyłeś odpowiedni zakres
+                    w „Moje udostępnianie”.
+                </p>
+            </div>
+        </div>
+
+        @if (Model.Sources.Count == 0)
+        {
+            <div class="family-finance-inline-empty">
+                Brak nowych źródeł do powiązania w tym miesiącu. Reguły cykliczne są widoczne
+                niezależnie od miesiąca, jeśli ich udostępnianie jest włączone.
+            </div>
+        }
+        else
+        {
+            <form asp-action="LinkBudgetSource" method="post" class="family-finance-form-card family-finance-link-form">
+                <input type="hidden" name="familyGroupId" value="@Model.Form.FamilyGroupId" />
+                <input type="hidden" name="year" value="@Model.Form.Year" />
+                <input type="hidden" name="month" value="@Model.Form.Month" />
+
+                <div class="mb-3">
+                    <label class="form-label">Źródło</label>
+                    <select name="selectedSourceKey" asp-items="Model.Sources" class="form-select" required>
+                        <option value="">— wybierz źródło —</option>
+                    </select>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Kategoria rodzinna</label>
+                        <select name="categoryCode" asp-items="Model.Categories" class="form-select" required></select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Koszt przypisany do osoby</label>
+                        <select name="beneficiaryPersonId" asp-items="Model.Beneficiaries" class="form-select"></select>
+                    </div>
+                </div>
+
+                <div class="family-finance-form-note">
+                    Ta sama kombinacja <strong>rodzina + typ źródła + identyfikator źródła</strong>
+                    jest unikalna. Ponowne dodanie tej samej operacji zostanie zablokowane.
+                </div>
+
+                <div class="family-finance-form-actions">
+                    <button type="submit" class="btn btn-primary">Powiąż z budżetem</button>
+                </div>
+            </form>
+        }
+    </section>
+
+    <section class="family-finance-section">
+        <div class="family-finance-section-heading">
+            <div>
+                <div class="family-finance-section-number">02</div>
+                <h2>Aktywne powiązania, którymi możesz zarządzać</h2>
+                <p>
+                    Widzisz szczegóły własnych prywatnych źródeł oraz źródeł domu, do których masz uprawnienie.
+                    Prywatne źródła innych dorosłych nie są tutaj ujawniane.
+                </p>
+            </div>
+        </div>
+
+        @if (Model.Form.ExistingLinks.Count == 0)
+        {
+            <div class="family-finance-inline-empty">Brak aktywnych powiązań do pokazania.</div>
+        }
+        else
+        {
+            <div class="table-responsive family-finance-table-wrap">
+                <table class="table family-finance-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Źródło</th>
+                            <th>Kategoria</th>
+                            <th>Beneficjent</th>
+                            <th>Kwota</th>
+                            <th class="text-end">Akcja</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var link in Model.Form.ExistingLinks)
+                    {
+                        <tr>
+                            <td>
+                                <strong>@link.SourceLabel</strong><br />
+                                <small>@link.SourceTypeNamePl</small>
+                            </td>
+                            <td>@link.CategoryNamePl</td>
+                            <td>@(link.BeneficiaryDisplayName ?? "—")</td>
+                            <td>@(link.Amount?.ToString("N2") ?? "—") zł</td>
+                            <td class="text-end">
+                                <form asp-action="UnlinkBudgetSource" method="post" class="d-inline">
+                                    <input type="hidden" name="linkId" value="@link.LinkId" />
+                                    <input type="hidden" name="familyGroupId" value="@Model.Form.FamilyGroupId" />
+                                    <input type="hidden" name="year" value="@Model.Form.Year" />
+                                    <input type="hidden" name="month" value="@Model.Form.Month" />
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                        Odłącz
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>

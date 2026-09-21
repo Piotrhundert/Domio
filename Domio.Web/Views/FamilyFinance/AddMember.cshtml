@@ -1,0 +1,82 @@
+@model Domio.Web.Models.FamilyFinance.AddFamilyMemberViewModel
+@{
+    ViewData["Title"] = "Dodaj członka rodziny";
+}
+
+<div class="family-finance-page">
+    <div class="family-finance-form-header">
+        <div class="family-finance-kicker">M04.8.1 · @Model.FamilyGroupName</div>
+        <h1>Dodaj członka rodziny</h1>
+        <p>
+            Do rodziny można dodać osobę z tego samego gospodarstwa albo aktywną
+            Osobę, która nie jest przypisana do innego gospodarstwa. Dziecko nie
+            musi mieć konta logowania.
+        </p>
+    </div>
+
+    <div class="family-finance-form-card">
+        @if (Model.People.Count == 0)
+        {
+            <div class="alert alert-info mb-0">
+                Wszystkie aktywne osoby z gospodarstwa są już członkami tej rodziny.
+            </div>
+
+            <div class="family-finance-form-actions">
+                <a asp-action="Index"
+                   asp-route-familyGroupId="@Model.FamilyGroupId"
+                   class="btn btn-outline-secondary">
+                    Wróć
+                </a>
+            </div>
+        }
+        else
+        {
+            <form asp-action="AddMember" method="post">
+                <input asp-for="FamilyGroupId" type="hidden" />
+                <input asp-for="FamilyGroupName" type="hidden" />
+
+                <div asp-validation-summary="ModelOnly"
+                     class="text-danger mb-3"></div>
+
+                <div class="mb-3">
+                    <label asp-for="PersonId" class="form-label"></label>
+                    <select asp-for="PersonId"
+                            asp-items="Model.People"
+                            class="form-select">
+                        <option value="">— wybierz osobę —</option>
+                    </select>
+                    <span asp-validation-for="PersonId" class="text-danger"></span>
+                </div>
+
+                <div class="mb-3">
+                    <label asp-for="FamilyRoleCode" class="form-label"></label>
+                    <select asp-for="FamilyRoleCode"
+                            asp-items="Model.Roles"
+                            class="form-select"></select>
+                    <span asp-validation-for="FamilyRoleCode" class="text-danger"></span>
+                </div>
+
+                <div class="family-finance-form-note">
+                    Dla Adult zostanie utworzona prywatna polityka udostępniania
+                    z wszystkimi przełącznikami wyłączonymi. Child może istnieć
+                    bez konta i nie udostępnia prywatnych finansów.
+                </div>
+
+                <div class="family-finance-form-actions">
+                    <a asp-action="Index"
+                       asp-route-familyGroupId="@Model.FamilyGroupId"
+                       class="btn btn-outline-secondary">
+                        Anuluj
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        Dodaj członka
+                    </button>
+                </div>
+            </form>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,49 @@
+@model Domio.Web.Models.FamilyFinance.CreateFamilyGroupViewModel
+@{
+    ViewData["Title"] = "Nowa rodzina";
+}
+
+<div class="family-finance-page">
+    <div class="family-finance-form-header">
+        <div class="family-finance-kicker">M04.8.1 · GRUPA RODZINNA</div>
+        <h1>Utwórz grupę rodzinną</h1>
+        <p>
+            Zostaniesz dodany jako osoba dorosła. Wszystkie ustawienia
+            udostępniania finansów startują jako wyłączone.
+        </p>
+    </div>
+
+    <div class="family-finance-form-card">
+        <form asp-action="CreateGroup" method="post">
+            <div asp-validation-summary="ModelOnly"
+                 class="text-danger mb-3"></div>
+
+            <div class="mb-3">
+                <label asp-for="Name" class="form-label"></label>
+                <input asp-for="Name"
+                       class="form-control"
+                       placeholder="np. Rodzina Piotr + Paula + Tymek" />
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+
+            <div class="family-finance-form-note">
+                Grupa rodzinna jest warstwą planowania. Jej utworzenie nie tworzy
+                konta bankowego, salda ani żadnego księgowania.
+            </div>
+
+            <div class="family-finance-form-actions">
+                <a asp-action="Index"
+                   class="btn btn-outline-secondary">
+                    Anuluj
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    Utwórz rodzinę
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

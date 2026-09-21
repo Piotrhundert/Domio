@@ -1,0 +1,95 @@
+@using Domio.Domain.FamilyFinance
+@model Domio.Web.Models.FamilyFinance.CreateFamilyExpenseViewModel
+@{
+    ViewData["Title"] = "Dodaj koszt rodzinny";
+}
+
+<div class="family-finance-page">
+    <div class="family-finance-form-header">
+        <div>
+            <div class="family-finance-kicker">M04.8.2 · PLAN RODZINY</div>
+            <h1>Dodaj koszt lub subskrypcję</h1>
+            <p>
+                Rodzina: <strong>@Model.FamilyGroupName</strong>. Ten wpis tworzy wyłącznie plan.
+                Nie pobiera pieniędzy z konta prywatnego ani z konta domu.
+            </p>
+        </div>
+        <a asp-action="Index"
+           asp-route-familyGroupId="@Model.FamilyGroupId"
+           class="btn btn-outline-secondary">Wróć</a>
+    </div>
+
+    <form asp-action="CreateExpense" method="post" class="family-finance-form-card">
+        <input type="hidden" asp-for="FamilyGroupId" />
+        <input type="hidden" asp-for="FamilyGroupName" />
+
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+        <div class="mb-3">
+            <label asp-for="Name" class="form-label"></label>
+            <input asp-for="Name" class="form-control" placeholder="np. Netflix, zajęcia pływania, ubezpieczenie" />
+            <span asp-validation-for="Name" class="text-danger"></span>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label asp-for="CategoryCode" class="form-label"></label>
+                <select asp-for="CategoryCode" asp-items="Model.Categories" class="form-select"></select>
+                <span asp-validation-for="CategoryCode" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="PlannedAmount" class="form-label"></label>
+                <div class="input-group">
+                    <input asp-for="PlannedAmount" class="form-control" inputmode="decimal" />
+                    <span class="input-group-text">zł</span>
+                </div>
+                <span asp-validation-for="PlannedAmount" class="text-danger"></span>
+            </div>
+        </div>
+
+        <div class="row g-3 mt-0">
+            <div class="col-md-6">
+                <label asp-for="FrequencyCode" class="form-label"></label>
+                <select asp-for="FrequencyCode" asp-items="Model.Frequencies" class="form-select"></select>
+                <span asp-validation-for="FrequencyCode" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="DueDay" class="form-label"></label>
+                <input asp-for="DueDay" type="number" min="1" max="31" class="form-control" />
+                <span asp-validation-for="DueDay" class="text-danger"></span>
+            </div>
+        </div>
+
+        <div class="mb-3 mt-3">
+            <label asp-for="BeneficiaryPersonId" class="form-label"></label>
+            <select asp-for="BeneficiaryPersonId" asp-items="Model.Beneficiaries" class="form-select"></select>
+            <div class="form-text">
+                Wybierz dziecko lub inną osobę, jeśli chcesz raportować ten koszt osobno.
+            </div>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label asp-for="ActiveFromUtc" class="form-label"></label>
+                <input asp-for="ActiveFromUtc" type="date" class="form-control" />
+            </div>
+            <div class="col-md-6">
+                <label asp-for="ActiveToUtc" class="form-label"></label>
+                <input asp-for="ActiveToUtc" type="date" class="form-control" />
+            </div>
+        </div>
+
+        <div class="family-finance-form-note">
+            Dla opcji <strong>Jednorazowo</strong> Domio utworzy tylko jedno planowane wystąpienie.
+            Dla reguł cyklicznych generator jest idempotentny: jedna reguła może mieć najwyżej
+            jedno wystąpienie w danym miesiącu.
+        </div>
+
+        <div class="family-finance-form-actions">
+            <button type="submit" class="btn btn-primary">Zapisz planowany koszt</button>
+            <a asp-action="Index"
+               asp-route-familyGroupId="@Model.FamilyGroupId"
+               class="btn btn-outline-secondary">Anuluj</a>
+        </div>
+    </form>
+</div>

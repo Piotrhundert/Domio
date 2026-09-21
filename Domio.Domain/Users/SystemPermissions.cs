@@ -1,3 +1,5 @@
+using Domio.Domain.FamilyFinance;
+
 namespace Domio.Domain.Users;
 
 public sealed record PermissionDescriptor(
@@ -20,6 +22,7 @@ public static class PermissionScopes
     public const string OwnRoom = "OwnRoom";
     public const string OwnAgreement = "OwnAgreement";
     public const string Agreement = "Agreement";
+    public const string FamilyMembership = "FamilyMembership";
 
     public static string GetNamePl(string scopeCode) =>
         scopeCode switch
@@ -29,6 +32,7 @@ public static class PermissionScopes
             OwnRoom => "Własny pokój / podlicznik",
             OwnAgreement => "Własna umowa",
             Agreement => "Według aktywnej umowy",
+            FamilyMembership => "Według członkostwa w rodzinie",
             _ => scopeCode
         };
 }
@@ -246,6 +250,31 @@ public static class SystemPermissions
             "Pozwala zatwierdzać operacje wymagające potwierdzenia, w szczególności wpłaty gotówkowe i inne operacje zmieniające rzeczywiste saldo gospodarstwa.",
             "Krytyczne",
             PermissionScopes.All),
+
+        P(
+            FamilyFinancePermissions.View,
+            "M04.8",
+            "Finanse rodzinne",
+            "Podgląd budżetu rodzinnego",
+            "Pozwala otworzyć budżet rodzinny, ale dostęp do konkretnej FamilyGroup wymaga dodatkowo aktywnego członkostwa w tej grupie. Nie ujawnia automatycznie cudzych sald ani pełnej historii prywatnej.",
+            "Wysokie",
+            PermissionScopes.FamilyMembership),
+        P(
+            FamilyFinancePermissions.Manage,
+            "M04.8",
+            "Finanse rodzinne",
+            "Zarządzanie budżetem rodzinnym",
+            "Pozwala zarządzać własną aktywną grupą rodzinną, jej członkami i planem. Uprawnienie nie omija ograniczenia aktywnego członkostwa FamilyGroup.",
+            "Wysokie",
+            PermissionScopes.FamilyMembership),
+        P(
+            FamilyFinancePermissions.ShareOwn,
+            "M04.8",
+            "Finanse rodzinne",
+            "Udostępnianie własnych finansów rodzinie",
+            "Pozwala dorosłemu członkowi rodziny włączać i wyłączać udostępnianie własnych planowanych przychodów, rzeczywistych przychodów, rodzinnych wydatków i reguł cyklicznych.",
+            "Wysokie",
+            PermissionScopes.Own),
 
         P(
             HouseholdSettingsView,
@@ -479,12 +508,28 @@ public static class SystemRolePermissionMatrix
             .Select(permission =>
                 new RolePermissionGrant(
                     permission.Code,
-                    permission.AllowedScopes.Contains(
-                        PermissionScopes.Own,
-                        StringComparer.Ordinal)
-                        ? PermissionScopes.Own
-                        : PermissionScopes.All))
+                    ResolveAdministratorScope(permission)))
             .ToArray();
+
+    private static string ResolveAdministratorScope(
+        PermissionDescriptor permission)
+    {
+        if (permission.AllowedScopes.Contains(
+                PermissionScopes.Own,
+                StringComparer.Ordinal))
+        {
+            return PermissionScopes.Own;
+        }
+
+        if (permission.AllowedScopes.Contains(
+                PermissionScopes.FamilyMembership,
+                StringComparer.Ordinal))
+        {
+            return PermissionScopes.FamilyMembership;
+        }
+
+        return PermissionScopes.All;
+    }
 
     private static IReadOnlyList<RolePermissionGrant>
         BuildHouseholdMember() =>
@@ -507,6 +552,15 @@ public static class SystemRolePermissionMatrix
         new(
             SystemPermissions.FinanceHouseholdView,
             PermissionScopes.All),
+        new(
+            FamilyFinancePermissions.View,
+            PermissionScopes.FamilyMembership),
+        new(
+            FamilyFinancePermissions.Manage,
+            PermissionScopes.FamilyMembership),
+        new(
+            FamilyFinancePermissions.ShareOwn,
+            PermissionScopes.Own),
         new(
             SystemPermissions.PropertyView,
             PermissionScopes.All),

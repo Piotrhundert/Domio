@@ -139,6 +139,7 @@ builder.Services.AddAuthorization(options =>
                     permission.Code);
             });
     }
+
 });
 
 builder.Services.AddProblemDetails();
@@ -404,7 +405,7 @@ app.MapGet("/health", async (
                 : "Unhealthy",
             application = "Domio",
             module = "M04",
-            package = "M04.7",
+            package = "M04.8.2",
             environment =
                 app.Environment.EnvironmentName,
             correlationId =

@@ -1,4 +1,5 @@
 @using Domio.Application.Authorization
+@using Domio.Domain.FamilyFinance
 @using Domio.Domain.Users
 @{
     var canViewUsers =
@@ -28,6 +29,11 @@
         User.HasClaim(
             DomioClaimTypes.Permission,
             SystemPermissions.FinanceHouseholdView);
+
+    var canViewFamilyFinance =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            FamilyFinancePermissions.View);
 }
 <!DOCTYPE html>
 <html lang="pl">
@@ -50,6 +56,9 @@
           asp-append-version="true" />
     <link rel="stylesheet"
           href="~/css/household-finance.css"
+          asp-append-version="true" />
+    <link rel="stylesheet"
+          href="~/css/family-finance.css"
           asp-append-version="true" />
     <link rel="stylesheet"
           href="~/Domio.Web.styles.css"
@@ -175,6 +184,23 @@
                         </span>
                     }
 
+                    @if (canViewFamilyFinance)
+                    {
+                        <a asp-controller="FamilyFinance"
+                           asp-action="Index"
+                           class="domio-side-link">
+                            <span class="domio-side-icon">R</span>
+                            <span>Finanse rodzinne</span>
+                        </a>
+                    }
+                    else
+                    {
+                        <span class="domio-side-link is-disabled">
+                            <span class="domio-side-icon">R</span>
+                            <span>Finanse rodzinne</span>
+                        </span>
+                    }
+
                     <span class="domio-side-link is-disabled">
                         <span class="domio-side-icon">N</span>
                         <span>Najem i media</span>
@@ -198,7 +224,7 @@
     <footer class="domio-footer">
         <div class="container-fluid px-4 d-flex flex-column flex-md-row justify-content-between gap-2">
             <span>Domio · domowe centrum zarządzania</span>
-            <span>M04.7 · finanse domu — dodatkowe zobowiązania domowników</span>
+            <span>M04.8.1 · finanse rodzinne — fundament i prywatność</span>
         </div>
     </footer>
 

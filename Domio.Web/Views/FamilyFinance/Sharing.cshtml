@@ -1,0 +1,97 @@
+@model Domio.Web.Models.FamilyFinance.FamilySharingViewModel
+@{
+    ViewData["Title"] = "Udostępnianie finansów rodzinie";
+}
+
+<div class="family-finance-page">
+    <div class="family-finance-form-header">
+        <div class="family-finance-kicker">M04.8.1 · PRYWATNOŚĆ</div>
+        <h1>Moje udostępnianie</h1>
+        <p>
+            @Model.PersonDisplayName · @Model.FamilyGroupName
+        </p>
+    </div>
+
+    <div class="family-finance-form-card family-finance-sharing-form">
+        <form asp-action="Sharing" method="post">
+            <input asp-for="FamilyGroupId" type="hidden" />
+            <input asp-for="FamilyGroupName" type="hidden" />
+            <input asp-for="PersonDisplayName" type="hidden" />
+
+            <div asp-validation-summary="ModelOnly"
+                 class="text-danger mb-3"></div>
+
+            <div class="family-finance-sharing-option">
+                <div>
+                    <strong>Planowane przychody</strong>
+                    <span>
+                        Pozwala rodzinie zobaczyć miesięczny plan przychodów
+                        wygenerowany z Twoich reguł cyklicznych. Nie pokazuje salda konta.
+                    </span>
+                </div>
+                <div class="form-check form-switch">
+                    <input asp-for="SharePlannedIncome"
+                           class="form-check-input" />
+                </div>
+            </div>
+
+            <div class="family-finance-sharing-option">
+                <div>
+                    <strong>Rzeczywiste przychody</strong>
+                    <span>
+                        Pozwala pokazać rodzinie łączną kwotę rzeczywistych przychodów
+                        w miesiącu. Pełna historia prywatna nadal pozostaje ukryta.
+                    </span>
+                </div>
+                <div class="form-check form-switch">
+                    <input asp-for="ShareActualIncome"
+                           class="form-check-input" />
+                </div>
+            </div>
+
+            <div class="family-finance-sharing-option is-future">
+                <div>
+                    <strong>Wydatki oznaczone jako rodzinne</strong>
+                    <span>
+                        Przełącznik jest zapisywany już teraz. W M04.8.2 będzie
+                        kontrolował widoczność wydatków powiązanych z FamilyBudgetLink.
+                    </span>
+                </div>
+                <div class="form-check form-switch">
+                    <input asp-for="ShareFamilyExpenses"
+                           class="form-check-input" />
+                </div>
+            </div>
+
+            <div class="family-finance-sharing-option is-future">
+                <div>
+                    <strong>Wybrane reguły cykliczne</strong>
+                    <span>
+                        Przełącznik przygotowuje moduł pod M04.8.2 — subskrypcje
+                        i rodzinne reguły cykliczne bez kopiowania księgowań.
+                    </span>
+                </div>
+                <div class="form-check form-switch">
+                    <input asp-for="ShareRecurringRules"
+                           class="form-check-input" />
+                </div>
+            </div>
+
+            <div class="family-finance-form-note">
+                Zmiana tworzy nową wersję polityki. Poprzednia wersja zostaje
+                historycznie zamknięta — nie kasujemy śladu po wcześniejszych ustawieniach.
+            </div>
+
+            <div class="family-finance-form-actions">
+                <a asp-action="Index"
+                   asp-route-familyGroupId="@Model.FamilyGroupId"
+                   class="btn btn-outline-secondary">
+                    Anuluj
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    Zapisz udostępnianie
+                </button>
+            </div>
+        </form>
+    </div>
+</div>

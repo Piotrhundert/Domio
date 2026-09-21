@@ -1,0 +1,571 @@
+@using Domio.Application.Authorization
+@using Domio.Domain.FamilyFinance
+@model Domio.Web.Models.FamilyFinance.FamilyFinanceIndexViewModel
+@{
+    ViewData["Title"] = "Finanse rodzinne";
+
+    var overview = Model.Overview;
+    var canManage =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            FamilyFinancePermissions.Manage);
+    var canShare =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            FamilyFinancePermissions.ShareOwn);
+
+    var currentPeriod = new DateTime(overview.Year, overview.Month, 1);
+    var previousPeriod = currentPeriod.AddMonths(-1);
+    var nextPeriod = currentPeriod.AddMonths(1);
+}
+
+<div class="family-finance-page">
+    <div class="family-finance-header">
+        <div>
+            <div class="family-finance-kicker">M04.8.2 · FINANSE RODZINNE</div>
+            <h1>Finanse rodzinne</h1>
+            <p>
+                Wspólny plan i wykonanie rodziny bez tworzenia trzeciego salda.
+                M04.8.2 dodaje planowane koszty, subskrypcje, koszty dziecka
+                oraz jawne powiązania z rzeczywistymi operacjami.
+            </p>
+        </div>
+
+        <div class="family-finance-header-actions">
+            @if (overview.HasFamily && canShare && overview.OwnSharing is not null)
+            {
+                <a asp-action="Sharing"
+                   asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
+                   class="btn btn-outline-primary">
+                    Moje udostępnianie
+                </a>
+            }
+
+            @if (overview.HasFamily)
+            {
+                <a asp-action="BudgetLinks"
+                   asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
+                   asp-route-year="@overview.Year"
+                   asp-route-month="@overview.Month"
+                   class="btn btn-outline-primary">
+                    Powiąż wydatki
+                </a>
+            }
+
+            @if (overview.HasFamily && canManage)
+            {
+                <a asp-action="CreateExpense"
+                   asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
+                   class="btn btn-primary">
+                    + Koszt / subskrypcja
+                </a>
+
+                <a asp-action="AddMember"
+                   asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
+                   class="btn btn-outline-secondary">
+                    + Dodaj członka
+                </a>
+            }
+
+            @if (overview.HasHousehold && canManage)
+            {
+                <a asp-action="CreateGroup"
+                   class="btn btn-primary">
+                    + Nowa rodzina
+                </a>
+            }
+        </div>
+    </div>
+
+    @if (TempData["FamilyFinanceMessage"] is string message)
+    {
+        <div class="alert alert-success mb-4" role="alert">@message</div>
+    }
+
+    @if (TempData["FamilyFinanceError"] is string error)
+    {
+        <div class="alert alert-danger mb-4" role="alert">@error</div>
+    }
+
+    @if (!overview.HasHousehold)
+    {
+        <div class="family-finance-empty">
+            <div class="family-finance-empty-icon">R</div>
+            <h2>Najpierw skonfiguruj gospodarstwo</h2>
+            <p>
+                Grupa rodzinna zawsze należy do konkretnego gospodarstwa.
+                Utwórz konto domu w module Finanse domu i wróć tutaj.
+            </p>
+            <a asp-controller="HouseholdFinance"
+               asp-action="Index"
+               class="btn btn-primary">
+                Przejdź do finansów domu
+            </a>
+        </div>
+    }
+    else if (!overview.HasFamily)
+    {
+        <div class="family-finance-empty">
+            <div class="family-finance-empty-icon">R</div>
+            <h2>Nie masz jeszcze grupy rodzinnej</h2>
+            <p>
+                Utworzenie rodziny doda Cię jako osobę dorosłą. Domyślnie
+                żadne prywatne saldo, historia ani przychody nie są udostępniane.
+            </p>
+
+            @if (canManage)
+            {
+                <a asp-action="CreateGroup"
+                   class="btn btn-primary">
+                    Utwórz pierwszą rodzinę
+                </a>
+            }
+        </div>
+    }
+    else
+    {
+        @if (overview.Groups.Count > 1)
+        {
+            <div class="family-finance-group-tabs">
+                @foreach (var group in overview.Groups)
+                {
+                    <a asp-action="Index"
+                       asp-route-familyGroupId="@group.FamilyGroupId"
+                       asp-route-year="@overview.Year"
+                       asp-route-month="@overview.Month"
+                       class="family-finance-group-tab @(group.FamilyGroupId == overview.SelectedFamilyGroupId ? "is-active" : "")">
+                        <strong>@group.Name</strong>
+                        <span>@group.CurrentMemberRoleNamePl</span>
+                    </a>
+                }
+            </div>
+        }
+
+        <div class="family-finance-family-card">
+            <div>
+                <span>Rodzina</span>
+                <strong>@overview.SelectedFamilyGroupName</strong>
+            </div>
+            <div>
+                <span>Gospodarstwo</span>
+                <strong>@overview.HouseholdName</strong>
+            </div>
+            <div>
+                <span>Twoja rola</span>
+                <strong>@FamilyRoles.GetNamePl(overview.CurrentMemberRoleCode ?? "")</strong>
+            </div>
+            <div>
+                <span>Członkowie</span>
+                <strong>@overview.Members.Count</strong>
+            </div>
+        </div>
+
+        <div class="family-finance-period-bar">
+            <a asp-action="Index"
+               asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
+               asp-route-year="@previousPeriod.Year"
+               asp-route-month="@previousPeriod.Month"
+               class="btn btn-sm btn-outline-secondary">
+                ← Poprzedni
+            </a>
+
+            <strong>@currentPeriod.ToString("MMMM yyyy")</strong>
+
+            <a asp-action="Index"
+               asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
+               asp-route-year="@nextPeriod.Year"
+               asp-route-month="@nextPeriod.Month"
+               class="btn btn-sm btn-outline-secondary">
+                Następny →
+            </a>
+        </div>
+
+        <div class="family-finance-summary-grid">
+            <article class="family-finance-summary-card">
+                <span>Planowane przychody</span>
+                <strong>@overview.PlannedIncomeTotal.ToString("N2") zł</strong>
+                <small>Tylko od osób, które włączyły udostępnianie planu.</small>
+            </article>
+
+            <article class="family-finance-summary-card">
+                <span>Rzeczywiste przychody</span>
+                <strong>@overview.ActualIncomeTotal.ToString("N2") zł</strong>
+                <small>Tylko zatwierdzone operacje prywatne udostępnione rodzinie.</small>
+            </article>
+
+            <article class="family-finance-summary-card">
+                <span>Planowane wydatki</span>
+                <strong>@((Model.Budget?.PlannedExpenseTotal ?? 0m).ToString("N2")) zł</strong>
+                <small>Rodzinne reguły i jawnie udostępnione prywatne reguły cykliczne.</small>
+            </article>
+
+            <article class="family-finance-summary-card">
+                <span>Rzeczywiste wydatki</span>
+                <strong>@((Model.Budget?.ActualExpenseTotal ?? 0m).ToString("N2")) zł</strong>
+                <small>Tylko źródła jawnie powiązane przez FamilyBudgetLink.</small>
+            </article>
+
+            <article class="family-finance-summary-card family-finance-result-card">
+                <span>Wynik rzeczywisty miesiąca</span>
+                <strong>@((overview.ActualIncomeTotal - (Model.Budget?.ActualExpenseTotal ?? 0m)).ToString("N2")) zł</strong>
+                <small>Rzeczywiste przychody minus rzeczywiste wydatki rodzinne.</small>
+            </article>
+        </div>
+
+        <section class="family-finance-section">
+            <div class="family-finance-section-heading">
+                <div>
+                    <div class="family-finance-section-number">01</div>
+                    <h2>Członkowie i przychody</h2>
+                    <p>
+                        Brak udostępnienia nie jest traktowany jako 0 zł.
+                        Domio pokazuje wtedy „Prywatne”, bez odczytu salda ani historii konta.
+                    </p>
+                </div>
+            </div>
+
+            <div class="table-responsive family-finance-table-wrap">
+                <table class="table family-finance-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Osoba</th>
+                            <th>Rola</th>
+                            <th>Planowane przychody</th>
+                            <th>Rzeczywiste przychody</th>
+                            <th>Plan wydatków</th>
+                            <th>Wydatki rzeczywiste</th>
+                            <th>Udostępnianie</th>
+                            @if (canManage)
+                            {
+                                <th class="text-end">Akcja</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var member in overview.Members)
+                    {
+                        var isSelf = member.PersonId == overview.CurrentPersonId;
+                        var personExpenses = Model.Budget?.PersonExpenses
+                            .FirstOrDefault(x => x.PersonId == member.PersonId);
+
+                        <tr>
+                            <td>
+                                <strong>@member.DisplayName</strong>
+                                @if (isSelf)
+                                {
+                                    <span class="family-finance-self">Ty</span>
+                                }
+                            </td>
+                            <td>
+                                <span class="family-finance-role @member.FamilyRoleCode.ToLowerInvariant()">
+                                    @member.FamilyRoleNamePl
+                                </span>
+                            </td>
+                            <td>
+                                @if (member.FamilyRoleCode == FamilyRoles.Child)
+                                {
+                                    <span class="family-finance-private">Nie dotyczy</span>
+                                }
+                                else if (member.PlannedIncome.HasValue)
+                                {
+                                    <strong>@member.PlannedIncome.Value.ToString("N2") zł</strong>
+                                }
+                                else
+                                {
+                                    <span class="family-finance-private">Prywatne</span>
+                                }
+                            </td>
+                            <td>
+                                @if (member.FamilyRoleCode == FamilyRoles.Child)
+                                {
+                                    <span class="family-finance-private">Nie dotyczy</span>
+                                }
+                                else if (member.ActualIncome.HasValue)
+                                {
+                                    <strong>@member.ActualIncome.Value.ToString("N2") zł</strong>
+                                }
+                                else
+                                {
+                                    <span class="family-finance-private">Prywatne</span>
+                                }
+                            </td>
+                            <td>
+                                @if (member.FamilyRoleCode == FamilyRoles.Child)
+                                {
+                                    <span class="family-finance-private">Nie dotyczy</span>
+                                }
+                                else if (member.ShareRecurringRules)
+                                {
+                                    <strong>@((personExpenses?.PlannedAmount ?? 0m).ToString("N2")) zł</strong>
+                                }
+                                else
+                                {
+                                    <span class="family-finance-private">Prywatne</span>
+                                }
+                            </td>
+                            <td>
+                                @if (member.FamilyRoleCode == FamilyRoles.Child)
+                                {
+                                    <span class="family-finance-private">Nie dotyczy</span>
+                                }
+                                else if (member.ShareFamilyExpenses)
+                                {
+                                    <strong>@((personExpenses?.ActualAmount ?? 0m).ToString("N2")) zł</strong>
+                                }
+                                else
+                                {
+                                    <span class="family-finance-private">Prywatne</span>
+                                }
+                            </td>
+                            <td>
+                                @if (member.FamilyRoleCode == FamilyRoles.Child)
+                                {
+                                    <span class="family-finance-sharing-pill neutral">bez konta</span>
+                                }
+                                else
+                                {
+                                    <div class="family-finance-sharing-list">
+                                        <span class="family-finance-sharing-pill @(member.SharePlannedIncome ? "on" : "off")">
+                                            plan @(member.SharePlannedIncome ? "✓" : "—")
+                                        </span>
+                                        <span class="family-finance-sharing-pill @(member.ShareActualIncome ? "on" : "off")">
+                                            przychód @(member.ShareActualIncome ? "✓" : "—")
+                                        </span>
+                                        <span class="family-finance-sharing-pill @(member.ShareFamilyExpenses ? "on" : "off")">
+                                            wydatki @(member.ShareFamilyExpenses ? "✓" : "—")
+                                        </span>
+                                        <span class="family-finance-sharing-pill @(member.ShareRecurringRules ? "on" : "off")">
+                                            cykliczne @(member.ShareRecurringRules ? "✓" : "—")
+                                        </span>
+                                    </div>
+                                }
+                            </td>
+
+                            @if (canManage)
+                            {
+                                <td class="text-end">
+                                    @if (!isSelf)
+                                    {
+                                        <form asp-action="EndMember"
+                                              method="post"
+                                              class="d-inline"
+                                              onsubmit="return confirm('Zakończyć członkostwo tej osoby? Historia pozostanie zachowana.');">
+                                            <input type="hidden"
+                                                   name="membershipId"
+                                                   value="@member.MembershipId" />
+                                            <input type="hidden"
+                                                   name="familyGroupId"
+                                                   value="@overview.SelectedFamilyGroupId" />
+                                            <button type="submit"
+                                                    class="btn btn-sm btn-outline-secondary">
+                                                Zakończ członkostwo
+                                            </button>
+                                        </form>
+                                    }
+                                </td>
+                            }
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        @if (Model.Budget is not null)
+        {
+            <section class="family-finance-section">
+                <div class="family-finance-section-heading">
+                    <div>
+                        <div class="family-finance-section-number">02</div>
+                        <h2>Planowane koszty i subskrypcje</h2>
+                        <p>
+                            Plan nie księguje pieniędzy. Generator tworzy najwyżej jedno
+                            wystąpienie reguły na miesiąc.
+                        </p>
+                    </div>
+                    @if (canManage)
+                    {
+                        <a asp-action="CreateExpense"
+                           asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
+                           class="btn btn-sm btn-primary">+ Dodaj koszt</a>
+                    }
+                </div>
+
+                @if (Model.Budget.FamilyRules.Count == 0)
+                {
+                    <div class="family-finance-inline-empty">
+                        Nie ma jeszcze rodzinnych kosztów planowanych.
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive family-finance-table-wrap">
+                        <table class="table family-finance-table align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Nazwa</th>
+                                    <th>Kategoria</th>
+                                    <th>Kwota</th>
+                                    <th>Częstotliwość</th>
+                                    <th>Beneficjent</th>
+                                    <th>Status</th>
+                                    @if (canManage) { <th class="text-end">Akcja</th> }
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var rule in Model.Budget.FamilyRules)
+                            {
+                                <tr>
+                                    <td><strong>@rule.Name</strong></td>
+                                    <td>@rule.CategoryNamePl</td>
+                                    <td><strong>@rule.PlannedAmount.ToString("N2") zł</strong></td>
+                                    <td>@rule.FrequencyNamePl · dzień @rule.DueDay</td>
+                                    <td>@(rule.BeneficiaryDisplayName ?? "Koszt wspólny")</td>
+                                    <td>
+                                        <span class="family-finance-sharing-pill @(rule.IsActive ? "on" : "off")">
+                                            @(rule.IsActive ? "Aktywna" : "Zakończona")
+                                        </span>
+                                    </td>
+                                    @if (canManage)
+                                    {
+                                        <td class="text-end">
+                                            @if (rule.IsActive)
+                                            {
+                                                <form asp-action="DeactivateExpense" method="post" class="d-inline">
+                                                    <input type="hidden" name="ruleId" value="@rule.RuleId" />
+                                                    <input type="hidden" name="familyGroupId" value="@overview.SelectedFamilyGroupId" />
+                                                    <input type="hidden" name="year" value="@overview.Year" />
+                                                    <input type="hidden" name="month" value="@overview.Month" />
+                                                    <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                                        Zakończ
+                                                    </button>
+                                                </form>
+                                            }
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+
+            <section class="family-finance-section">
+                <div class="family-finance-section-heading">
+                    <div>
+                        <div class="family-finance-section-number">03</div>
+                        <h2>Plan i wykonanie według kategorii</h2>
+                        <p>Jedna operacja źródłowa może być zaliczona do tej rodziny tylko raz.</p>
+                    </div>
+                </div>
+
+                @if (Model.Budget.Categories.Count == 0)
+                {
+                    <div class="family-finance-inline-empty">Brak kosztów w wybranym miesiącu.</div>
+                }
+                else
+                {
+                    <div class="family-finance-category-grid">
+                    @foreach (var category in Model.Budget.Categories)
+                    {
+                        <article class="family-finance-category-card">
+                            <strong>@category.CategoryNamePl</strong>
+                            <div><span>Plan</span><b>@category.PlannedAmount.ToString("N2") zł</b></div>
+                            <div><span>Wykonanie</span><b>@category.ActualAmount.ToString("N2") zł</b></div>
+                        </article>
+                    }
+                    </div>
+                }
+            </section>
+
+            @if (Model.Budget.ChildCosts.Count > 0)
+            {
+                <section class="family-finance-section">
+                    <div class="family-finance-section-heading">
+                        <div>
+                            <div class="family-finance-section-number">04</div>
+                            <h2>Koszty dzieci</h2>
+                            <p>Dziecko nie potrzebuje konta logowania ani rachunku bankowego.</p>
+                        </div>
+                    </div>
+                    <div class="family-finance-child-grid">
+                    @foreach (var child in Model.Budget.ChildCosts)
+                    {
+                        <article class="family-finance-child-card">
+                            <strong>@child.DisplayName</strong>
+                            <span>Plan: @child.PlannedAmount.ToString("N2") zł</span>
+                            <span>Wykonanie: @child.ActualAmount.ToString("N2") zł</span>
+                        </article>
+                    }
+                    </div>
+                </section>
+            }
+
+            <section class="family-finance-section">
+                <div class="family-finance-section-heading">
+                    <div>
+                        <div class="family-finance-section-number">05</div>
+                        <h2>Rzeczywiste wydatki w budżecie</h2>
+                        <p>
+                            Budżet wskazuje źródło, ale nie tworzy kopii transakcji.
+                            Dla prywatnych wydatków nie pokazujemy rodzinie pełnej historii ani kontrahenta.
+                        </p>
+                    </div>
+                    <a asp-action="BudgetLinks"
+                       asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
+                       asp-route-year="@overview.Year"
+                       asp-route-month="@overview.Month"
+                       class="btn btn-sm btn-outline-primary">
+                        Zarządzaj powiązaniami
+                    </a>
+                </div>
+
+                @if (Model.Budget.ActualExpenseLinks.Count == 0)
+                {
+                    <div class="family-finance-inline-empty">Brak powiązanych rzeczywistych wydatków.</div>
+                }
+                else
+                {
+                    <div class="table-responsive family-finance-table-wrap">
+                        <table class="table family-finance-table align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Źródło</th>
+                                    <th>Kategoria</th>
+                                    <th>Osoba</th>
+                                    <th>Beneficjent</th>
+                                    <th class="text-end">Kwota</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var link in Model.Budget.ActualExpenseLinks)
+                            {
+                                <tr>
+                                    <td>@link.SourceLabel</td>
+                                    <td>@link.CategoryNamePl</td>
+                                    <td>@(link.PersonDisplayName ?? "Budżet domu")</td>
+                                    <td>@(link.BeneficiaryDisplayName ?? "—")</td>
+                                    <td class="text-end"><strong>@((link.Amount ?? 0m).ToString("N2")) zł</strong></td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+        }
+
+        <section class="family-finance-section family-finance-privacy-note">
+            <div class="family-finance-section-number">06</div>
+            <div>
+                <h2>Prywatność jest domyślna</h2>
+                <p>
+                    Członkostwo w rodzinie nie ujawnia salda konta ani pełnej historii
+                    transakcji. Dorosły sam włącza osobno planowane przychody,
+                    rzeczywiste przychody, przyszłe wydatki rodzinne i reguły cykliczne.
+                </p>
+            </div>
+        </section>
+    }
+</div>
