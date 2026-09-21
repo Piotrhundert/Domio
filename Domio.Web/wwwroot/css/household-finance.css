@@ -1035,3 +1035,116 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+
+/* M04.7 – dodatkowe zobowiązania domowników */
+.household-member-obligation-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.household-member-obligation-summary-card {
+  display: grid;
+  gap: 4px;
+  padding: 15px 16px;
+  border: 1px solid var(--domio-border);
+  border-radius: 13px;
+  background: #fff;
+}
+
+.household-member-obligation-summary-card.is-overdue {
+  border-color: #efd1d1;
+  background: #fff7f7;
+}
+
+.household-member-obligation-summary-card > span,
+.household-member-obligation-summary-card > small {
+  color: var(--domio-muted);
+  font-size: .68rem;
+}
+
+.household-member-obligation-summary-card > strong {
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.household-member-obligation-summary-card > strong small {
+  font-size: .68rem;
+  font-weight: 700;
+}
+
+.household-obligation-status {
+  display: inline-flex;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #f0f3f5;
+  color: #5c6670;
+  font-size: .63rem;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.household-obligation-status.paid,
+.household-obligation-status.approved {
+  background: #eaf8f0;
+  color: #2d7550;
+}
+
+.household-obligation-status.partiallypaid,
+.household-obligation-status.pending {
+  background: #fff6df;
+  color: #8a671c;
+}
+
+.household-obligation-status.overdue,
+.household-obligation-status.rejected {
+  background: #fdeaea;
+  color: #994242;
+}
+
+.household-obligation-status.cancelled {
+  background: #f1f2f4;
+  color: #73777d;
+}
+
+.household-obligation-pending-label {
+  margin-top: 5px;
+  color: #8a671c;
+  font-size: .62rem;
+  font-weight: 700;
+}
+
+.household-obligation-cancelled-row {
+  opacity: .62;
+}
+
+.household-obligation-payment-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  margin-top: 18px;
+  border: 1px solid var(--domio-border);
+  border-radius: 14px;
+  background: var(--domio-border);
+}
+
+.household-obligation-payment-summary > div {
+  display: grid;
+  gap: 4px;
+  padding: 14px 15px;
+  background: #fff;
+}
+
+.household-obligation-payment-summary span {
+  color: var(--domio-muted);
+  font-size: .67rem;
+}
+
+.household-obligation-payment-summary strong {
+  font-size: .8rem;
+  line-height: 1.4;
+}

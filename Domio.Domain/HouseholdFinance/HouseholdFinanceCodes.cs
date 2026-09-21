@@ -33,6 +33,7 @@ public static class HouseholdEntryTypes
     public const string TransferIn = "TransferIn";
     public const string TransferOut = "TransferOut";
     public const string MemberContribution = "MemberContribution";
+    public const string MemberObligationPayment = "MemberObligationPayment";
     public const string TenantPayment = "TenantPayment";
 
     public static string GetNamePl(string code) =>
@@ -45,6 +46,7 @@ public static class HouseholdEntryTypes
             TransferIn => "Transfer przychodzący",
             TransferOut => "Transfer wychodzący",
             MemberContribution => "Wpłata domownika",
+            MemberObligationPayment => "Dodatkowa wpłata domownika",
             TenantPayment => "Wpłata lokatora",
             _ => code
         };

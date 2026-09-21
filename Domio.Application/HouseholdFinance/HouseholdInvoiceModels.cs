@@ -15,7 +15,10 @@ public sealed record HouseholdInvoiceSummary(
     string CategoryCode,
     string CategoryNamePl,
     Guid? UtilityInvoiceId,
-    DateTime CreatedAtUtc);
+    DateTime CreatedAtUtc,
+    decimal MemberObligationAmount,
+    decimal MemberContributionPaidAmount,
+    decimal MemberContributionOutstandingAmount);
 
 public sealed record HouseholdInvoicePaymentItem(
     Guid PaymentId,

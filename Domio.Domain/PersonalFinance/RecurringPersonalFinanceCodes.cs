@@ -52,6 +52,7 @@ public static class PersonalFinanceCategories
     public const string Cloud = "Cloud";
     public const string Insurance = "Insurance";
     public const string HouseholdContribution = "HouseholdContribution";
+    public const string HouseholdExtraObligation = "HouseholdExtraObligation";
     public const string OtherExpense = "OtherExpense";
 
     public static readonly IReadOnlyList<PersonalFinanceCodeItem> All =
@@ -69,6 +70,7 @@ public static class PersonalFinanceCategories
         new(Cloud, "Chmura / usługa online"),
         new(Insurance, "Ubezpieczenie"),
         new(HouseholdContribution, "Składka na budżet domu"),
+        new(HouseholdExtraObligation, "Dodatkowe zasilenie budżetu domu"),
         new(OtherExpense, "Inny wydatek")
     ];
 

@@ -101,7 +101,7 @@
     <div class="household-finance-header">
         <div>
             <div class="household-finance-kicker">
-                M04.6 · FAKTURY DOMU
+                M04.7 · FAKTURY DOMU
             </div>
 
             <h1>Faktury domu</h1>
@@ -263,8 +263,9 @@
                     <div class="household-finance-section-number">01</div>
                     <h2>Rejestr faktur · @selectedCategoryLabel</h2>
                     <p>
-                        Każda faktura ma własny status. Płatność jednej faktury
-                        nie może zmienić statusu żadnej innej.
+                        „Zapłacono operatorowi” pokazuje rzeczywistą płatność faktury z konta domu.
+                        „Wpłaty domowników” pokazują osobno środki przekazane przez domowników
+                        na pokrycie tej konkretnej faktury.
                     </p>
                 </div>
             </div>
@@ -297,8 +298,9 @@
                                 <th>Termin</th>
                                 <th>Status</th>
                                 <th class="text-end">Brutto</th>
-                                <th class="text-end">Zapłacono</th>
-                                <th class="text-end">Pozostało</th>
+                                <th class="text-end">Zapłacono operatorowi</th>
+                                <th class="text-end">Wpłaty domowników</th>
+                                <th class="text-end">Pozostało operatorowi</th>
                                 <th class="text-end">Akcja</th>
                             </tr>
                         </thead>
@@ -352,12 +354,52 @@
                                     @Model.CurrencyCode
                                 </td>
                                 <td class="text-end">
+                                    @if (invoice.MemberObligationAmount > 0m)
+                                    {
+                                        <strong>
+                                            @invoice.MemberContributionPaidAmount.ToString("N2")
+                                            @Model.CurrencyCode
+                                        </strong>
+                                        <div class="household-entry-source">
+                                            z @invoice.MemberObligationAmount.ToString("N2") @Model.CurrencyCode
+                                            @if (invoice.MemberContributionOutstandingAmount > 0m)
+                                            {
+                                                <text> · pozostało @invoice.MemberContributionOutstandingAmount.ToString("N2") @Model.CurrencyCode</text>
+                                            }
+                                            else
+                                            {
+                                                <text> · rozliczone</text>
+                                            }
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">—</span>
+                                    }
+                                </td>
+                                <td class="text-end">
                                     <strong>
                                         @invoice.RemainingAmount.ToString("N2")
                                         @Model.CurrencyCode
                                     </strong>
+                                    @if (invoice.MemberContributionPaidAmount > 0m)
+                                    {
+                                        <div class="household-entry-source">
+                                            wpłata domownika zasiliła konto domu
+                                        </div>
+                                    }
                                 </td>
                                 <td class="text-end">
+                                    @if (Model.CanManage &&
+                                         invoice.StatusCode != HouseholdInvoiceStatuses.Cancelled)
+                                    {
+                                        <a asp-action="CreateMemberObligation"
+                                           asp-route-invoiceId="@invoice.InvoiceId"
+                                           class="btn btn-sm btn-outline-secondary">
+                                            Udział domownika
+                                        </a>
+                                    }
+
                                     @if (Model.CanManage &&
                                          invoice.RemainingAmount > 0m &&
                                          invoice.StatusCode != HouseholdInvoiceStatuses.Cancelled)

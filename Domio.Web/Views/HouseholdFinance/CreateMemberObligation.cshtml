@@ -1,0 +1,101 @@
+@using Domio.Domain.HouseholdFinance
+@model Domio.Web.Models.HouseholdFinance.CreateHouseholdMemberObligationViewModel
+@{
+    ViewData["Title"] = "Dodaj zobowiązanie domownika";
+}
+
+<div class="household-finance-form-page">
+    <div class="household-finance-form-card">
+        <div class="household-finance-form-heading">
+            <div class="household-finance-kicker">M04.7 · NOWE ZOBOWIĄZANIE</div>
+            <h1>Dodaj udział domownika w koszcie</h1>
+            <p>
+                To zobowiązanie nie opłaca faktury operatora i nie zmienia salda domu.
+                Domownik później wybierze własne konto i wyśle wpłatę do akceptacji.
+            </p>
+        </div>
+
+        <form asp-action="CreateMemberObligation" method="post">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label asp-for="HouseholdMemberId" class="form-label"></label>
+                    <select asp-for="HouseholdMemberId" asp-items="Model.Members" class="form-select"></select>
+                    <span asp-validation-for="HouseholdMemberId" class="text-danger"></span>
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="SourceTypeCode" class="form-label"></label>
+                    <select asp-for="SourceTypeCode" asp-items="Model.SourceTypes" class="form-select" id="memberObligationSourceType"></select>
+                    <span asp-validation-for="SourceTypeCode" class="text-danger"></span>
+                </div>
+
+                <div class="col-12" id="memberObligationInvoiceRow">
+                    <label asp-for="SourceInvoiceId" class="form-label"></label>
+                    <select asp-for="SourceInvoiceId" asp-items="Model.Invoices" class="form-select" id="memberObligationInvoice"></select>
+                    <span asp-validation-for="SourceInvoiceId" class="text-danger"></span>
+                    <div class="form-text">Powiązanie wskazuje źródło kosztu. Płatność tej faktury pozostaje niezależnym wydatkiem gospodarstwa.</div>
+                </div>
+
+                <div class="col-12">
+                    <label asp-for="Description" class="form-label"></label>
+                    <input asp-for="Description" class="form-control" placeholder="np. udział w fakturze za prąd za wrzesień" />
+                    <span asp-validation-for="Description" class="text-danger"></span>
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="Amount" class="form-label"></label>
+                    <div class="input-group">
+                        <input asp-for="Amount" class="form-control" />
+                        <span class="input-group-text">PLN</span>
+                    </div>
+                    <span asp-validation-for="Amount" class="text-danger"></span>
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="DueDate" class="form-label"></label>
+                    <input asp-for="DueDate" class="form-control" />
+                    <span asp-validation-for="DueDate" class="text-danger"></span>
+                </div>
+
+                <div class="col-md-4">
+                    <label asp-for="TargetHouseholdAccountId" class="form-label"></label>
+                    <select asp-for="TargetHouseholdAccountId" asp-items="Model.TargetAccounts" class="form-select"></select>
+                    <span asp-validation-for="TargetHouseholdAccountId" class="text-danger"></span>
+                </div>
+            </div>
+
+            <div class="household-finance-info mt-4">
+                <strong>Rozdzielenie kosztu i pieniędzy</strong>
+                <span>Faktura może być w całości opłacona z konta domu. To zobowiązanie jedynie określa, ile dany domownik ma dodatkowo zasilić budżet domu.</span>
+            </div>
+
+            <div class="household-finance-form-actions mt-4">
+                <a asp-action="MemberObligations" class="btn btn-outline-secondary">Anuluj</a>
+                <button type="submit" class="btn btn-primary">Zapisz zobowiązanie</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        (() => {
+            const sourceType = document.getElementById('memberObligationSourceType');
+            const invoiceRow = document.getElementById('memberObligationInvoiceRow');
+            const invoiceSelect = document.getElementById('memberObligationInvoice');
+            const syncSource = () => {
+                if (!sourceType || !invoiceRow) return;
+                const usesInvoice = sourceType.value === '@HouseholdMemberObligationSourceTypes.Invoice';
+                invoiceRow.style.display = usesInvoice ? '' : 'none';
+                if (!usesInvoice && invoiceSelect) {
+                    invoiceSelect.value = '';
+                }
+            };
+            sourceType?.addEventListener('change', syncSource);
+            syncSource();
+        })();
+    </script>
+}

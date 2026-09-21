@@ -1,0 +1,70 @@
+@model Domio.Web.Models.HouseholdFinance.HouseholdMemberObligationPaymentViewModel
+@{
+    ViewData["Title"] = "Wyślij wpłatę";
+}
+
+<div class="household-finance-form-page">
+    <div class="household-finance-form-card">
+        <div class="household-finance-form-heading">
+            <div class="household-finance-kicker">M04.7 · WPŁATA DOMOWNIKA</div>
+            <h1>Wyślij wpłatę do budżetu domu</h1>
+            <p>Środki zostaną tylko zgłoszone do akceptacji. Saldo prywatnego konta i konta domu zmieni się atomowo dopiero po zaakceptowaniu wpłaty.</p>
+        </div>
+
+        <div class="household-obligation-payment-summary">
+            <div><span>Opis</span><strong>@Model.Description</strong></div>
+            <div><span>Źródło kosztu</span><strong>@Model.SourceDisplayName</strong></div>
+            <div><span>Termin</span><strong>@(Model.DueDateUtc.ToLocalTime().ToString("dd.MM.yyyy"))</strong></div>
+            <div><span>Pozostało</span><strong>@Model.OutstandingAmount.ToString("N2") @Model.CurrencyCode</strong></div>
+            <div><span>Konto domu</span><strong>@Model.TargetHouseholdAccountName</strong></div>
+        </div>
+
+        <form asp-action="SendMemberObligationPayment" method="post" class="mt-4">
+            <input asp-for="ObligationId" type="hidden" />
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            @if (Model.SourceAccounts.Count == 0)
+            {
+                <div class="household-finance-warning">
+                    <strong>Brak dostępnych środków</strong>
+                    <span>Nie masz aktywnego prywatnego konta w odpowiedniej walucie z dodatnim saldem. Wpłaty nie można teraz wysłać.</span>
+                </div>
+            }
+            else
+            {
+                <div class="row g-3">
+                    <div class="col-md-7">
+                        <label asp-for="SourcePersonalAccountId" class="form-label"></label>
+                        <select asp-for="SourcePersonalAccountId" asp-items="Model.SourceAccounts" class="form-select"></select>
+                        <span asp-validation-for="SourcePersonalAccountId" class="text-danger"></span>
+                    </div>
+                    <div class="col-md-5">
+                        <label asp-for="Amount" class="form-label"></label>
+                        <div class="input-group">
+                            <input asp-for="Amount" class="form-control" max="@(Model.OutstandingAmount.ToString(System.Globalization.CultureInfo.InvariantCulture))" />
+                            <span class="input-group-text">@Model.CurrencyCode</span>
+                        </div>
+                        <span asp-validation-for="Amount" class="text-danger"></span>
+                    </div>
+                </div>
+            }
+
+            <div class="household-finance-info mt-4">
+                <strong>Kontrola salda przy akceptacji</strong>
+                <span>Domio ponownie sprawdzi dostępne środki bezpośrednio przed zaksięgowaniem. Jeżeli saldo będzie za małe, nic nie zostanie pobrane.</span>
+            </div>
+
+            <div class="household-finance-form-actions mt-4">
+                <a asp-action="MemberObligations" class="btn btn-outline-secondary">Anuluj</a>
+                @if (Model.SourceAccounts.Count > 0)
+                {
+                    <button type="submit" class="btn btn-primary">Wyślij do akceptacji</button>
+                }
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

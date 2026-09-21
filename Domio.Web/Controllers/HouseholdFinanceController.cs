@@ -931,6 +931,404 @@ public sealed class HouseholdFinanceController(
     [HttpGet]
     [Authorize(
         Policy = SystemPermissions.FinanceHouseholdView)]
+    public async Task<IActionResult> MemberObligations(
+        CancellationToken cancellationToken = default)
+    {
+        var overview =
+            await householdFinanceService
+                .GetMemberObligationOverviewAsync(
+                    GetCurrentUserId(),
+                    cancellationToken);
+
+        return View(
+            overview);
+    }
+
+    [HttpGet]
+    [Authorize(
+        Policy = SystemPermissions.FinanceHouseholdManage)]
+    public async Task<IActionResult> CreateMemberObligation(
+        Guid? invoiceId,
+        CancellationToken cancellationToken = default)
+    {
+        var overview =
+            await householdFinanceService
+                .GetMemberObligationOverviewAsync(
+                    GetCurrentUserId(),
+                    cancellationToken);
+
+        if (overview is null)
+        {
+            return RedirectToAction(
+                nameof(Index));
+        }
+
+        var selectedInvoice =
+            invoiceId.HasValue
+                ? overview.Invoices
+                    .FirstOrDefault(x =>
+                        x.InvoiceId ==
+                            invoiceId.Value)
+                : null;
+
+        var model =
+            new CreateHouseholdMemberObligationViewModel
+            {
+                SourceTypeCode =
+                    selectedInvoice is null
+                        ? HouseholdMemberObligationSourceTypes.OtherCost
+                        : HouseholdMemberObligationSourceTypes.Invoice,
+                SourceInvoiceId =
+                    selectedInvoice?.InvoiceId,
+                Description =
+                    selectedInvoice is null
+                        ? string.Empty
+                        : $"Udział w fakturze {selectedInvoice.DisplayName}",
+                Amount =
+                    0.01m,
+                DueDate =
+                    DateTime.Today.AddDays(7),
+                TargetHouseholdAccountId =
+                    overview.TargetAccounts
+                        .FirstOrDefault()?
+                        .AccountId
+                    ?? Guid.Empty
+            };
+
+        RebuildMemberObligationOptions(
+            model,
+            overview);
+
+        return View(
+            model);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(
+        Policy = SystemPermissions.FinanceHouseholdManage)]
+    public async Task<IActionResult> CreateMemberObligation(
+        CreateHouseholdMemberObligationViewModel model,
+        CancellationToken cancellationToken = default)
+    {
+        var overview =
+            await householdFinanceService
+                .GetMemberObligationOverviewAsync(
+                    GetCurrentUserId(),
+                    cancellationToken);
+
+        if (overview is null)
+        {
+            return RedirectToAction(
+                nameof(Index));
+        }
+
+        RebuildMemberObligationOptions(
+            model,
+            overview);
+
+        if (!ModelState.IsValid)
+        {
+            return View(
+                model);
+        }
+
+        try
+        {
+            await householdFinanceService
+                .CreateMemberObligationAsync(
+                    new CreateHouseholdMemberObligationRequest(
+                        model.HouseholdMemberId,
+                        model.SourceTypeCode,
+                        model.SourceInvoiceId,
+                        model.Description,
+                        model.Amount,
+                        DateTime.SpecifyKind(
+                            model.DueDate.Date,
+                            DateTimeKind.Utc),
+                        model.TargetHouseholdAccountId),
+                    GetCurrentUserId(),
+                    HttpContext.TraceIdentifier,
+                    cancellationToken);
+        }
+        catch (ArgumentException exception)
+        {
+            ModelState.AddModelError(
+                string.Empty,
+                exception.Message);
+
+            return View(
+                model);
+        }
+        catch (InvalidOperationException exception)
+        {
+            ModelState.AddModelError(
+                string.Empty,
+                exception.Message);
+
+            return View(
+                model);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        TempData["HouseholdFinanceMessage"] =
+            "Dodatkowe zobowiązanie domownika zostało utworzone. Nie zmieniło jeszcze żadnego salda.";
+
+        return RedirectToAction(
+            nameof(MemberObligations));
+    }
+
+    [HttpGet]
+    [Authorize(
+        Policy = SystemPermissions.FinanceHouseholdView)]
+    [Authorize(
+        Policy = SystemPermissions.FinancePersonalManageOwn)]
+    public async Task<IActionResult> SendMemberObligationPayment(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var form =
+                await householdFinanceService
+                    .GetMemberObligationPaymentFormAsync(
+                        id,
+                        GetCurrentUserId(),
+                        cancellationToken);
+
+            if (form is null)
+            {
+                TempData["HouseholdFinanceError"] =
+                    "Nie znaleziono aktywnego zobowiązania do opłacenia.";
+
+                return RedirectToAction(
+                    nameof(MemberObligations));
+            }
+
+            return View(
+                BuildMemberObligationPaymentViewModel(
+                    form));
+        }
+        catch (InvalidOperationException exception)
+        {
+            TempData["HouseholdFinanceError"] =
+                exception.Message;
+
+            return RedirectToAction(
+                nameof(MemberObligations));
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(
+        Policy = SystemPermissions.FinanceHouseholdView)]
+    [Authorize(
+        Policy = SystemPermissions.FinancePersonalManageOwn)]
+    public async Task<IActionResult> SendMemberObligationPayment(
+        HouseholdMemberObligationPaymentViewModel model,
+        CancellationToken cancellationToken = default)
+    {
+        HouseholdMemberObligationPaymentForm? form =
+            null;
+
+        try
+        {
+            form =
+                await householdFinanceService
+                    .GetMemberObligationPaymentFormAsync(
+                        model.ObligationId,
+                        GetCurrentUserId(),
+                        cancellationToken);
+        }
+        catch (InvalidOperationException exception)
+        {
+            TempData["HouseholdFinanceError"] =
+                exception.Message;
+
+            return RedirectToAction(
+                nameof(MemberObligations));
+        }
+
+        if (form is null)
+        {
+            TempData["HouseholdFinanceError"] =
+                "Nie znaleziono aktywnego zobowiązania do opłacenia.";
+
+            return RedirectToAction(
+                nameof(MemberObligations));
+        }
+
+        RebuildMemberObligationPaymentViewModel(
+            model,
+            form);
+
+        if (!ModelState.IsValid)
+        {
+            return View(
+                model);
+        }
+
+        try
+        {
+            await householdFinanceService
+                .SubmitMemberObligationPaymentAsync(
+                    new SubmitHouseholdMemberObligationPaymentRequest(
+                        model.ObligationId,
+                        model.SourcePersonalAccountId,
+                        model.Amount),
+                    GetCurrentUserId(),
+                    HttpContext.TraceIdentifier,
+                    cancellationToken);
+        }
+        catch (ArgumentException exception)
+        {
+            ModelState.AddModelError(
+                string.Empty,
+                exception.Message);
+
+            return View(
+                model);
+        }
+        catch (InvalidOperationException exception)
+        {
+            ModelState.AddModelError(
+                string.Empty,
+                exception.Message);
+
+            return View(
+                model);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        TempData["HouseholdFinanceMessage"] =
+            "Wpłata została wysłana do akceptacji administratora. Salda nie zmieniły się jeszcze.";
+
+        return RedirectToAction(
+            nameof(MemberObligations));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(
+        Policy = SystemPermissions.FinanceHouseholdApprove)]
+    public async Task<IActionResult> ApproveMemberObligationPayment(
+        Guid paymentRequestId,
+        string? reviewNote,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await householdFinanceService
+                .ApproveMemberObligationPaymentAsync(
+                    new ReviewHouseholdMemberObligationPaymentRequest(
+                        paymentRequestId,
+                        reviewNote),
+                    GetCurrentUserId(),
+                    HttpContext.TraceIdentifier,
+                    cancellationToken);
+
+            TempData["HouseholdFinanceMessage"] =
+                "Wpłata została zaakceptowana i zaksięgowana po obu stronach.";
+        }
+        catch (InvalidOperationException exception)
+        {
+            TempData["HouseholdFinanceError"] =
+                exception.Message;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        return RedirectToAction(
+            nameof(MemberObligations));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(
+        Policy = SystemPermissions.FinanceHouseholdApprove)]
+    public async Task<IActionResult> RejectMemberObligationPayment(
+        Guid paymentRequestId,
+        string? reviewNote,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await householdFinanceService
+                .RejectMemberObligationPaymentAsync(
+                    new ReviewHouseholdMemberObligationPaymentRequest(
+                        paymentRequestId,
+                        reviewNote),
+                    GetCurrentUserId(),
+                    HttpContext.TraceIdentifier,
+                    cancellationToken);
+
+            TempData["HouseholdFinanceMessage"] =
+                "Wpłata została odrzucona. Salda nie zostały zmienione.";
+        }
+        catch (InvalidOperationException exception)
+        {
+            TempData["HouseholdFinanceError"] =
+                exception.Message;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        return RedirectToAction(
+            nameof(MemberObligations));
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(
+        Policy = SystemPermissions.FinanceHouseholdManage)]
+    public async Task<IActionResult> CancelMemberObligation(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await householdFinanceService
+                .CancelMemberObligationAsync(
+                    id,
+                    GetCurrentUserId(),
+                    HttpContext.TraceIdentifier,
+                    cancellationToken);
+
+            TempData["HouseholdFinanceMessage"] =
+                "Zobowiązanie zostało anulowane bez usuwania historii.";
+        }
+        catch (InvalidOperationException exception)
+        {
+            TempData["HouseholdFinanceError"] =
+                exception.Message;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        return RedirectToAction(
+            nameof(MemberObligations));
+    }
+
+    [HttpGet]
+    [Authorize(
+        Policy = SystemPermissions.FinanceHouseholdView)]
     public async Task<IActionResult> Invoices(
         CancellationToken cancellationToken = default)
     {
@@ -1455,6 +1853,171 @@ public sealed class HouseholdFinanceController(
         model.CurrencyCode =
             form.CurrencyCode;
 
+        model.TargetHouseholdAccountName =
+            form.TargetHouseholdAccountName;
+
+        model.SourceAccounts =
+            form.SourceAccounts
+                .Select(x =>
+                    new SelectListItem
+                    {
+                        Value =
+                            x.AccountId.ToString(),
+                        Text =
+                            $"{x.Name} · {x.Balance:N2} {x.CurrencyCode}",
+                        Selected =
+                            x.AccountId ==
+                            model.SourcePersonalAccountId
+                    })
+                .ToList();
+    }
+
+    private static void RebuildMemberObligationOptions(
+        CreateHouseholdMemberObligationViewModel model,
+        HouseholdMemberObligationOverview overview)
+    {
+        model.Members =
+        [
+            new SelectListItem
+            {
+                Value = string.Empty,
+                Text = "— wybierz domownika —",
+                Selected =
+                    model.HouseholdMemberId ==
+                    Guid.Empty
+            },
+            .. overview.Members
+                .Select(x =>
+                    new SelectListItem
+                    {
+                        Value =
+                            x.HouseholdMemberId.ToString(),
+                        Text =
+                            x.DisplayName,
+                        Selected =
+                            x.HouseholdMemberId ==
+                            model.HouseholdMemberId
+                    })
+        ];
+
+        model.SourceTypes =
+            HouseholdMemberObligationSourceTypes.All
+                .Select(x =>
+                    new SelectListItem
+                    {
+                        Value =
+                            x.Code,
+                        Text =
+                            x.NamePl,
+                        Selected =
+                            x.Code ==
+                            model.SourceTypeCode
+                    })
+                .ToList();
+
+        model.Invoices =
+        [
+            new SelectListItem
+            {
+                Value = string.Empty,
+                Text = "— wybierz fakturę —",
+                Selected =
+                    !model.SourceInvoiceId.HasValue
+            },
+            .. overview.Invoices
+                .Select(x =>
+                    new SelectListItem
+                    {
+                        Value =
+                            x.InvoiceId.ToString(),
+                        Text =
+                            $"{x.DisplayName} · {x.CategoryNamePl} · {x.GrossAmount:N2} {overview.CurrencyCode}",
+                        Selected =
+                            x.InvoiceId ==
+                            model.SourceInvoiceId
+                    })
+        ];
+
+        model.TargetAccounts =
+            overview.TargetAccounts
+                .Select(x =>
+                    new SelectListItem
+                    {
+                        Value =
+                            x.AccountId.ToString(),
+                        Text =
+                            $"{x.Name} · {x.CurrencyCode}",
+                        Selected =
+                            x.AccountId ==
+                            model.TargetHouseholdAccountId
+                    })
+                .ToList();
+    }
+
+    private static HouseholdMemberObligationPaymentViewModel
+        BuildMemberObligationPaymentViewModel(
+            HouseholdMemberObligationPaymentForm form)
+    {
+        var model =
+            new HouseholdMemberObligationPaymentViewModel
+            {
+                ObligationId =
+                    form.ObligationId,
+                Description =
+                    form.Description,
+                SourceDisplayName =
+                    form.SourceDisplayName,
+                ObligationAmount =
+                    form.ObligationAmount,
+                PaidAmount =
+                    form.PaidAmount,
+                OutstandingAmount =
+                    form.OutstandingAmount,
+                DueDateUtc =
+                    form.DueDateUtc,
+                CurrencyCode =
+                    form.CurrencyCode,
+                TargetHouseholdAccountName =
+                    form.TargetHouseholdAccountName,
+                Amount =
+                    form.OutstandingAmount,
+                SourcePersonalAccountId =
+                    form.SourceAccounts
+                        .FirstOrDefault(x =>
+                            x.Balance >=
+                                form.OutstandingAmount)?
+                        .AccountId
+                    ?? form.SourceAccounts
+                        .FirstOrDefault()?
+                        .AccountId
+                    ?? Guid.Empty
+            };
+
+        RebuildMemberObligationPaymentViewModel(
+            model,
+            form);
+
+        return model;
+    }
+
+    private static void RebuildMemberObligationPaymentViewModel(
+        HouseholdMemberObligationPaymentViewModel model,
+        HouseholdMemberObligationPaymentForm form)
+    {
+        model.Description =
+            form.Description;
+        model.SourceDisplayName =
+            form.SourceDisplayName;
+        model.ObligationAmount =
+            form.ObligationAmount;
+        model.PaidAmount =
+            form.PaidAmount;
+        model.OutstandingAmount =
+            form.OutstandingAmount;
+        model.DueDateUtc =
+            form.DueDateUtc;
+        model.CurrencyCode =
+            form.CurrencyCode;
         model.TargetHouseholdAccountName =
             form.TargetHouseholdAccountName;
 

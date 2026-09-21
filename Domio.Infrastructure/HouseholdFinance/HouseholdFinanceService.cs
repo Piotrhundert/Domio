@@ -2908,6 +2908,1518 @@ public sealed class HouseholdFinanceService(
             cancellationToken);
     }
 
+    private static string ResolveMemberObligationStatus(
+        HouseholdMemberObligation obligation,
+        DateTime todayUtc)
+    {
+        if (obligation.StatusCode ==
+                HouseholdMemberObligationStatuses.Cancelled ||
+            obligation.PaidAmountMinor >=
+                obligation.AmountMinor)
+        {
+            return obligation.StatusCode ==
+                    HouseholdMemberObligationStatuses.Cancelled
+                ? HouseholdMemberObligationStatuses.Cancelled
+                : HouseholdMemberObligationStatuses.Paid;
+        }
+
+        if (obligation.DueDateUtc.Date <
+            todayUtc.Date)
+        {
+            return HouseholdMemberObligationStatuses.Overdue;
+        }
+
+        return obligation.PaidAmountMinor > 0
+            ? HouseholdMemberObligationStatuses.PartiallyPaid
+            : HouseholdMemberObligationStatuses.Pending;
+    }
+
+    public async Task<HouseholdMemberObligationOverview?> GetMemberObligationOverviewAsync(
+        Guid actorUserId,
+        CancellationToken cancellationToken = default)
+    {
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinanceHouseholdView,
+            cancellationToken);
+
+        var actorPersonId =
+            await GetActorPersonIdAsync(
+                actorUserId,
+                cancellationToken);
+
+        var household =
+            await GetActiveHouseholdForPersonAsync(
+                actorPersonId,
+                cancellationToken);
+
+        if (household is null)
+        {
+            return null;
+        }
+
+        var canManage =
+            await PermissionEnforcement.HasUserAsync(
+                dbContext,
+                actorUserId,
+                SystemPermissions.FinanceHouseholdManage,
+                cancellationToken);
+
+        var canApprove =
+            await PermissionEnforcement.HasUserAsync(
+                dbContext,
+                actorUserId,
+                SystemPermissions.FinanceHouseholdApprove,
+                cancellationToken);
+
+        var memberRows =
+            await (
+                from membership in dbContext.HouseholdMembers
+                    .AsNoTracking()
+                join person in dbContext.People
+                    .AsNoTracking()
+                    on membership.PersonId equals person.Id
+                where
+                    membership.HouseholdId ==
+                        household.Id &&
+                    membership.IsActive &&
+                    person.IsActive
+                orderby
+                    person.LastName,
+                    person.FirstName
+                select new
+                {
+                    Membership = membership,
+                    Person = person
+                })
+                .ToArrayAsync(
+                    cancellationToken);
+
+        var actorMembership =
+            memberRows
+                .FirstOrDefault(x =>
+                    x.Membership.PersonId ==
+                    actorPersonId);
+
+        var visibleMemberIds =
+            canManage || canApprove
+                ? memberRows
+                    .Select(x =>
+                        x.Membership.Id)
+                    .ToArray()
+                : actorMembership is null
+                    ? Array.Empty<Guid>()
+                    : [actorMembership.Membership.Id];
+
+        var accountRows =
+            await dbContext.HouseholdAccounts
+                .AsNoTracking()
+                .Where(x =>
+                    x.HouseholdId ==
+                        household.Id)
+                .OrderByDescending(x =>
+                    x.IsActive)
+                .ThenBy(x =>
+                    x.Name)
+                .ToArrayAsync(
+                    cancellationToken);
+
+        var accountById =
+            accountRows
+                .ToDictionary(x =>
+                    x.Id);
+
+        var invoiceRows =
+            await dbContext.HouseholdInvoices
+                .AsNoTracking()
+                .Where(x =>
+                    x.HouseholdId ==
+                        household.Id)
+                .OrderByDescending(x =>
+                    x.IssueDateUtc)
+                .Take(250)
+                .ToArrayAsync(
+                    cancellationToken);
+
+        var paidByInvoice =
+            await dbContext.HouseholdInvoicePayments
+                .AsNoTracking()
+                .Where(x =>
+                    x.HouseholdId ==
+                        household.Id)
+                .GroupBy(x =>
+                    x.InvoiceId)
+                .Select(x =>
+                    new
+                    {
+                        InvoiceId = x.Key,
+                        PaidMinor =
+                            x.Sum(y =>
+                                y.AmountMinor)
+                    })
+                .ToDictionaryAsync(
+                    x => x.InvoiceId,
+                    x => x.PaidMinor,
+                    cancellationToken);
+
+        var invoiceById =
+            invoiceRows
+                .ToDictionary(x =>
+                    x.Id);
+
+        var obligations =
+            visibleMemberIds.Length == 0
+                ? Array.Empty<HouseholdMemberObligation>()
+                : await dbContext.HouseholdMemberObligations
+                    .AsNoTracking()
+                    .Where(x =>
+                        x.HouseholdId ==
+                            household.Id &&
+                        visibleMemberIds.Contains(
+                            x.HouseholdMemberId))
+                    .OrderBy(x =>
+                        x.StatusCode ==
+                            HouseholdMemberObligationStatuses.Paid ||
+                        x.StatusCode ==
+                            HouseholdMemberObligationStatuses.Cancelled)
+                    .ThenBy(x =>
+                        x.DueDateUtc)
+                    .ThenByDescending(x =>
+                        x.CreatedAtUtc)
+                    .Take(250)
+                    .ToArrayAsync(
+                        cancellationToken);
+
+        var memberNameById =
+            memberRows
+                .ToDictionary(
+                    x => x.Membership.Id,
+                    x => GetPersonDisplayName(
+                        x.Person));
+
+        var todayUtc =
+            DateTime.UtcNow.Date;
+
+        var obligationItems =
+            obligations
+                .Select(obligation =>
+                {
+                    var outstandingMinor =
+                        Math.Max(
+                            0,
+                            obligation.AmountMinor -
+                            obligation.PaidAmountMinor);
+
+                    var statusCode =
+                        ResolveMemberObligationStatus(
+                            obligation,
+                            todayUtc);
+
+                    invoiceById.TryGetValue(
+                        obligation.SourceInvoiceId ??
+                            Guid.Empty,
+                        out var sourceInvoice);
+
+                    accountById.TryGetValue(
+                        obligation.TargetHouseholdAccountId,
+                        out var targetAccount);
+
+                    var sourceInvoiceDisplayName =
+                        sourceInvoice is null
+                            ? null
+                            : $"{sourceInvoice.Supplier} · {sourceInvoice.InvoiceNumber}";
+
+                    return new HouseholdMemberObligationSummary(
+                        obligation.Id,
+                        obligation.HouseholdMemberId,
+                        memberNameById.GetValueOrDefault(
+                            obligation.HouseholdMemberId,
+                            "Domownik"),
+                        obligation.SourceTypeCode,
+                        HouseholdMemberObligationSourceTypes.GetNamePl(
+                            obligation.SourceTypeCode),
+                        obligation.SourceInvoiceId,
+                        sourceInvoiceDisplayName,
+                        obligation.Description,
+                        HouseholdFinanceMoney.FromMinorUnits(
+                            obligation.AmountMinor),
+                        HouseholdFinanceMoney.FromMinorUnits(
+                            obligation.PaidAmountMinor),
+                        HouseholdFinanceMoney.FromMinorUnits(
+                            outstandingMinor),
+                        obligation.DueDateUtc,
+                        statusCode,
+                        HouseholdMemberObligationStatuses.GetNamePl(
+                            statusCode),
+                        obligation.TargetHouseholdAccountId,
+                        targetAccount?.Name ??
+                            "Nieaktywne konto domu",
+                        targetAccount?.CurrencyCode ??
+                            household.CurrencyCode,
+                        actorMembership is not null &&
+                        obligation.HouseholdMemberId ==
+                            actorMembership.Membership.Id);
+                })
+                .ToArray();
+
+        var paymentRows =
+            visibleMemberIds.Length == 0
+                ? Array.Empty<HouseholdMemberObligationPaymentRequest>()
+                : await dbContext.HouseholdMemberObligationPaymentRequests
+                    .AsNoTracking()
+                    .Where(x =>
+                        x.HouseholdId ==
+                            household.Id &&
+                        visibleMemberIds.Contains(
+                            x.HouseholdMemberId))
+                    .OrderByDescending(x =>
+                        x.SubmittedAtUtc)
+                    .Take(150)
+                    .ToArrayAsync(
+                        cancellationToken);
+
+        var obligationById =
+            obligations
+                .ToDictionary(x =>
+                    x.Id);
+
+        Dictionary<Guid, string> ownSourceAccountNames = [];
+
+        if (actorMembership is not null)
+        {
+            var ownSourceIds =
+                paymentRows
+                    .Where(x =>
+                        x.HouseholdMemberId ==
+                            actorMembership.Membership.Id)
+                    .Select(x =>
+                        x.SourcePersonalAccountId)
+                    .Distinct()
+                    .ToArray();
+
+            ownSourceAccountNames =
+                await dbContext.PersonalFinancialAccounts
+                    .AsNoTracking()
+                    .Where(x =>
+                        x.OwnerPersonId ==
+                            actorPersonId &&
+                        ownSourceIds.Contains(
+                            x.Id))
+                    .ToDictionaryAsync(
+                        x => x.Id,
+                        x => x.Name,
+                        cancellationToken);
+        }
+
+        var paymentItems =
+            paymentRows
+                .Select(payment =>
+                {
+                    obligationById.TryGetValue(
+                        payment.ObligationId,
+                        out var obligation);
+
+                    var isOwn =
+                        actorMembership is not null &&
+                        payment.HouseholdMemberId ==
+                            actorMembership.Membership.Id;
+
+                    return new HouseholdMemberObligationPaymentRequestItem(
+                        payment.Id,
+                        payment.ObligationId,
+                        payment.HouseholdMemberId,
+                        memberNameById.GetValueOrDefault(
+                            payment.HouseholdMemberId,
+                            "Domownik"),
+                        obligation?.Description ??
+                            "Dodatkowe zobowiązanie",
+                        HouseholdFinanceMoney.FromMinorUnits(
+                            payment.AmountMinor),
+                        household.CurrencyCode,
+                        payment.StatusCode,
+                        HouseholdMemberObligationPaymentStatuses.GetNamePl(
+                            payment.StatusCode),
+                        payment.SubmittedAtUtc,
+                        payment.ReviewedAtUtc,
+                        payment.ReviewNote,
+                        isOwn,
+                        isOwn
+                            ? ownSourceAccountNames.GetValueOrDefault(
+                                payment.SourcePersonalAccountId)
+                            : null);
+                })
+                .ToArray();
+
+        var memberOptions =
+            canManage
+                ? memberRows
+                    .Select(x =>
+                        new HouseholdMemberObligationMemberOption(
+                            x.Membership.Id,
+                            GetPersonDisplayName(
+                                x.Person)))
+                    .ToArray()
+                : Array.Empty<HouseholdMemberObligationMemberOption>();
+
+        var targetAccounts =
+            canManage
+                ? accountRows
+                    .Where(x =>
+                        x.IsActive)
+                    .Select(x =>
+                        new HouseholdAccountSummary(
+                            x.Id,
+                            x.Name,
+                            x.AccountTypeCode,
+                            HouseholdAccountTypes.GetNamePl(
+                                x.AccountTypeCode),
+                            x.CurrencyCode,
+                            0m,
+                            x.IsActive))
+                    .ToArray()
+                : Array.Empty<HouseholdAccountSummary>();
+
+        var invoiceOptions =
+            canManage
+                ? invoiceRows
+                    .Where(x =>
+                        x.StatusCode !=
+                            HouseholdInvoiceStatuses.Cancelled)
+                    .Select(invoice =>
+                    {
+                        var paidMinor =
+                            paidByInvoice.GetValueOrDefault(
+                                invoice.Id);
+
+                        return new HouseholdMemberObligationInvoiceOption(
+                            invoice.Id,
+                            $"{invoice.Supplier} · {invoice.InvoiceNumber}",
+                            HouseholdInvoiceCategories.GetNamePl(
+                                invoice.CategoryCode),
+                            HouseholdFinanceMoney.FromMinorUnits(
+                                invoice.GrossAmountMinor),
+                            HouseholdFinanceMoney.FromMinorUnits(
+                                Math.Max(
+                                    0,
+                                    invoice.GrossAmountMinor -
+                                    paidMinor)));
+                    })
+                    .ToArray()
+                : Array.Empty<HouseholdMemberObligationInvoiceOption>();
+
+        return new HouseholdMemberObligationOverview(
+            household.Id,
+            household.Name,
+            household.CurrencyCode,
+            canManage,
+            canApprove,
+            memberOptions,
+            targetAccounts,
+            invoiceOptions,
+            obligationItems,
+            paymentItems);
+    }
+
+    public async Task<Guid> CreateMemberObligationAsync(
+        CreateHouseholdMemberObligationRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(
+            request);
+
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinanceHouseholdManage,
+            cancellationToken);
+
+        if (!HouseholdMemberObligationSourceTypes.IsValid(
+                request.SourceTypeCode))
+        {
+            throw new ArgumentException(
+                "Wybrano nieprawidłowe źródło zobowiązania.");
+        }
+
+        if (request.Amount <= 0m)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(request.Amount),
+                "Kwota zobowiązania musi być większa od zera.");
+        }
+
+        var amountMinor =
+            HouseholdFinanceMoney.ToMinorUnits(
+                request.Amount);
+
+        var description =
+            NormalizeRequiredText(
+                request.Description,
+                "Opis zobowiązania",
+                500);
+
+        var actorPersonId =
+            await GetActorPersonIdAsync(
+                actorUserId,
+                cancellationToken);
+
+        var household =
+            await GetActiveHouseholdForPersonAsync(
+                actorPersonId,
+                cancellationToken)
+            ?? throw new UnauthorizedAccessException(
+                "Użytkownik nie jest przypisany do aktywnego gospodarstwa.");
+
+        var member =
+            await dbContext.HouseholdMembers
+                .AsNoTracking()
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id ==
+                            request.HouseholdMemberId &&
+                        x.HouseholdId ==
+                            household.Id &&
+                        x.IsActive,
+                    cancellationToken)
+            ?? throw new ArgumentException(
+                "Wybrany domownik nie należy do aktywnego gospodarstwa.");
+
+        var targetAccount =
+            await dbContext.HouseholdAccounts
+                .AsNoTracking()
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id ==
+                            request.TargetHouseholdAccountId &&
+                        x.HouseholdId ==
+                            household.Id &&
+                        x.IsActive,
+                    cancellationToken)
+            ?? throw new ArgumentException(
+                "Wybrane konto docelowe gospodarstwa nie jest aktywne.");
+
+        Guid? sourceInvoiceId =
+            null;
+
+        if (request.SourceTypeCode ==
+            HouseholdMemberObligationSourceTypes.Invoice)
+        {
+            if (!request.SourceInvoiceId.HasValue)
+            {
+                throw new ArgumentException(
+                    "Dla udziału w fakturze wybierz konkretną fakturę domu.");
+            }
+
+            var invoiceExists =
+                await dbContext.HouseholdInvoices
+                    .AsNoTracking()
+                    .AnyAsync(
+                        x =>
+                            x.Id ==
+                                request.SourceInvoiceId.Value &&
+                            x.HouseholdId ==
+                                household.Id &&
+                            x.StatusCode !=
+                                HouseholdInvoiceStatuses.Cancelled,
+                        cancellationToken);
+
+            if (!invoiceExists)
+            {
+                throw new ArgumentException(
+                    "Wybrana faktura nie istnieje, jest anulowana albo należy do innego gospodarstwa.");
+            }
+
+            sourceInvoiceId =
+                request.SourceInvoiceId.Value;
+        }
+        else if (request.SourceInvoiceId.HasValue)
+        {
+            throw new ArgumentException(
+                "Dla innego kosztu nie wybieraj faktury jako źródła.");
+        }
+
+        var dueDateUtc =
+            NormalizeOccurredAtUtc(
+                request.DueDateUtc,
+                DateTime.UtcNow)
+            .Date;
+
+        await using var transaction =
+            await dbContext.Database.BeginTransactionAsync(
+                cancellationToken);
+
+        var now =
+            DateTime.UtcNow;
+
+        var obligation =
+            new HouseholdMemberObligation
+            {
+                Id =
+                    Guid.NewGuid(),
+                HouseholdId =
+                    household.Id,
+                HouseholdMemberId =
+                    member.Id,
+                SourceTypeCode =
+                    request.SourceTypeCode,
+                SourceInvoiceId =
+                    sourceInvoiceId,
+                Description =
+                    description,
+                AmountMinor =
+                    amountMinor,
+                PaidAmountMinor =
+                    0,
+                DueDateUtc =
+                    dueDateUtc,
+                StatusCode =
+                    HouseholdMemberObligationStatuses.Pending,
+                TargetHouseholdAccountId =
+                    targetAccount.Id,
+                CreatedByUserId =
+                    actorUserId,
+                CreatedAtUtc =
+                    now,
+                UpdatedAtUtc =
+                    now
+            };
+
+        dbContext.HouseholdMemberObligations.Add(
+            obligation);
+
+        await dbContext.SaveChangesAsync(
+            cancellationToken);
+
+        await auditService.WriteAsync(
+            new AuditEntry(
+                EventType:
+                    "M04.7.MemberObligationCreated",
+                EntityType:
+                    "HouseholdMemberObligation",
+                EntityId:
+                    obligation.Id.ToString(),
+                ActorId:
+                    actorUserId.ToString(),
+                CorrelationId:
+                    correlationId,
+                Description:
+                    "Utworzono dodatkowe zobowiązanie domownika do zasilenia budżetu domu. Kwota nie jest zapisywana w opisie audytu."),
+            cancellationToken);
+
+        await transaction.CommitAsync(
+            cancellationToken);
+
+        return obligation.Id;
+    }
+
+    public async Task<HouseholdMemberObligationPaymentForm?> GetMemberObligationPaymentFormAsync(
+        Guid obligationId,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default)
+    {
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinanceHouseholdView,
+            cancellationToken);
+
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinancePersonalManageOwn,
+            cancellationToken);
+
+        var actorPersonId =
+            await GetActorPersonIdAsync(
+                actorUserId,
+                cancellationToken);
+
+        var household =
+            await GetActiveHouseholdForPersonAsync(
+                actorPersonId,
+                cancellationToken);
+
+        if (household is null)
+        {
+            return null;
+        }
+
+        var membership =
+            await dbContext.HouseholdMembers
+                .AsNoTracking()
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.HouseholdId ==
+                            household.Id &&
+                        x.PersonId ==
+                            actorPersonId &&
+                        x.IsActive,
+                    cancellationToken);
+
+        if (membership is null)
+        {
+            return null;
+        }
+
+        var obligation =
+            await dbContext.HouseholdMemberObligations
+                .AsNoTracking()
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id ==
+                            obligationId &&
+                        x.HouseholdId ==
+                            household.Id &&
+                        x.HouseholdMemberId ==
+                            membership.Id &&
+                        x.StatusCode !=
+                            HouseholdMemberObligationStatuses.Cancelled,
+                    cancellationToken);
+
+        if (obligation is null)
+        {
+            return null;
+        }
+
+        var outstandingMinor =
+            Math.Max(
+                0,
+                obligation.AmountMinor -
+                obligation.PaidAmountMinor);
+
+        if (outstandingMinor <= 0)
+        {
+            return null;
+        }
+
+        var pendingExists =
+            await dbContext.HouseholdMemberObligationPaymentRequests
+                .AsNoTracking()
+                .AnyAsync(
+                    x =>
+                        x.ObligationId ==
+                            obligation.Id &&
+                        x.StatusCode ==
+                            HouseholdMemberObligationPaymentStatuses.Pending,
+                    cancellationToken);
+
+        if (pendingExists)
+        {
+            throw new InvalidOperationException(
+                "Dla tego zobowiązania istnieje już wpłata oczekująca na akceptację administratora.");
+        }
+
+        var targetAccount =
+            await dbContext.HouseholdAccounts
+                .AsNoTracking()
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id ==
+                            obligation.TargetHouseholdAccountId &&
+                        x.HouseholdId ==
+                            household.Id &&
+                        x.IsActive,
+                    cancellationToken)
+            ?? throw new InvalidOperationException(
+                "Konto docelowe gospodarstwa nie jest aktywne.");
+
+        var accounts =
+            await dbContext.PersonalFinancialAccounts
+                .AsNoTracking()
+                .Where(x =>
+                    x.OwnerPersonId ==
+                        actorPersonId &&
+                    x.IsActive &&
+                    x.CurrencyCode ==
+                        targetAccount.CurrencyCode)
+                .OrderBy(x =>
+                    x.Name)
+                .ToArrayAsync(
+                    cancellationToken);
+
+        var accountIds =
+            accounts
+                .Select(x =>
+                    x.Id)
+                .ToArray();
+
+        var balances =
+            await dbContext.PersonalFinancialTransactions
+                .AsNoTracking()
+                .Where(x =>
+                    accountIds.Contains(
+                        x.AccountId) &&
+                    x.OwnerPersonId ==
+                        actorPersonId)
+                .GroupBy(x =>
+                    x.AccountId)
+                .Select(x =>
+                    new
+                    {
+                        AccountId = x.Key,
+                        BalanceMinor =
+                            x.Sum(y =>
+                                y.AmountMinor)
+                    })
+                .ToDictionaryAsync(
+                    x => x.AccountId,
+                    x => x.BalanceMinor,
+                    cancellationToken);
+
+        var sourceAccounts =
+            accounts
+                .Select(x =>
+                    new HouseholdContributionPaymentSourceAccount(
+                        x.Id,
+                        x.Name,
+                        PersonalAccountTypes.GetNamePl(
+                            x.AccountTypeCode),
+                        x.CurrencyCode,
+                        PersonalFinanceMoney.FromMinorUnits(
+                            balances.GetValueOrDefault(
+                                x.Id))))
+                .Where(x =>
+                    x.Balance > 0m)
+                .ToArray();
+
+        string sourceDisplayName =
+            HouseholdMemberObligationSourceTypes.GetNamePl(
+                obligation.SourceTypeCode);
+
+        if (obligation.SourceInvoiceId.HasValue)
+        {
+            var invoice =
+                await dbContext.HouseholdInvoices
+                    .AsNoTracking()
+                    .SingleOrDefaultAsync(
+                        x =>
+                            x.Id ==
+                                obligation.SourceInvoiceId.Value &&
+                            x.HouseholdId ==
+                                household.Id,
+                        cancellationToken);
+
+            if (invoice is not null)
+            {
+                sourceDisplayName =
+                    $"{invoice.Supplier} · {invoice.InvoiceNumber}";
+            }
+        }
+
+        return new HouseholdMemberObligationPaymentForm(
+            obligation.Id,
+            obligation.Description,
+            sourceDisplayName,
+            HouseholdFinanceMoney.FromMinorUnits(
+                obligation.AmountMinor),
+            HouseholdFinanceMoney.FromMinorUnits(
+                obligation.PaidAmountMinor),
+            HouseholdFinanceMoney.FromMinorUnits(
+                outstandingMinor),
+            obligation.DueDateUtc,
+            targetAccount.CurrencyCode,
+            targetAccount.Name,
+            sourceAccounts);
+    }
+
+    public async Task<Guid> SubmitMemberObligationPaymentAsync(
+        SubmitHouseholdMemberObligationPaymentRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(
+            request);
+
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinanceHouseholdView,
+            cancellationToken);
+
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinancePersonalManageOwn,
+            cancellationToken);
+
+        if (request.Amount <= 0m)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(request.Amount),
+                "Kwota wpłaty musi być większa od zera.");
+        }
+
+        var amountMinor =
+            HouseholdFinanceMoney.ToMinorUnits(
+                request.Amount);
+
+        var actorPersonId =
+            await GetActorPersonIdAsync(
+                actorUserId,
+                cancellationToken);
+
+        var household =
+            await GetActiveHouseholdForPersonAsync(
+                actorPersonId,
+                cancellationToken)
+            ?? throw new UnauthorizedAccessException(
+                "Użytkownik nie jest przypisany do aktywnego gospodarstwa.");
+
+        var membership =
+            await dbContext.HouseholdMembers
+                .AsNoTracking()
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.HouseholdId ==
+                            household.Id &&
+                        x.PersonId ==
+                            actorPersonId &&
+                        x.IsActive,
+                    cancellationToken)
+            ?? throw new UnauthorizedAccessException(
+                "Użytkownik nie jest aktywnym domownikiem tego gospodarstwa.");
+
+        await using var transaction =
+            await dbContext.Database.BeginTransactionAsync(
+                cancellationToken);
+
+        var obligation =
+            await dbContext.HouseholdMemberObligations
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id ==
+                            request.ObligationId &&
+                        x.HouseholdId ==
+                            household.Id &&
+                        x.HouseholdMemberId ==
+                            membership.Id &&
+                        x.StatusCode !=
+                            HouseholdMemberObligationStatuses.Cancelled,
+                    cancellationToken)
+            ?? throw new UnauthorizedAccessException(
+                "Zobowiązanie nie istnieje albo nie należy do zalogowanego domownika.");
+
+        var outstandingMinor =
+            Math.Max(
+                0,
+                obligation.AmountMinor -
+                obligation.PaidAmountMinor);
+
+        if (outstandingMinor <= 0)
+        {
+            throw new InvalidOperationException(
+                "To zobowiązanie jest już opłacone.");
+        }
+
+        if (amountMinor >
+            outstandingMinor)
+        {
+            throw new InvalidOperationException(
+                "Kwota wpłaty nie może być większa od pozostałej kwoty zobowiązania.");
+        }
+
+        var pendingExists =
+            await dbContext.HouseholdMemberObligationPaymentRequests
+                .AnyAsync(
+                    x =>
+                        x.ObligationId ==
+                            obligation.Id &&
+                        x.StatusCode ==
+                            HouseholdMemberObligationPaymentStatuses.Pending,
+                    cancellationToken);
+
+        if (pendingExists)
+        {
+            throw new InvalidOperationException(
+                "Dla tego zobowiązania istnieje już wpłata oczekująca na akceptację administratora.");
+        }
+
+        var targetAccount =
+            await dbContext.HouseholdAccounts
+                .AsNoTracking()
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id ==
+                            obligation.TargetHouseholdAccountId &&
+                        x.HouseholdId ==
+                            household.Id &&
+                        x.IsActive,
+                    cancellationToken)
+            ?? throw new InvalidOperationException(
+                "Konto docelowe gospodarstwa nie jest aktywne.");
+
+        var sourceAccount =
+            await dbContext.PersonalFinancialAccounts
+                .AsNoTracking()
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id ==
+                            request.SourcePersonalAccountId &&
+                        x.OwnerPersonId ==
+                            actorPersonId &&
+                        x.IsActive,
+                    cancellationToken)
+            ?? throw new UnauthorizedAccessException(
+                "Wybrane prywatne konto nie istnieje, jest zamknięte albo nie należy do zalogowanego użytkownika.");
+
+        if (!string.Equals(
+                sourceAccount.CurrencyCode,
+                targetAccount.CurrencyCode,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Waluta prywatnego konta i konta domu musi być zgodna.");
+        }
+
+        var sourceBalanceMinor =
+            await dbContext.PersonalFinancialTransactions
+                .Where(x =>
+                    x.AccountId ==
+                        sourceAccount.Id &&
+                    x.OwnerPersonId ==
+                        actorPersonId)
+                .SumAsync(
+                    x => x.AmountMinor,
+                    cancellationToken);
+
+        if (sourceBalanceMinor <
+            amountMinor)
+        {
+            throw new InvalidOperationException(
+                "Niewystarczające środki na wybranym koncie prywatnym. Wpłata nie została wysłana.");
+        }
+
+        var now =
+            DateTime.UtcNow;
+
+        var paymentRequest =
+            new HouseholdMemberObligationPaymentRequest
+            {
+                Id =
+                    Guid.NewGuid(),
+                HouseholdId =
+                    household.Id,
+                HouseholdMemberId =
+                    membership.Id,
+                ObligationId =
+                    obligation.Id,
+                SourcePersonalAccountId =
+                    sourceAccount.Id,
+                TargetHouseholdAccountId =
+                    targetAccount.Id,
+                AmountMinor =
+                    amountMinor,
+                StatusCode =
+                    HouseholdMemberObligationPaymentStatuses.Pending,
+                SubmittedByUserId =
+                    actorUserId,
+                SubmittedAtUtc =
+                    now
+            };
+
+        dbContext.HouseholdMemberObligationPaymentRequests.Add(
+            paymentRequest);
+
+        await dbContext.SaveChangesAsync(
+            cancellationToken);
+
+        await auditService.WriteAsync(
+            new AuditEntry(
+                EventType:
+                    "M04.7.MemberObligationPaymentSubmitted",
+                EntityType:
+                    "HouseholdMemberObligationPaymentRequest",
+                EntityId:
+                    paymentRequest.Id.ToString(),
+                ActorId:
+                    actorUserId.ToString(),
+                CorrelationId:
+                    correlationId,
+                Description:
+                    "Domownik wysłał dodatkową wpłatę do budżetu domu do akceptacji. Kwota i prywatne konto źródłowe nie są zapisywane w opisie audytu."),
+            cancellationToken);
+
+        await transaction.CommitAsync(
+            cancellationToken);
+
+        return paymentRequest.Id;
+    }
+
+    public async Task ApproveMemberObligationPaymentAsync(
+        ReviewHouseholdMemberObligationPaymentRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(
+            request);
+
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinanceHouseholdApprove,
+            cancellationToken);
+
+        var actorPersonId =
+            await GetActorPersonIdAsync(
+                actorUserId,
+                cancellationToken);
+
+        var household =
+            await GetActiveHouseholdForPersonAsync(
+                actorPersonId,
+                cancellationToken)
+            ?? throw new UnauthorizedAccessException(
+                "Administrator nie jest przypisany do aktywnego gospodarstwa.");
+
+        await using var transaction =
+            await dbContext.Database.BeginTransactionAsync(
+                cancellationToken);
+
+        var paymentRequest =
+            await dbContext.HouseholdMemberObligationPaymentRequests
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id ==
+                            request.PaymentRequestId &&
+                        x.HouseholdId ==
+                            household.Id,
+                    cancellationToken)
+            ?? throw new UnauthorizedAccessException(
+                "Wpłata nie istnieje albo należy do innego gospodarstwa.");
+
+        if (paymentRequest.StatusCode !=
+            HouseholdMemberObligationPaymentStatuses.Pending)
+        {
+            throw new InvalidOperationException(
+                "Ta wpłata została już rozpatrzona.");
+        }
+
+        var obligation =
+            await dbContext.HouseholdMemberObligations
+                .SingleAsync(
+                    x =>
+                        x.Id ==
+                            paymentRequest.ObligationId &&
+                        x.HouseholdId ==
+                            household.Id &&
+                        x.HouseholdMemberId ==
+                            paymentRequest.HouseholdMemberId,
+                    cancellationToken);
+
+        if (obligation.StatusCode ==
+            HouseholdMemberObligationStatuses.Cancelled)
+        {
+            throw new InvalidOperationException(
+                "Nie można zatwierdzić wpłaty dla anulowanego zobowiązania.");
+        }
+
+        var outstandingMinor =
+            Math.Max(
+                0,
+                obligation.AmountMinor -
+                obligation.PaidAmountMinor);
+
+        if (outstandingMinor <= 0 ||
+            paymentRequest.AmountMinor >
+                outstandingMinor)
+        {
+            throw new InvalidOperationException(
+                "Kwota oczekującej wpłaty jest większa od aktualnie pozostałej kwoty zobowiązania.");
+        }
+
+        var membership =
+            await dbContext.HouseholdMembers
+                .AsNoTracking()
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id ==
+                            paymentRequest.HouseholdMemberId &&
+                        x.HouseholdId ==
+                            household.Id &&
+                        x.IsActive,
+                    cancellationToken)
+            ?? throw new InvalidOperationException(
+                "Domownik nie jest już aktywnym członkiem gospodarstwa.");
+
+        var sourceAccount =
+            await dbContext.PersonalFinancialAccounts
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id ==
+                            paymentRequest.SourcePersonalAccountId &&
+                        x.OwnerPersonId ==
+                            membership.PersonId &&
+                        x.IsActive,
+                    cancellationToken)
+            ?? throw new InvalidOperationException(
+                "Prywatne konto źródłowe domownika nie jest już aktywne.");
+
+        var targetAccount =
+            await dbContext.HouseholdAccounts
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id ==
+                            paymentRequest.TargetHouseholdAccountId &&
+                        x.HouseholdId ==
+                            household.Id &&
+                        x.IsActive,
+                    cancellationToken)
+            ?? throw new InvalidOperationException(
+                "Konto docelowe gospodarstwa nie jest już aktywne.");
+
+        if (!string.Equals(
+                sourceAccount.CurrencyCode,
+                targetAccount.CurrencyCode,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Waluta konta prywatnego i konta gospodarstwa nie jest zgodna.");
+        }
+
+        var sourceBalanceMinor =
+            await dbContext.PersonalFinancialTransactions
+                .Where(x =>
+                    x.AccountId ==
+                        sourceAccount.Id &&
+                    x.OwnerPersonId ==
+                        membership.PersonId)
+                .SumAsync(
+                    x => x.AmountMinor,
+                    cancellationToken);
+
+        if (sourceBalanceMinor <
+            paymentRequest.AmountMinor)
+        {
+            throw new InvalidOperationException(
+                "Domownik nie ma już wystarczających środków na wybranym koncie. Wpłata pozostaje oczekująca i nie została zaksięgowana.");
+        }
+
+        var now =
+            DateTime.UtcNow;
+
+        var personalTransactionId =
+            Guid.NewGuid();
+
+        var householdEntryId =
+            Guid.NewGuid();
+
+        dbContext.PersonalFinancialTransactions.Add(
+            new PersonalFinancialTransaction
+            {
+                Id =
+                    personalTransactionId,
+                AccountId =
+                    sourceAccount.Id,
+                OwnerPersonId =
+                    membership.PersonId,
+                KindCode =
+                    PersonalTransactionKinds.Expense,
+                AmountMinor =
+                    -paymentRequest.AmountMinor,
+                OccurredAtUtc =
+                    now,
+                CategoryCode =
+                    PersonalFinanceCategories.HouseholdExtraObligation,
+                Counterparty =
+                    "Budżet domu",
+                Description =
+                    $"Dodatkowe zobowiązanie wobec domu: {obligation.Description}",
+                CreatedByUserId =
+                    paymentRequest.SubmittedByUserId,
+                CreatedAtUtc =
+                    now
+            });
+
+        dbContext.HouseholdEntries.Add(
+            new HouseholdEntry
+            {
+                Id =
+                    householdEntryId,
+                HouseholdId =
+                    household.Id,
+                AccountId =
+                    targetAccount.Id,
+                EntryTypeCode =
+                    HouseholdEntryTypes.MemberObligationPayment,
+                AmountMinor =
+                    paymentRequest.AmountMinor,
+                OccurredAtUtc =
+                    now,
+                CategoryCode =
+                    HouseholdFinanceCategories.HouseholdIncome,
+                Description =
+                    $"Dodatkowa wpłata domownika: {obligation.Description}",
+                SourceType =
+                    "HouseholdMemberObligationPayment",
+                SourceId =
+                    paymentRequest.Id.ToString(),
+                CreatedByUserId =
+                    actorUserId,
+                CreatedAtUtc =
+                    now
+            });
+
+        sourceAccount.UpdatedAtUtc =
+            now;
+
+        targetAccount.UpdatedAtUtc =
+            now;
+
+        obligation.PaidAmountMinor +=
+            paymentRequest.AmountMinor;
+
+        obligation.StatusCode =
+            obligation.PaidAmountMinor >=
+                    obligation.AmountMinor
+                ? HouseholdMemberObligationStatuses.Paid
+                : HouseholdMemberObligationStatuses.PartiallyPaid;
+
+        obligation.UpdatedAtUtc =
+            now;
+
+        paymentRequest.StatusCode =
+            HouseholdMemberObligationPaymentStatuses.Approved;
+
+        paymentRequest.ReviewedByUserId =
+            actorUserId;
+
+        paymentRequest.ReviewedAtUtc =
+            now;
+
+        paymentRequest.ReviewNote =
+            NormalizeOptionalText(
+                request.ReviewNote,
+                "Notatka administratora",
+                500);
+
+        paymentRequest.PersonalTransactionId =
+            personalTransactionId;
+
+        paymentRequest.HouseholdEntryId =
+            householdEntryId;
+
+        await dbContext.SaveChangesAsync(
+            cancellationToken);
+
+        await auditService.WriteAsync(
+            new AuditEntry(
+                EventType:
+                    "M04.7.MemberObligationPaymentApproved",
+                EntityType:
+                    "HouseholdMemberObligationPaymentRequest",
+                EntityId:
+                    paymentRequest.Id.ToString(),
+                ActorId:
+                    actorUserId.ToString(),
+                CorrelationId:
+                    correlationId,
+                Description:
+                    "Administrator zaakceptował dodatkową wpłatę domownika. Operacja prywatna i wpływ na konto domu zostały zaksięgowane atomowo; kwota i prywatne konto nie są zapisywane w opisie audytu."),
+            cancellationToken);
+
+        await transaction.CommitAsync(
+            cancellationToken);
+    }
+
+    public async Task RejectMemberObligationPaymentAsync(
+        ReviewHouseholdMemberObligationPaymentRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(
+            request);
+
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinanceHouseholdApprove,
+            cancellationToken);
+
+        var actorPersonId =
+            await GetActorPersonIdAsync(
+                actorUserId,
+                cancellationToken);
+
+        var household =
+            await GetActiveHouseholdForPersonAsync(
+                actorPersonId,
+                cancellationToken)
+            ?? throw new UnauthorizedAccessException(
+                "Administrator nie jest przypisany do aktywnego gospodarstwa.");
+
+        await using var transaction =
+            await dbContext.Database.BeginTransactionAsync(
+                cancellationToken);
+
+        var paymentRequest =
+            await dbContext.HouseholdMemberObligationPaymentRequests
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id ==
+                            request.PaymentRequestId &&
+                        x.HouseholdId ==
+                            household.Id,
+                    cancellationToken)
+            ?? throw new UnauthorizedAccessException(
+                "Wpłata nie istnieje albo należy do innego gospodarstwa.");
+
+        if (paymentRequest.StatusCode !=
+            HouseholdMemberObligationPaymentStatuses.Pending)
+        {
+            throw new InvalidOperationException(
+                "Ta wpłata została już rozpatrzona.");
+        }
+
+        paymentRequest.StatusCode =
+            HouseholdMemberObligationPaymentStatuses.Rejected;
+
+        paymentRequest.ReviewedByUserId =
+            actorUserId;
+
+        paymentRequest.ReviewedAtUtc =
+            DateTime.UtcNow;
+
+        paymentRequest.ReviewNote =
+            NormalizeOptionalText(
+                request.ReviewNote,
+                "Powód odrzucenia",
+                500);
+
+        await dbContext.SaveChangesAsync(
+            cancellationToken);
+
+        await auditService.WriteAsync(
+            new AuditEntry(
+                EventType:
+                    "M04.7.MemberObligationPaymentRejected",
+                EntityType:
+                    "HouseholdMemberObligationPaymentRequest",
+                EntityId:
+                    paymentRequest.Id.ToString(),
+                ActorId:
+                    actorUserId.ToString(),
+                CorrelationId:
+                    correlationId,
+                Description:
+                    "Administrator odrzucił dodatkową wpłatę domownika. Salda nie zostały zmienione."),
+            cancellationToken);
+
+        await transaction.CommitAsync(
+            cancellationToken);
+    }
+
+    public async Task CancelMemberObligationAsync(
+        Guid obligationId,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinanceHouseholdManage,
+            cancellationToken);
+
+        var actorPersonId =
+            await GetActorPersonIdAsync(
+                actorUserId,
+                cancellationToken);
+
+        var household =
+            await GetActiveHouseholdForPersonAsync(
+                actorPersonId,
+                cancellationToken)
+            ?? throw new UnauthorizedAccessException(
+                "Użytkownik nie jest przypisany do aktywnego gospodarstwa.");
+
+        await using var transaction =
+            await dbContext.Database.BeginTransactionAsync(
+                cancellationToken);
+
+        var obligation =
+            await dbContext.HouseholdMemberObligations
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id ==
+                            obligationId &&
+                        x.HouseholdId ==
+                            household.Id,
+                    cancellationToken)
+            ?? throw new InvalidOperationException(
+                "Zobowiązanie nie istnieje.");
+
+        if (obligation.StatusCode ==
+            HouseholdMemberObligationStatuses.Cancelled)
+        {
+            return;
+        }
+
+        if (obligation.PaidAmountMinor > 0)
+        {
+            throw new InvalidOperationException(
+                "Nie można anulować zobowiązania, które ma już zaakceptowaną wpłatę. Wymagana będzie korekta zamiast usunięcia historii.");
+        }
+
+        var pendingExists =
+            await dbContext.HouseholdMemberObligationPaymentRequests
+                .AsNoTracking()
+                .AnyAsync(
+                    x =>
+                        x.ObligationId ==
+                            obligation.Id &&
+                        x.StatusCode ==
+                            HouseholdMemberObligationPaymentStatuses.Pending,
+                    cancellationToken);
+
+        if (pendingExists)
+        {
+            throw new InvalidOperationException(
+                "Najpierw rozpatrz albo odrzuć wpłatę oczekującą na akceptację.");
+        }
+
+        var now =
+            DateTime.UtcNow;
+
+        obligation.StatusCode =
+            HouseholdMemberObligationStatuses.Cancelled;
+
+        obligation.CancelledByUserId =
+            actorUserId;
+
+        obligation.CancelledAtUtc =
+            now;
+
+        obligation.UpdatedAtUtc =
+            now;
+
+        await dbContext.SaveChangesAsync(
+            cancellationToken);
+
+        await auditService.WriteAsync(
+            new AuditEntry(
+                EventType:
+                    "M04.7.MemberObligationCancelled",
+                EntityType:
+                    "HouseholdMemberObligation",
+                EntityId:
+                    obligation.Id.ToString(),
+                ActorId:
+                    actorUserId.ToString(),
+                CorrelationId:
+                    correlationId,
+                Description:
+                    "Anulowano nieopłacone dodatkowe zobowiązanie domownika. Historia rekordu została zachowana."),
+            cancellationToken);
+
+        await transaction.CommitAsync(
+            cancellationToken);
+    }
+
     public async Task<HouseholdInvoiceOverview?> GetInvoiceOverviewAsync(
         Guid actorUserId,
         CancellationToken cancellationToken = default)
@@ -2988,6 +4500,43 @@ public sealed class HouseholdFinanceService(
                         x.IsActive))
                 .ToArray();
 
+        var invoiceMemberObligationRows =
+            await dbContext.HouseholdMemberObligations
+                .AsNoTracking()
+                .Where(x =>
+                    x.HouseholdId ==
+                        household.Id &&
+                    x.SourceTypeCode ==
+                        HouseholdMemberObligationSourceTypes.Invoice &&
+                    x.SourceInvoiceId != null &&
+                    x.StatusCode !=
+                        HouseholdMemberObligationStatuses.Cancelled)
+                .Select(x =>
+                    new
+                    {
+                        InvoiceId = x.SourceInvoiceId!.Value,
+                        x.AmountMinor,
+                        x.PaidAmountMinor
+                    })
+                .ToArrayAsync(
+                    cancellationToken);
+
+        var memberObligationsByInvoice =
+            invoiceMemberObligationRows
+                .GroupBy(x =>
+                    x.InvoiceId)
+                .ToDictionary(
+                    x => x.Key,
+                    x => new
+                    {
+                        AssignedMinor =
+                            x.Sum(y =>
+                                y.AmountMinor),
+                        PaidMinor =
+                            x.Sum(y =>
+                                y.PaidAmountMinor)
+                    });
+
         var paidByInvoice =
             await dbContext.HouseholdInvoicePayments
                 .AsNoTracking()
@@ -3046,6 +4595,22 @@ public sealed class HouseholdFinanceService(
                             invoice.GrossAmountMinor,
                             paidMinor);
 
+                    memberObligationsByInvoice.TryGetValue(
+                        invoice.Id,
+                        out var memberFunding);
+
+                    var memberAssignedMinor =
+                        memberFunding?.AssignedMinor ?? 0L;
+
+                    var memberPaidMinor =
+                        memberFunding?.PaidMinor ?? 0L;
+
+                    var memberOutstandingMinor =
+                        Math.Max(
+                            0,
+                            memberAssignedMinor -
+                            memberPaidMinor);
+
                     return new HouseholdInvoiceSummary(
                         invoice.Id,
                         invoice.Supplier,
@@ -3065,7 +4630,13 @@ public sealed class HouseholdFinanceService(
                         HouseholdInvoiceCategories.GetNamePl(
                             invoice.CategoryCode),
                         invoice.UtilityInvoiceId,
-                        invoice.CreatedAtUtc);
+                        invoice.CreatedAtUtc,
+                        HouseholdFinanceMoney.FromMinorUnits(
+                            memberAssignedMinor),
+                        HouseholdFinanceMoney.FromMinorUnits(
+                            memberPaidMinor),
+                        HouseholdFinanceMoney.FromMinorUnits(
+                            memberOutstandingMinor));
                 })
                 .ToArray();
 

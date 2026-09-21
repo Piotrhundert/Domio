@@ -75,6 +75,45 @@ public interface IHouseholdFinanceService
         string correlationId,
         CancellationToken cancellationToken = default);
 
+    Task<HouseholdMemberObligationOverview?> GetMemberObligationOverviewAsync(
+        Guid actorUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<Guid> CreateMemberObligationAsync(
+        CreateHouseholdMemberObligationRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
+
+    Task<HouseholdMemberObligationPaymentForm?> GetMemberObligationPaymentFormAsync(
+        Guid obligationId,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<Guid> SubmitMemberObligationPaymentAsync(
+        SubmitHouseholdMemberObligationPaymentRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
+
+    Task ApproveMemberObligationPaymentAsync(
+        ReviewHouseholdMemberObligationPaymentRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
+
+    Task RejectMemberObligationPaymentAsync(
+        ReviewHouseholdMemberObligationPaymentRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
+
+    Task CancelMemberObligationAsync(
+        Guid obligationId,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
+
     Task<HouseholdInvoiceOverview?> GetInvoiceOverviewAsync(
         Guid actorUserId,
         CancellationToken cancellationToken = default);

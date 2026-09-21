@@ -27,6 +27,10 @@ public sealed class DomioDbContext : DbContext
         Set<HouseholdContributionObligation>();
     public DbSet<HouseholdContributionPaymentRequest> HouseholdContributionPaymentRequests =>
         Set<HouseholdContributionPaymentRequest>();
+    public DbSet<HouseholdMemberObligation> HouseholdMemberObligations =>
+        Set<HouseholdMemberObligation>();
+    public DbSet<HouseholdMemberObligationPaymentRequest> HouseholdMemberObligationPaymentRequests =>
+        Set<HouseholdMemberObligationPaymentRequest>();
     public DbSet<HouseholdInvoice> HouseholdInvoices =>
         Set<HouseholdInvoice>();
     public DbSet<HouseholdInvoicePayment> HouseholdInvoicePayments =>
@@ -59,9 +63,9 @@ public sealed class DomioDbContext : DbContext
             entity.HasData(new SchemaVersionRecord
             {
                 Id = 1,
-                Version = 16,
+                Version = 17,
                 UpdatedAtUtc = new DateTime(
-                    2026, 9, 11, 12, 50, 0, DateTimeKind.Utc)
+                    2026, 9, 11, 16, 40, 0, DateTimeKind.Utc)
             });
         });
 
@@ -414,6 +418,148 @@ public sealed class DomioDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne<HouseholdContributionObligation>()
+                .WithMany()
+                .HasForeignKey(x => x.ObligationId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<PersonalFinancialAccount>()
+                .WithMany()
+                .HasForeignKey(x => x.SourcePersonalAccountId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<HouseholdAccount>()
+                .WithMany()
+                .HasForeignKey(x => x.TargetHouseholdAccountId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<UserAccount>()
+                .WithMany()
+                .HasForeignKey(x => x.SubmittedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<UserAccount>()
+                .WithMany()
+                .HasForeignKey(x => x.ReviewedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<PersonalFinancialTransaction>()
+                .WithMany()
+                .HasForeignKey(x => x.PersonalTransactionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<HouseholdEntry>()
+                .WithMany()
+                .HasForeignKey(x => x.HouseholdEntryId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<HouseholdMemberObligation>(entity =>
+        {
+            entity.ToTable("HouseholdMemberObligations");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.SourceTypeCode)
+                .HasMaxLength(50)
+                .IsRequired();
+            entity.Property(x => x.Description)
+                .HasMaxLength(500)
+                .IsRequired();
+            entity.Property(x => x.AmountMinor)
+                .IsRequired();
+            entity.Property(x => x.PaidAmountMinor)
+                .IsRequired();
+            entity.Property(x => x.DueDateUtc)
+                .IsRequired();
+            entity.Property(x => x.StatusCode)
+                .HasMaxLength(30)
+                .IsRequired();
+            entity.Property(x => x.CreatedAtUtc)
+                .IsRequired();
+            entity.Property(x => x.UpdatedAtUtc)
+                .IsRequired();
+            entity.Property(x => x.CancelledAtUtc);
+
+            entity.HasIndex(x => x.HouseholdId);
+            entity.HasIndex(x => x.HouseholdMemberId);
+            entity.HasIndex(x => x.SourceInvoiceId);
+            entity.HasIndex(x => x.TargetHouseholdAccountId);
+            entity.HasIndex(x => x.DueDateUtc);
+            entity.HasIndex(x => x.StatusCode);
+            entity.HasIndex(x => x.CreatedByUserId);
+            entity.HasIndex(x => x.CancelledByUserId);
+
+            entity.HasOne<Household>()
+                .WithMany()
+                .HasForeignKey(x => x.HouseholdId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<HouseholdMember>()
+                .WithMany()
+                .HasForeignKey(x => x.HouseholdMemberId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<HouseholdInvoice>()
+                .WithMany()
+                .HasForeignKey(x => x.SourceInvoiceId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<HouseholdAccount>()
+                .WithMany()
+                .HasForeignKey(x => x.TargetHouseholdAccountId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<UserAccount>()
+                .WithMany()
+                .HasForeignKey(x => x.CreatedByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<UserAccount>()
+                .WithMany()
+                .HasForeignKey(x => x.CancelledByUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<HouseholdMemberObligationPaymentRequest>(entity =>
+        {
+            entity.ToTable("HouseholdMemberObligationPaymentRequests");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.AmountMinor)
+                .IsRequired();
+            entity.Property(x => x.StatusCode)
+                .HasMaxLength(30)
+                .IsRequired();
+            entity.Property(x => x.SubmittedAtUtc)
+                .IsRequired();
+            entity.Property(x => x.ReviewedAtUtc);
+            entity.Property(x => x.ReviewNote)
+                .HasMaxLength(500);
+            entity.Property(x => x.PersonalTransactionId);
+            entity.Property(x => x.HouseholdEntryId);
+
+            entity.HasIndex(x => x.HouseholdId);
+            entity.HasIndex(x => x.HouseholdMemberId);
+            entity.HasIndex(x => x.ObligationId);
+            entity.HasIndex(x => x.SourcePersonalAccountId);
+            entity.HasIndex(x => x.TargetHouseholdAccountId);
+            entity.HasIndex(x => x.StatusCode);
+            entity.HasIndex(x => x.SubmittedAtUtc);
+            entity.HasIndex(x => x.SubmittedByUserId);
+            entity.HasIndex(x => x.ReviewedByUserId);
+            entity.HasIndex(x => x.PersonalTransactionId)
+                .IsUnique();
+            entity.HasIndex(x => x.HouseholdEntryId)
+                .IsUnique();
+
+            entity.HasOne<Household>()
+                .WithMany()
+                .HasForeignKey(x => x.HouseholdId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<HouseholdMember>()
+                .WithMany()
+                .HasForeignKey(x => x.HouseholdMemberId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne<HouseholdMemberObligation>()
                 .WithMany()
                 .HasForeignKey(x => x.ObligationId)
                 .OnDelete(DeleteBehavior.Restrict);
