@@ -1,0 +1,1150 @@
+.household-finance-page {
+  width: 100%;
+  padding: 28px;
+}
+
+.household-finance-form-page {
+  max-width: 980px;
+  margin: 0 auto;
+}
+
+.household-finance-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 22px;
+  margin-bottom: 22px;
+}
+
+.household-finance-header h1 {
+  margin: 3px 0 7px;
+  font-size: clamp(1.8rem, 3vw, 2.45rem);
+  font-weight: 760;
+}
+
+.household-finance-header p {
+  max-width: 760px;
+  margin: 0;
+  color: var(--domio-muted);
+  line-height: 1.55;
+}
+
+.household-finance-kicker {
+  color: #4f7d82;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.household-finance-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 9px;
+}
+
+.household-finance-summary-card {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  margin-bottom: 22px;
+  border: 1px solid var(--domio-border);
+  border-radius: 14px;
+  background: var(--domio-border);
+}
+
+.household-finance-summary-card > div {
+  display: grid;
+  gap: 4px;
+  padding: 16px 18px;
+  background: #fff;
+}
+
+.household-finance-summary-card span {
+  color: var(--domio-muted);
+  font-size: 0.72rem;
+}
+
+.household-finance-summary-card strong {
+  font-size: 0.93rem;
+}
+
+.household-finance-section {
+  margin-top: 22px;
+}
+
+.household-finance-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 13px;
+}
+
+.household-finance-section-heading h2 {
+  margin: 2px 0 3px;
+  font-size: 1.08rem;
+  font-weight: 750;
+}
+
+.household-finance-section-heading p {
+  margin: 0;
+  max-width: 720px;
+  color: var(--domio-muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.household-finance-section-number {
+  color: #7a9b9f;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.household-account-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(245px, 1fr));
+  gap: 14px;
+}
+
+.household-account-card {
+  display: flex;
+  min-height: 185px;
+  flex-direction: column;
+  gap: 13px;
+  padding: 17px;
+  border: 1px solid var(--domio-border);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.household-account-card.is-closed {
+  opacity: 0.7;
+}
+
+.household-account-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.household-account-card h3 {
+  margin: 4px 0 0;
+  font-size: 1rem;
+  font-weight: 750;
+}
+
+.household-account-type {
+  color: var(--domio-muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.household-account-status {
+  align-self: flex-start;
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: 0.64rem;
+  font-weight: 750;
+}
+
+.household-account-status.is-active {
+  background: #eaf8f0;
+  color: #2d7550;
+}
+
+.household-account-status.is-inactive {
+  background: #f1f2f4;
+  color: #72757a;
+}
+
+.household-account-balance {
+  display: grid;
+  gap: 2px;
+}
+
+.household-account-balance span {
+  color: var(--domio-muted);
+  font-size: 0.7rem;
+}
+
+.household-account-balance strong {
+  font-size: 1.32rem;
+  font-weight: 780;
+}
+
+.household-account-action {
+  margin-top: auto;
+  color: #3a6f76;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.household-account-action:hover {
+  color: #244f54;
+}
+
+.household-finance-table-wrap {
+  overflow: hidden;
+  border: 1px solid var(--domio-border);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.household-finance-table {
+  font-size: 0.76rem;
+}
+
+.household-finance-table th {
+  color: var(--domio-muted);
+  font-size: 0.68rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.household-entry-kind {
+  display: inline-flex;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: #f1f5f5;
+  font-size: 0.66rem;
+  font-weight: 750;
+}
+
+.household-entry-source {
+  margin-top: 3px;
+  color: var(--domio-muted);
+  font-size: 0.66rem;
+}
+
+.household-entry-amount {
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.household-entry-amount.is-income {
+  color: #31724f;
+}
+
+.household-entry-amount.is-expense {
+  color: #a04b4b;
+}
+
+.household-finance-empty {
+  display: grid;
+  justify-items: center;
+  gap: 9px;
+  padding: 40px 24px;
+  border: 1px dashed #cdd9da;
+  border-radius: 14px;
+  background: rgba(248, 251, 251, 0.78);
+  text-align: center;
+}
+
+.household-finance-empty.compact {
+  padding: 25px 20px;
+}
+
+.household-finance-empty-icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border-radius: 12px;
+  background: #e7f3f3;
+  color: #42767b;
+  font-weight: 800;
+}
+
+.household-finance-empty h2,
+.household-finance-empty h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.household-finance-empty p {
+  max-width: 640px;
+  margin: 0;
+  color: var(--domio-muted);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.household-finance-form-card {
+  padding: 22px;
+  border: 1px solid var(--domio-border);
+  border-radius: 15px;
+  background: #fff;
+}
+
+.household-finance-info,
+.household-finance-warning,
+.household-finance-foundation-note {
+  display: grid;
+  gap: 4px;
+  margin-top: 18px;
+  padding: 13px 15px;
+  border-radius: 12px;
+  font-size: 0.77rem;
+  line-height: 1.5;
+}
+
+.household-finance-info,
+.household-finance-foundation-note {
+  border: 1px solid #d6e8e8;
+  background: #f4fbfb;
+  color: #45696d;
+}
+
+.household-finance-warning {
+  border: 1px solid #efdcc4;
+  background: #fffaf2;
+  color: #79572f;
+}
+
+.household-finance-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+@media (max-width: 760px) {
+  .household-finance-page {
+    padding: 20px 14px;
+  }
+
+  .household-finance-header {
+    flex-direction: column;
+  }
+
+  .household-finance-header-actions {
+    justify-content: flex-start;
+  }
+
+  .household-finance-summary-card {
+    grid-template-columns: 1fr;
+  }
+
+  .household-finance-form-actions {
+    justify-content: stretch;
+  }
+
+  .household-finance-form-actions .btn {
+    flex: 1;
+  }
+}
+
+
+.household-account-actions {
+  display: grid;
+  gap: 7px;
+  margin-top: auto;
+}
+
+.household-account-close-action {
+  color: #9a4545;
+}
+
+.household-account-close-action:hover {
+  color: #7e2f2f;
+}
+
+.household-close-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  margin-bottom: 18px;
+  border: 1px solid var(--domio-border);
+  border-radius: 12px;
+  background: var(--domio-border);
+}
+
+.household-close-summary > div {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  background: #fff;
+}
+
+.household-close-summary span {
+  color: var(--domio-muted);
+  font-size: 0.7rem;
+}
+
+.household-close-summary strong {
+  font-size: 0.84rem;
+}
+
+.household-close-blocker {
+  display: grid;
+  gap: 7px;
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid #efd8b9;
+  border-radius: 12px;
+  background: #fffaf2;
+  color: #775126;
+  font-size: 0.77rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 760px) {
+  .household-close-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+.household-contribution-members {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--domio-border);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.household-contribution-member-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.household-contribution-member-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #eef6f6;
+  color: #416e73;
+  font-size: 0.72rem;
+  font-weight: 720;
+}
+
+.household-contribution-add-member {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) auto;
+  gap: 10px;
+}
+
+.household-contribution-rule-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  gap: 14px;
+}
+
+.household-contribution-rule-card {
+  padding: 17px;
+  border: 1px solid var(--domio-border);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.household-contribution-rule-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.household-contribution-rule-top span:first-child {
+  color: var(--domio-muted);
+  font-size: 0.68rem;
+}
+
+.household-contribution-rule-top h3 {
+  margin: 3px 0 0;
+  font-size: 1rem;
+  font-weight: 760;
+}
+
+.household-contribution-rule-details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 14px;
+  margin: 0;
+}
+
+.household-contribution-rule-details div {
+  display: grid;
+  gap: 2px;
+}
+
+.household-contribution-rule-details dt {
+  color: var(--domio-muted);
+  font-size: 0.66rem;
+  font-weight: 650;
+}
+
+.household-contribution-rule-details dd {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 710;
+}
+
+.household-contribution-status {
+  display: inline-flex;
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 760;
+  background: #f0f3f4;
+  color: #536267;
+}
+
+.household-contribution-status.pending {
+  background: #eef4fb;
+  color: #466b95;
+}
+
+.household-contribution-status.partiallypaid {
+  background: #fff6df;
+  color: #8a671c;
+}
+
+.household-contribution-status.paid {
+  background: #eaf8f0;
+  color: #2d7550;
+}
+
+.household-contribution-status.overdue {
+  background: #fdeeee;
+  color: #9a4545;
+}
+
+@media (max-width: 760px) {
+  .household-contribution-add-member {
+    grid-template-columns: 1fr;
+  }
+
+  .household-contribution-rule-details {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+.household-contribution-pending-income {
+  margin-top: 12px;
+  padding: 9px 11px;
+  border: 1px solid #eadcbf;
+  border-radius: 10px;
+  background: #fffaf1;
+  color: #795c2e;
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+
+.household-contribution-payment-waiting {
+  display: inline-flex;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #fff6df;
+  color: #8a671c;
+  font-size: 0.64rem;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.household-contribution-payment-status {
+  display: inline-flex;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #f0f3f4;
+  color: #536267;
+  font-size: 0.65rem;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.household-contribution-payment-status.pending {
+  background: #fff6df;
+  color: #8a671c;
+}
+
+.household-contribution-payment-status.approved {
+  background: #eaf8f0;
+  color: #2d7550;
+}
+
+.household-contribution-payment-status.rejected {
+  background: #fdeeee;
+  color: #9a4545;
+}
+
+.household-contribution-review-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.household-contribution-payment-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  margin-bottom: 18px;
+  border: 1px solid var(--domio-border);
+  border-radius: 12px;
+  background: var(--domio-border);
+}
+
+.household-contribution-payment-summary > div {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  background: #fff;
+}
+
+.household-contribution-payment-summary span {
+  color: var(--domio-muted);
+  font-size: 0.68rem;
+}
+
+.household-contribution-payment-summary strong {
+  font-size: 0.82rem;
+}
+
+@media (max-width: 760px) {
+  .household-contribution-payment-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .household-contribution-review-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+
+.household-reminder-summary {
+  margin-top: 0;
+}
+
+.household-reminder-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+  gap: 12px;
+}
+
+.household-reminder-summary-card {
+  display: grid;
+  gap: 3px;
+  padding: 15px 16px;
+  border: 1px solid var(--domio-border);
+  border-radius: 13px;
+  background: #fff;
+}
+
+.household-reminder-summary-card span {
+  color: var(--domio-muted);
+  font-size: 0.69rem;
+  font-weight: 700;
+}
+
+.household-reminder-summary-card strong {
+  font-size: 1.45rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.household-reminder-summary-card small {
+  color: var(--domio-muted);
+  font-size: 0.64rem;
+}
+
+.household-reminder-summary-card.upcoming {
+  border-color: #d9e6f4;
+  background: #f7fbff;
+}
+
+.household-reminder-summary-card.due-today {
+  border-color: #eeddb8;
+  background: #fffaf0;
+}
+
+.household-reminder-summary-card.overdue {
+  border-color: #efd1d1;
+  background: #fff7f7;
+}
+
+.household-reminder-summary-card.approval {
+  border-color: #d8e9df;
+  background: #f7fcf9;
+}
+
+.household-contribution-reminder {
+  display: inline-flex;
+  margin-top: 5px;
+  padding: 4px 7px;
+  border-radius: 8px;
+  font-size: 0.62rem;
+  font-weight: 740;
+  line-height: 1.3;
+}
+
+.household-contribution-reminder.upcoming {
+  background: #edf5fd;
+  color: #4d6f93;
+}
+
+.household-contribution-reminder.duetoday {
+  background: #fff4d8;
+  color: #8a6515;
+}
+
+.household-contribution-reminder.overdue {
+  background: #fdeaea;
+  color: #994242;
+}
+
+
+.household-invoice-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.household-invoice-summary-card {
+  display: grid;
+  gap: 4px;
+  padding: 16px 18px;
+  border: 1px solid var(--domio-border);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.household-invoice-summary-card > span,
+.household-invoice-summary-card > small {
+  color: var(--domio-muted);
+  font-size: 0.68rem;
+}
+
+.household-invoice-summary-card > strong {
+  font-size: 1.35rem;
+  line-height: 1.1;
+}
+
+.household-invoice-summary-card > strong small {
+  font-size: 0.68rem;
+}
+
+.household-invoice-summary-card.is-overdue {
+  border-color: #edcccc;
+  background: #fff7f7;
+}
+
+.household-invoice-status {
+  display: inline-flex;
+  padding: 5px 8px;
+  border-radius: 9px;
+  font-size: 0.64rem;
+  font-weight: 750;
+  line-height: 1.2;
+}
+
+.household-invoice-status.unpaid {
+  background: #eef2f6;
+  color: #5b6570;
+}
+
+.household-invoice-status.partiallypaid {
+  background: #fff3d9;
+  color: #84631a;
+}
+
+.household-invoice-status.paid {
+  background: #eaf8f0;
+  color: #2f7652;
+}
+
+.household-invoice-status.cancelled {
+  background: #f1f2f3;
+  color: #858b91;
+}
+
+.household-invoice-cancelled-row {
+  opacity: 0.58;
+}
+
+.household-invoice-overdue-date {
+  color: #9a3f3f;
+  font-weight: 720;
+}
+
+.household-invoice-overdue-label {
+  margin-top: 3px;
+  color: #9a3f3f;
+  font-size: 0.62rem;
+  font-weight: 720;
+}
+
+.household-invoice-form-card {
+  max-width: 900px;
+}
+
+.household-invoice-payment-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.household-invoice-payment-summary > div {
+  display: grid;
+  gap: 3px;
+  padding: 11px 12px;
+  border: 1px solid var(--domio-border);
+  border-radius: 11px;
+  background: #fafbfc;
+}
+
+.household-invoice-payment-summary span {
+  color: var(--domio-muted);
+  font-size: 0.64rem;
+}
+
+.household-invoice-payment-summary strong {
+  font-size: 0.76rem;
+  overflow-wrap: anywhere;
+}
+
+.household-invoice-payment-note {
+  margin-top: 16px;
+  padding: 11px 12px;
+  border-radius: 11px;
+  background: #f7f9fb;
+  color: var(--domio-muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+
+.household-invoice-category-section,
+.household-invoice-meter-panel {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--domio-border);
+  border-radius: 16px;
+  background: #fbfcfd;
+}
+
+.household-invoice-section-title h2 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  font-weight: 760;
+}
+
+.household-invoice-section-title p {
+  margin: 0;
+  color: var(--domio-muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.household-invoice-category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.household-invoice-category-tile {
+  display: grid;
+  gap: 8px;
+  min-height: 132px;
+  padding: 16px;
+  border: 1px solid var(--domio-border);
+  border-radius: 14px;
+  background: #fff;
+  cursor: pointer;
+  transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease;
+}
+
+.household-invoice-category-tile:hover {
+  transform: translateY(-1px);
+  border-color: #c4d5e8;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, .06);
+}
+
+.household-invoice-category-tile.is-selected {
+  border-color: #9dc2eb;
+  background: #f6fbff;
+  box-shadow: 0 0 0 1px rgba(157, 194, 235, .35);
+}
+
+.household-invoice-category-input {
+  margin: 0;
+}
+
+.household-invoice-category-title {
+  font-size: 1rem;
+  font-weight: 780;
+}
+
+.household-invoice-category-caption {
+  color: var(--domio-muted);
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.household-invoice-meter-panel.is-hidden {
+  display: none;
+}
+
+.household-invoice-inline-note {
+  padding: 14px 16px;
+  border: 1px dashed #cbd7df;
+  border-radius: 14px;
+  background: #fbfcfe;
+  color: #425466;
+  font-size: 0.77rem;
+  line-height: 1.55;
+}
+
+
+/* M04.6 invoice registry category cards */
+.household-invoice-category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+}
+
+.household-invoice-category-card {
+  display: flex;
+  min-height: 164px;
+  flex-direction: column;
+  gap: 12px;
+  padding: 17px;
+  border: 1px solid var(--domio-border);
+  border-radius: 15px;
+  background: #fff;
+  color: inherit;
+  text-decoration: none;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, .03);
+  transition:
+    transform .12s ease,
+    border-color .12s ease,
+    box-shadow .12s ease,
+    background .12s ease;
+}
+
+.household-invoice-category-card:hover {
+  transform: translateY(-2px);
+  border-color: #b9cddd;
+  background: #fbfdff;
+  color: inherit;
+  text-decoration: none;
+  box-shadow: 0 10px 26px rgba(16, 24, 40, .07);
+}
+
+.household-invoice-category-card.is-active {
+  border-color: #8fb7df;
+  background: #f4f9ff;
+  box-shadow:
+    0 0 0 1px rgba(143, 183, 223, .16),
+    0 8px 22px rgba(38, 91, 150, .06);
+}
+
+.household-invoice-category-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.household-invoice-category-top > strong {
+  color: #172033;
+  font-size: .98rem;
+  font-weight: 800;
+}
+
+.household-invoice-category-top > span {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #e5f0fb;
+  color: #42678e;
+  font-size: .60rem;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.household-invoice-category-metric {
+  display: grid;
+  gap: 3px;
+}
+
+.household-invoice-category-metric > span,
+.household-invoice-category-meta span,
+.household-invoice-category-card > small {
+  color: var(--domio-muted);
+  font-size: .67rem;
+}
+
+.household-invoice-category-metric > strong {
+  color: #172033;
+  font-size: 1.55rem;
+  font-weight: 820;
+  line-height: 1;
+}
+
+.household-invoice-category-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.household-invoice-category-meta > div {
+  display: grid;
+  gap: 3px;
+  padding: 8px 9px;
+  border-radius: 10px;
+  background: #f6f8fa;
+}
+
+.household-invoice-category-meta strong {
+  color: #26364a;
+  font-size: .74rem;
+  font-weight: 760;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.household-invoice-category-card > small {
+  margin-top: auto;
+  line-height: 1.35;
+}
+
+@media (max-width: 760px) {
+  .household-invoice-category-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .household-invoice-category-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+
+/* M04.7 – dodatkowe zobowiązania domowników */
+.household-member-obligation-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.household-member-obligation-summary-card {
+  display: grid;
+  gap: 4px;
+  padding: 15px 16px;
+  border: 1px solid var(--domio-border);
+  border-radius: 13px;
+  background: #fff;
+}
+
+.household-member-obligation-summary-card.is-overdue {
+  border-color: #efd1d1;
+  background: #fff7f7;
+}
+
+.household-member-obligation-summary-card > span,
+.household-member-obligation-summary-card > small {
+  color: var(--domio-muted);
+  font-size: .68rem;
+}
+
+.household-member-obligation-summary-card > strong {
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.household-member-obligation-summary-card > strong small {
+  font-size: .68rem;
+  font-weight: 700;
+}
+
+.household-obligation-status {
+  display: inline-flex;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #f0f3f5;
+  color: #5c6670;
+  font-size: .63rem;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.household-obligation-status.paid,
+.household-obligation-status.approved {
+  background: #eaf8f0;
+  color: #2d7550;
+}
+
+.household-obligation-status.partiallypaid,
+.household-obligation-status.pending {
+  background: #fff6df;
+  color: #8a671c;
+}
+
+.household-obligation-status.overdue,
+.household-obligation-status.rejected {
+  background: #fdeaea;
+  color: #994242;
+}
+
+.household-obligation-status.cancelled {
+  background: #f1f2f4;
+  color: #73777d;
+}
+
+.household-obligation-pending-label {
+  margin-top: 5px;
+  color: #8a671c;
+  font-size: .62rem;
+  font-weight: 700;
+}
+
+.household-obligation-cancelled-row {
+  opacity: .62;
+}
+
+.household-obligation-payment-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  margin-top: 18px;
+  border: 1px solid var(--domio-border);
+  border-radius: 14px;
+  background: var(--domio-border);
+}
+
+.household-obligation-payment-summary > div {
+  display: grid;
+  gap: 4px;
+  padding: 14px 15px;
+  background: #fff;
+}
+
+.household-obligation-payment-summary span {
+  color: var(--domio-muted);
+  font-size: .67rem;
+}
+
+.household-obligation-payment-summary strong {
+  font-size: .8rem;
+  line-height: 1.4;
+}
