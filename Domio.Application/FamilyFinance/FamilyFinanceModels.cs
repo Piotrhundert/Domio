@@ -34,7 +34,13 @@ public sealed record FamilyChildIncomeRuleSummary(
     DateTime ActiveFromUtc,
     DateTime? ActiveToUtc,
     bool IsActive,
-    bool AppliesInSelectedMonth);
+    bool AppliesInSelectedMonth,
+    string PeriodKey,
+    DateTime? PlannedDateUtc,
+    bool IsReceived,
+    decimal? ReceivedAmount,
+    DateTime? ReceivedAtUtc,
+    bool CanConfirmReceipt);
 
 public sealed record FamilySharingSnapshot(
     Guid FamilyGroupId,
@@ -65,6 +71,8 @@ public sealed record FamilyFinanceOverview(
 {
     public bool HasHousehold => HouseholdId.HasValue;
     public bool HasFamily => SelectedFamilyGroupId.HasValue;
+
+    public IReadOnlyList<FamilySharedAccountSummary> SharedAccounts { get; init; } = [];
 }
 
 public sealed record CreateFamilyGroupRequest(
@@ -102,3 +110,95 @@ public sealed record CreateFamilyChildIncomeRequest(
     int DueDay,
     DateTime ActiveFromUtc,
     DateTime? ActiveToUtc);
+
+public sealed record FamilyIncomeReceiptAccount(
+    string AccountType,
+    string AccountTypeNamePl,
+    Guid AccountId,
+    string AccountName,
+    string CurrencyCode,
+    decimal Balance);
+
+public sealed record FamilyChildIncomeReceiptForm(
+    Guid FamilyGroupId,
+    string FamilyGroupName,
+    Guid RuleId,
+    string RuleName,
+    string IncomeKindNamePl,
+    Guid BeneficiaryPersonId,
+    string BeneficiaryDisplayName,
+    int Year,
+    int Month,
+    string PeriodKey,
+    decimal Amount,
+    DateTime PlannedDateUtc,
+    IReadOnlyList<FamilyIncomeReceiptAccount> Accounts);
+
+public sealed record ConfirmFamilyChildIncomeReceiptRequest(
+    Guid FamilyGroupId,
+    Guid RuleId,
+    int Year,
+    int Month,
+    string AccountType,
+    Guid AccountId,
+    DateTime ReceivedAtUtc);
+
+public sealed record FamilyChildIncomeReceiptResult(
+    Guid ReceiptId,
+    string SourceType,
+    Guid SourceId);
+
+public sealed record FamilySharedAccountPersonOption(
+    Guid PersonId,
+    string DisplayName);
+
+public sealed record CreateFamilySharedAccountForm(
+    Guid FamilyGroupId,
+    string FamilyGroupName,
+    IReadOnlyList<FamilySharedAccountPersonOption> AdultMembers);
+
+public sealed record CreateFamilySharedAccountRequest(
+    Guid FamilyGroupId,
+    string Name,
+    string AccountTypeCode,
+    decimal InitialBalance,
+    Guid OwnerPersonId,
+    Guid CoOwnerPersonId);
+
+public sealed record FamilySharedAccountSummary(
+    Guid SharedAccountId,
+    Guid FamilyGroupId,
+    string FamilyGroupName,
+    Guid AccountId,
+    string AccountName,
+    string AccountTypeCode,
+    string AccountTypeNamePl,
+    string CurrencyCode,
+    decimal Balance,
+    Guid OwnerPersonId,
+    string OwnerDisplayName,
+    Guid CoOwnerPersonId,
+    string CoOwnerDisplayName,
+    string CurrentPersonRoleCode,
+    string CurrentPersonRoleNamePl,
+    bool IsActive);
+
+public sealed record FamilySharedAccountOperationForm(
+    Guid SharedAccountId,
+    Guid FamilyGroupId,
+    string FamilyGroupName,
+    Guid AccountId,
+    string AccountName,
+    string CurrencyCode,
+    decimal Balance,
+    string CurrentPersonRoleNamePl);
+
+public sealed record PostFamilySharedAccountOperationRequest(
+    Guid SharedAccountId,
+    string KindCode,
+    decimal Amount,
+    DateTime OccurredAtUtc,
+    string? Description,
+    string? CategoryCode,
+    string? Counterparty);
+

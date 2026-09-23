@@ -22,12 +22,12 @@
 <div class="family-finance-page">
     <div class="family-finance-header">
         <div>
-            <div class="family-finance-kicker">M04.8.4 · FINANSE RODZINNE</div>
+            <div class="family-finance-kicker">M04.8.6 · FINANSE RODZINNE</div>
             <h1>Finanse rodzinne</h1>
             <p>
-                Wspólny plan i wykonanie rodziny bez tworzenia trzeciego salda.
-                M04.8.4 dodaje także planowane przychody przypisane do dzieci,
-                bez konieczności zakładania dziecku konta użytkownika lub rachunku.
+                Wspólny plan i wykonanie rodziny oraz rzeczywiste wspólne konto.
+                M04.8.6 pozwala utworzyć jeden rachunek z właścicielem i współwłaścicielem
+                oraz kierować na niego m.in. przychody przypisane do dzieci.
             </p>
         </div>
 
@@ -54,6 +54,12 @@
 
             @if (overview.HasFamily && canManage)
             {
+                <a asp-action="CreateSharedAccount"
+                   asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
+                   class="btn btn-outline-primary">
+                    + Wspólne konto
+                </a>
+
                 <a asp-action="CreateExpense"
                    asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
                    class="btn btn-primary">
@@ -190,7 +196,7 @@
             <article class="family-finance-summary-card">
                 <span>Rzeczywiste przychody</span>
                 <strong>@overview.ActualIncomeTotal.ToString("N2") zł</strong>
-                <small>Tylko zatwierdzone operacje prywatne udostępnione rodzinie.</small>
+                <small>Udostępnione przychody dorosłych oraz potwierdzone wpływy przypisane dzieciom.</small>
             </article>
 
             <article class="family-finance-summary-card">
@@ -211,6 +217,98 @@
                 <small>Rzeczywiste przychody minus rzeczywiste wydatki rodzinne.</small>
             </article>
         </div>
+
+
+        <section class="family-finance-section">
+            <div class="family-finance-section-heading">
+                <div>
+                    <div class="family-finance-section-number">KONTO</div>
+                    <h2>Wspólne konta rodziny</h2>
+                    <p>
+                        To rzeczywiste rachunki z jednym saldem i jedną historią operacji.
+                        Właściciel i współwłaściciel widzą ten sam rachunek również w Finansach osobistych.
+                    </p>
+                </div>
+
+                @if (canManage)
+                {
+                    <a asp-action="CreateSharedAccount"
+                       asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
+                       class="btn btn-sm btn-primary">
+                        + Utwórz konto
+                    </a>
+                }
+            </div>
+
+            @if (overview.SharedAccounts.Count == 0)
+            {
+                <div class="family-finance-empty family-finance-empty-compact">
+                    Rodzina nie ma jeszcze wspólnego konta.
+                </div>
+            }
+            else
+            {
+                <div class="finance-account-grid">
+                    @foreach (var account in overview.SharedAccounts)
+                    {
+                        var canOperate =
+                            account.CurrentPersonRoleCode == FamilySharedAccountRoles.Owner ||
+                            account.CurrentPersonRoleCode == FamilySharedAccountRoles.CoOwner;
+
+                        <article class="finance-account-card">
+                            <div class="finance-account-top">
+                                <div>
+                                    <span class="finance-account-type">
+                                        Wspólne · @account.AccountTypeNamePl
+                                    </span>
+                                    <h3>@account.AccountName</h3>
+                                </div>
+
+                                @if (account.IsActive)
+                                {
+                                    <span class="finance-status-active">Aktywne</span>
+                                }
+                                else
+                                {
+                                    <span class="finance-status-inactive">Nieaktywne</span>
+                                }
+                            </div>
+
+                            <div class="finance-balance">
+                                <span>Saldo</span>
+                                <strong>
+                                    @account.Balance.ToString("N2")
+                                    <small>@account.CurrencyCode</small>
+                                </strong>
+                            </div>
+
+                            <div class="finance-recurring-rule-meta">
+                                <span>
+                                    Właściciel: <strong>@account.OwnerDisplayName</strong>
+                                </span>
+                                <span>
+                                    Współwłaściciel: <strong>@account.CoOwnerDisplayName</strong>
+                                </span>
+                                <span>
+                                    Twój dostęp: <strong>@account.CurrentPersonRoleNamePl</strong>
+                                </span>
+                            </div>
+
+                            @if (account.IsActive && canOperate)
+                            {
+                                <div class="finance-account-actions">
+                                    <a asp-action="SharedAccountOperation"
+                                       asp-route-sharedAccountId="@account.SharedAccountId"
+                                       class="finance-account-action">
+                                        Dodaj przychód lub wydatek →
+                                    </a>
+                                </div>
+                            }
+                        </article>
+                    }
+                </div>
+            }
+        </section>
 
         <section class="family-finance-section">
             <div class="family-finance-section-heading">
@@ -278,7 +376,8 @@
                             <td>
                                 @if (member.FamilyRoleCode == FamilyRoles.Child)
                                 {
-                                    <span class="family-finance-private">Nie rozliczono</span>
+                                    <strong>@((member.ActualIncome ?? 0m).ToString("N2")) zł</strong>
+                                    <small class="d-block text-muted">potwierdzone wpływy</small>
                                 }
                                 else if (member.ActualIncome.HasValue)
                                 {
@@ -401,8 +500,8 @@
                                 <th>Przychód</th>
                                 <th>Kwota</th>
                                 <th>Częstotliwość</th>
-                                <th>W tym miesiącu</th>
-                                <th>Status</th>
+                                <th>Status miesiąca</th>
+                                <th>Status reguły</th>
                                 @if (canManage)
                                 {
                                     <th class="text-end">Akcja</th>
@@ -424,13 +523,29 @@
                                 <td><strong>@income.PlannedAmount.ToString("N2") zł</strong></td>
                                 <td>@income.FrequencyNamePl · dzień @income.DueDay</td>
                                 <td>
-                                    @if (income.AppliesInSelectedMonth)
+                                    @if (!income.AppliesInSelectedMonth)
                                     {
-                                        <span class="family-finance-sharing-pill on">Tak</span>
+                                        <span class="family-finance-sharing-pill neutral">Nie przypada</span>
+                                    }
+                                    else if (income.IsReceived)
+                                    {
+                                        <span class="family-finance-sharing-pill on">Potwierdzono</span>
+                                        @if (income.ReceivedAmount.HasValue && income.ReceivedAtUtc.HasValue)
+                                        {
+                                            <small class="d-block text-muted mt-1">
+                                                @income.ReceivedAmount.Value.ToString("N2") zł · @income.ReceivedAtUtc.Value.ToString("dd.MM.yyyy")
+                                            </small>
+                                        }
                                     }
                                     else
                                     {
-                                        <span class="family-finance-sharing-pill neutral">Nie</span>
+                                        <span class="family-finance-sharing-pill neutral">Do potwierdzenia</span>
+                                        @if (income.PlannedDateUtc.HasValue)
+                                        {
+                                            <small class="d-block text-muted mt-1">
+                                                plan @income.PlannedDateUtc.Value.ToString("dd.MM.yyyy")
+                                            </small>
+                                        }
                                     }
                                 </td>
                                 <td>
@@ -441,6 +556,17 @@
                                 @if (canManage)
                                 {
                                     <td class="text-end">
+                                        @if (income.CanConfirmReceipt)
+                                        {
+                                            <a asp-action="ConfirmChildIncome"
+                                               asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
+                                               asp-route-ruleId="@income.RuleId"
+                                               asp-route-year="@overview.Year"
+                                               asp-route-month="@overview.Month"
+                                               class="btn btn-sm btn-primary me-1">
+                                                Potwierdź wpływ
+                                            </a>
+                                        }
                                         @if (income.IsActive)
                                         {
                                             <form asp-action="DeactivateChildIncome" method="post" class="d-inline">

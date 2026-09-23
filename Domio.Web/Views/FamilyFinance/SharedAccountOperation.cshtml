@@ -1,0 +1,76 @@
+@using System.Globalization
+@using Domio.Domain.PersonalFinance
+@model Domio.Web.Models.FamilyFinance.FamilySharedAccountOperationViewModel
+@{
+    ViewData["Title"] = "Operacja na wspólnym koncie";
+    var pl = CultureInfo.GetCultureInfo("pl-PL");
+}
+
+<div class="family-finance-page">
+    <div class="family-finance-form-header">
+        <div>
+            <div class="family-finance-kicker">M04.8.6 · WSPÓLNE KONTO</div>
+            <h1>@Model.AccountName</h1>
+            <p>
+                @Model.FamilyGroupName · @Model.CurrentPersonRoleNamePl · saldo
+                <strong>@Model.Balance.ToString("N2") @Model.CurrencyCode</strong>
+            </p>
+        </div>
+        <a asp-controller="PersonalFinance" asp-action="Index" class="btn btn-outline-secondary">Wróć</a>
+    </div>
+
+    <form asp-action="SharedAccountOperation" method="post" class="family-finance-form-card">
+        <input type="hidden" asp-for="SharedAccountId" />
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label asp-for="KindCode" class="form-label"></label>
+                <select asp-for="KindCode" asp-items="Model.OperationKinds" class="form-select"></select>
+                <span asp-validation-for="KindCode" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Amount" class="form-label"></label>
+                <div class="input-group">
+                    <input name="Amount"
+                           id="Amount"
+                           type="text"
+                           inputmode="decimal"
+                           class="form-control"
+                           value="@(Model.Amount.ToString("0.00", pl))" />
+                    <span class="input-group-text">zł</span>
+                </div>
+                <span asp-validation-for="Amount" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="OccurredAtUtc" class="form-label"></label>
+                <input asp-for="OccurredAtUtc" type="date" class="form-control" />
+                <span asp-validation-for="OccurredAtUtc" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="CategoryCode" class="form-label"></label>
+                <select asp-for="CategoryCode" asp-items="Model.Categories" class="form-select"></select>
+                <span asp-validation-for="CategoryCode" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Counterparty" class="form-label"></label>
+                <input asp-for="Counterparty" class="form-control" />
+                <span asp-validation-for="Counterparty" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="Description" class="form-label"></label>
+                <input asp-for="Description" class="form-control" />
+                <span asp-validation-for="Description" class="text-danger"></span>
+            </div>
+        </div>
+
+        <div class="family-finance-form-note mt-3">
+            Operacja trafia do jednej wspólnej historii rachunku. Właściciel i współwłaściciel zobaczą po zmianie to samo saldo.
+        </div>
+
+        <div class="family-finance-form-actions">
+            <button type="submit" class="btn btn-primary">Zapisz operację</button>
+            <a asp-controller="PersonalFinance" asp-action="Index" class="btn btn-outline-secondary">Anuluj</a>
+        </div>
+    </form>
+</div>

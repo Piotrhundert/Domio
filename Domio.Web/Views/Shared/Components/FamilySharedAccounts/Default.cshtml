@@ -1,0 +1,83 @@
+@using Domio.Domain.FamilyFinance
+@model IReadOnlyList<Domio.Application.FamilyFinance.FamilySharedAccountSummary>
+
+<section class="finance-section mb-4">
+    <div class="finance-section-heading">
+        <div>
+            <span class="finance-section-number">RODZINA</span>
+            <div>
+                <h2>Wspólne konta rodzinne</h2>
+                <p>
+                    Te rachunki mają jedno saldo i jedną historię, ale są dostępne
+                    dla właściciela i współwłaściciela.
+                </p>
+            </div>
+        </div>
+
+        <a asp-controller="FamilyFinance"
+           asp-action="Index"
+           class="btn btn-sm btn-outline-secondary">
+            Finanse rodzinne
+        </a>
+    </div>
+
+    <div class="finance-account-grid">
+        @foreach (var account in Model)
+        {
+            <article class="finance-account-card">
+                <div class="finance-account-top">
+                    <div>
+                        <span class="finance-account-type">
+                            Wspólne · @account.AccountTypeNamePl
+                        </span>
+                        <h3>@account.AccountName</h3>
+                    </div>
+
+                    @if (account.IsActive)
+                    {
+                        <span class="finance-status-active">Aktywne</span>
+                    }
+                    else
+                    {
+                        <span class="finance-status-inactive">Nieaktywne</span>
+                    }
+                </div>
+
+                <div class="finance-balance">
+                    <span>Saldo</span>
+                    <strong>
+                        @account.Balance.ToString("N2")
+                        <small>@account.CurrencyCode</small>
+                    </strong>
+                </div>
+
+                <div class="finance-recurring-rule-meta">
+                    <span>
+                        Twoja rola: <strong>@account.CurrentPersonRoleNamePl</strong>
+                    </span>
+                    <span>
+                        Właściciel: <strong>@account.OwnerDisplayName</strong>
+                    </span>
+                    <span>
+                        Współwłaściciel: <strong>@account.CoOwnerDisplayName</strong>
+                    </span>
+                    <span>
+                        Rodzina: <strong>@account.FamilyGroupName</strong>
+                    </span>
+                </div>
+
+                @if (account.IsActive)
+                {
+                    <div class="finance-account-actions">
+                        <a asp-controller="FamilyFinance"
+                           asp-action="SharedAccountOperation"
+                           asp-route-sharedAccountId="@account.SharedAccountId"
+                           class="finance-account-action">
+                            Dodaj przychód lub wydatek →
+                        </a>
+                    </div>
+                }
+            </article>
+        }
+    </div>
+</section>

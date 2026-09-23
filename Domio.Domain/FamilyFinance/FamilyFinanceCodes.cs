@@ -31,6 +31,24 @@ public static class FamilyRoles
         ?? code;
 }
 
+
+
+public static class FamilySharedAccountRoles
+{
+    public const string Owner = "Owner";
+    public const string CoOwner = "CoOwner";
+    public const string Viewer = "Viewer";
+
+    public static string GetNamePl(string code) =>
+        code switch
+        {
+            Owner => "Właściciel",
+            CoOwner => "Współwłaściciel",
+            Viewer => "Członek rodziny",
+            _ => code
+        };
+}
+
 public static class FamilyBudgetSourceTypes
 {
     public const string PersonalTransaction = "PersonalTransaction";
@@ -210,6 +228,26 @@ public static class FamilyFinanceMoney
 
     public static decimal FromMinorUnits(long amountMinor) =>
         amountMinor / (decimal)MinorUnitsPerMajorUnit;
+}
+
+public static class FamilyIncomeReceiptAccountTypes
+{
+    public const string PersonalAccount = "PersonalAccount";
+    public const string HouseholdAccount = "HouseholdAccount";
+    public const string FamilySharedAccount = "FamilySharedAccount";
+
+    public static readonly IReadOnlyList<FamilyFinanceCodeItem> All =
+    [
+        new(PersonalAccount, "Konto osobiste"),
+        new(HouseholdAccount, "Konto domowe"),
+        new(FamilySharedAccount, "Wspólne konto rodziny")
+    ];
+
+    public static bool IsValid(string code) =>
+        All.Any(x => x.Code == code);
+
+    public static string GetNamePl(string code) =>
+        All.FirstOrDefault(x => x.Code == code)?.NamePl ?? code;
 }
 
 public static class FamilyExpensePaymentAccountTypes

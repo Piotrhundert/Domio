@@ -1,0 +1,101 @@
+@using System.Globalization
+@model Domio.Web.Models.FamilyFinance.CreateFamilySharedAccountViewModel
+@{
+    ViewData["Title"] = "Nowe wspólne konto rodziny";
+    var pl = CultureInfo.GetCultureInfo("pl-PL");
+}
+
+<div class="family-finance-page">
+    <div class="family-finance-form-header">
+        <div>
+            <div class="family-finance-kicker">M04.8.6 · WSPÓLNE KONTO</div>
+            <h1>Utwórz wspólne konto rodziny</h1>
+            <p>
+                Rodzina: <strong>@Model.FamilyGroupName</strong>. Konto będzie miało jedno saldo i jedną historię,
+                ale będzie widoczne w Finansach osobistych właściciela i współwłaściciela.
+            </p>
+        </div>
+        <a asp-action="Index"
+           asp-route-familyGroupId="@Model.FamilyGroupId"
+           class="btn btn-outline-secondary">Wróć</a>
+    </div>
+
+    <form asp-action="CreateSharedAccount" method="post" class="family-finance-form-card">
+        <input type="hidden" asp-for="FamilyGroupId" />
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+        @if (Model.Adults.Count < 2)
+        {
+            <div class="alert alert-warning">
+                Do utworzenia wspólnego konta potrzebne są co najmniej dwie dorosłe osoby w rodzinie,
+                które mają aktywne konta użytkownika Domio.
+            </div>
+        }
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label asp-for="Name" class="form-label"></label>
+                <input asp-for="Name" class="form-control" placeholder="np. Konto Rodzinne" />
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="AccountTypeCode" class="form-label"></label>
+                <select asp-for="AccountTypeCode" asp-items="Model.AccountTypes" class="form-select"></select>
+                <span asp-validation-for="AccountTypeCode" class="text-danger"></span>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="OwnerPersonId" class="form-label"></label>
+                <select asp-for="OwnerPersonId" asp-items="Model.Adults" class="form-select">
+                    <option value="">— wybierz właściciela —</option>
+                </select>
+                <span asp-validation-for="OwnerPersonId" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="CoOwnerPersonId" class="form-label"></label>
+                <select asp-for="CoOwnerPersonId" asp-items="Model.Adults" class="form-select">
+                    <option value="">— wybierz współwłaściciela —</option>
+                </select>
+                <span asp-validation-for="CoOwnerPersonId" class="text-danger"></span>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="InitialBalance" class="form-label"></label>
+                <div class="input-group">
+                    <input name="InitialBalance"
+                           id="InitialBalance"
+                           type="text"
+                           inputmode="decimal"
+                           class="form-control"
+                           value="@(Model.InitialBalance.ToString("0.00", pl))" />
+                    <span class="input-group-text">zł</span>
+                </div>
+                <span asp-validation-for="InitialBalance" class="text-danger"></span>
+            </div>
+        </div>
+
+        <div class="family-finance-form-note mt-3">
+            <strong>Właściciel</strong> jest technicznym właścicielem rachunku w bazie Domio.
+            <strong>Współwłaściciel</strong> ma dostęp do tego samego salda i może księgować operacje na wspólnym koncie.
+            Nie powstaje drugi rachunek ani kopia salda.
+        </div>
+
+        <div class="family-finance-form-actions">
+            @if (Model.Adults.Count < 2)
+            {
+                <button type="submit" class="btn btn-primary" disabled>
+                    Utwórz wspólne konto
+                </button>
+            }
+            else
+            {
+                <button type="submit" class="btn btn-primary">
+                    Utwórz wspólne konto
+                </button>
+            }
+            <a asp-action="Index"
+               asp-route-familyGroupId="@Model.FamilyGroupId"
+               class="btn btn-outline-secondary">Anuluj</a>
+        </div>
+    </form>
+</div>

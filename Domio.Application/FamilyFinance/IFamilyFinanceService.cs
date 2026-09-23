@@ -54,5 +54,46 @@ public interface IFamilyFinanceService
         Guid actorUserId,
         string correlationId,
         CancellationToken cancellationToken = default);
-}
 
+    Task<FamilyChildIncomeReceiptForm?> GetChildIncomeReceiptFormAsync(
+        Guid familyGroupId,
+        Guid ruleId,
+        int year,
+        int month,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<FamilyChildIncomeReceiptResult> ConfirmChildIncomeReceiptAsync(
+        ConfirmFamilyChildIncomeReceiptRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
+
+
+    Task<CreateFamilySharedAccountForm?> GetCreateSharedAccountFormAsync(
+        Guid familyGroupId,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<Guid> CreateSharedAccountAsync(
+        CreateFamilySharedAccountRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<FamilySharedAccountSummary>> GetSharedAccountsForUserAsync(
+        Guid actorUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<FamilySharedAccountOperationForm?> GetSharedAccountOperationFormAsync(
+        Guid sharedAccountId,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<Guid> PostSharedAccountOperationAsync(
+        PostFamilySharedAccountOperationRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
+
+}

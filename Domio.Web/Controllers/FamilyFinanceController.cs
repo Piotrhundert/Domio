@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using Domio.Application.FamilyFinance;
 using Domio.Domain.FamilyFinance;
+using Domio.Domain.PersonalFinance;
+using Domio.Domain.Users;
 using Domio.Web.Models.FamilyFinance;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -125,6 +127,241 @@ public sealed class FamilyFinanceController(
         {
             return Forbid();
         }
+    }
+
+
+    [HttpGet]
+    [Authorize(Policy = FamilyFinancePermissions.Manage)]
+    public async Task<IActionResult> CreateSharedAccount(
+        Guid familyGroupId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var form = await familyFinanceService
+                .GetCreateSharedAccountFormAsync(
+                    familyGroupId,
+                    GetCurrentUserId(),
+                    cancellationToken);
+
+            if (form is null)
+            {
+                return NotFound();
+            }
+
+            var model = new CreateFamilySharedAccountViewModel
+            {
+                FamilyGroupId = form.FamilyGroupId,
+                FamilyGroupName = form.FamilyGroupName,
+                AccountTypeCode = PersonalAccountTypes.BankAccount
+            };
+
+            RebuildSharedAccountOptions(model, form);
+            return View(model);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Policy = FamilyFinancePermissions.Manage)]
+    public async Task<IActionResult> CreateSharedAccount(
+        CreateFamilySharedAccountViewModel model,
+        CancellationToken cancellationToken = default)
+    {
+        CreateFamilySharedAccountForm? form;
+
+        try
+        {
+            form = await familyFinanceService
+                .GetCreateSharedAccountFormAsync(
+                    model.FamilyGroupId,
+                    GetCurrentUserId(),
+                    cancellationToken);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        if (form is null)
+        {
+            return NotFound();
+        }
+
+        RebuildSharedAccountOptions(model, form);
+
+        if (model.OwnerPersonId != Guid.Empty &&
+            model.OwnerPersonId == model.CoOwnerPersonId)
+        {
+            ModelState.AddModelError(
+                nameof(model.CoOwnerPersonId),
+                "Współwłaściciel musi być inną osobą niż właściciel.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        try
+        {
+            await familyFinanceService.CreateSharedAccountAsync(
+                new CreateFamilySharedAccountRequest(
+                    model.FamilyGroupId,
+                    model.Name,
+                    model.AccountTypeCode,
+                    model.InitialBalance,
+                    model.OwnerPersonId,
+                    model.CoOwnerPersonId),
+                GetCurrentUserId(),
+                HttpContext.TraceIdentifier,
+                cancellationToken);
+
+            TempData["FamilyFinanceMessage"] =
+                "Wspólne konto rodziny zostało utworzone. Właściciel i współwłaściciel zobaczą je również w Finansach osobistych.";
+
+            return RedirectToAction(
+                nameof(Index),
+                new { familyGroupId = model.FamilyGroupId });
+        }
+        catch (ArgumentException exception)
+        {
+            ModelState.AddModelError(string.Empty, exception.Message);
+        }
+        catch (InvalidOperationException exception)
+        {
+            ModelState.AddModelError(string.Empty, exception.Message);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        return View(model);
+    }
+
+    [HttpGet]
+    [Authorize(Policy = SystemPermissions.FinancePersonalViewOwn)]
+    public async Task<IActionResult> SharedAccountOperation(
+        Guid sharedAccountId,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var form = await familyFinanceService
+                .GetSharedAccountOperationFormAsync(
+                    sharedAccountId,
+                    GetCurrentUserId(),
+                    cancellationToken);
+
+            if (form is null)
+            {
+                return NotFound();
+            }
+
+            var model = new FamilySharedAccountOperationViewModel
+            {
+                SharedAccountId = form.SharedAccountId,
+                FamilyGroupId = form.FamilyGroupId,
+                FamilyGroupName = form.FamilyGroupName,
+                AccountName = form.AccountName,
+                CurrencyCode = form.CurrencyCode,
+                Balance = form.Balance,
+                CurrentPersonRoleNamePl = form.CurrentPersonRoleNamePl,
+                KindCode = PersonalTransactionKinds.Expense,
+                CategoryCode = PersonalFinanceCategories.OtherExpense,
+                OccurredAtUtc = DateTime.Today
+            };
+
+            RebuildSharedAccountOperationOptions(model);
+            return View(model);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Policy = SystemPermissions.FinancePersonalManageOwn)]
+    public async Task<IActionResult> SharedAccountOperation(
+        FamilySharedAccountOperationViewModel model,
+        CancellationToken cancellationToken = default)
+    {
+        FamilySharedAccountOperationForm? form;
+
+        try
+        {
+            form = await familyFinanceService
+                .GetSharedAccountOperationFormAsync(
+                    model.SharedAccountId,
+                    GetCurrentUserId(),
+                    cancellationToken);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        if (form is null)
+        {
+            return NotFound();
+        }
+
+        model.FamilyGroupId = form.FamilyGroupId;
+        model.FamilyGroupName = form.FamilyGroupName;
+        model.AccountName = form.AccountName;
+        model.CurrencyCode = form.CurrencyCode;
+        model.Balance = form.Balance;
+        model.CurrentPersonRoleNamePl = form.CurrentPersonRoleNamePl;
+        RebuildSharedAccountOperationOptions(model);
+
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        try
+        {
+            await familyFinanceService.PostSharedAccountOperationAsync(
+                new PostFamilySharedAccountOperationRequest(
+                    model.SharedAccountId,
+                    model.KindCode,
+                    model.Amount,
+                    model.OccurredAtUtc,
+                    model.Description,
+                    model.CategoryCode,
+                    model.Counterparty),
+                GetCurrentUserId(),
+                HttpContext.TraceIdentifier,
+                cancellationToken);
+
+            TempData["PersonalFinanceMessage"] =
+                "Operacja na wspólnym koncie rodziny została zaksięgowana.";
+
+            return RedirectToAction(
+                "Index",
+                "PersonalFinance");
+        }
+        catch (ArgumentException exception)
+        {
+            ModelState.AddModelError(string.Empty, exception.Message);
+        }
+        catch (InvalidOperationException exception)
+        {
+            ModelState.AddModelError(string.Empty, exception.Message);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        return View(model);
     }
 
     [HttpGet]
@@ -530,6 +767,146 @@ public sealed class FamilyFinanceController(
         return RedirectToAction(
             nameof(Index),
             new { familyGroupId, year, month });
+    }
+
+    [HttpGet]
+    [Authorize(Policy = FamilyFinancePermissions.Manage)]
+    public async Task<IActionResult> ConfirmChildIncome(
+        Guid familyGroupId,
+        Guid ruleId,
+        int year,
+        int month,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var form = await familyFinanceService.GetChildIncomeReceiptFormAsync(
+                familyGroupId,
+                ruleId,
+                year,
+                month,
+                GetCurrentUserId(),
+                cancellationToken);
+
+            if (form is null)
+            {
+                return NotFound();
+            }
+
+            return View(BuildConfirmChildIncomeViewModel(form));
+        }
+        catch (InvalidOperationException exception)
+        {
+            TempData["FamilyFinanceError"] = exception.Message;
+            return RedirectToAction(
+                nameof(Index),
+                new { familyGroupId, year, month });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Policy = FamilyFinancePermissions.Manage)]
+    public async Task<IActionResult> ConfirmChildIncome(
+        ConfirmFamilyChildIncomeReceiptViewModel model,
+        CancellationToken cancellationToken = default)
+    {
+        FamilyChildIncomeReceiptForm? form;
+
+        try
+        {
+            form = await familyFinanceService.GetChildIncomeReceiptFormAsync(
+                model.FamilyGroupId,
+                model.RuleId,
+                model.Year,
+                model.Month,
+                GetCurrentUserId(),
+                cancellationToken);
+        }
+        catch (InvalidOperationException exception)
+        {
+            TempData["FamilyFinanceError"] = exception.Message;
+            return RedirectToAction(
+                nameof(Index),
+                new
+                {
+                    familyGroupId = model.FamilyGroupId,
+                    year = model.Year,
+                    month = model.Month
+                });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        if (form is null)
+        {
+            return NotFound();
+        }
+
+        RebuildConfirmChildIncomeViewModel(model, form);
+
+        if (!TryParseIncomeReceiptAccountKey(
+                model.SelectedAccountKey,
+                out var accountType,
+                out var accountId))
+        {
+            ModelState.AddModelError(
+                nameof(model.SelectedAccountKey),
+                "Wybierz poprawne konto dla wpływu.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        try
+        {
+            await familyFinanceService.ConfirmChildIncomeReceiptAsync(
+                new ConfirmFamilyChildIncomeReceiptRequest(
+                    model.FamilyGroupId,
+                    model.RuleId,
+                    model.Year,
+                    model.Month,
+                    accountType!,
+                    accountId,
+                    model.ReceivedAtUtc),
+                GetCurrentUserId(),
+                HttpContext.TraceIdentifier,
+                cancellationToken);
+
+            TempData["FamilyFinanceMessage"] =
+                $"Potwierdzono wpływ {form.RuleName} dla {form.BeneficiaryDisplayName}. Kwota została zaksięgowana na wybranym koncie.";
+
+            return RedirectToAction(
+                nameof(Index),
+                new
+                {
+                    familyGroupId = model.FamilyGroupId,
+                    year = model.Year,
+                    month = model.Month
+                });
+        }
+        catch (ArgumentException exception)
+        {
+            ModelState.AddModelError(string.Empty, exception.Message);
+        }
+        catch (InvalidOperationException exception)
+        {
+            ModelState.AddModelError(string.Empty, exception.Message);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        return View(model);
     }
 
     [HttpGet]
@@ -995,6 +1372,108 @@ public sealed class FamilyFinanceController(
                         x.PersonId.ToString()))
             ]
         };
+    }
+
+
+    private static void RebuildSharedAccountOptions(
+        CreateFamilySharedAccountViewModel model,
+        CreateFamilySharedAccountForm form)
+    {
+        model.FamilyGroupName = form.FamilyGroupName;
+        model.AccountTypes = PersonalAccountTypes.All
+            .Select(x =>
+                new SelectListItem(
+                    x.NamePl,
+                    x.Code))
+            .ToList();
+        model.Adults = form.AdultMembers
+            .Select(x =>
+                new SelectListItem(
+                    x.DisplayName,
+                    x.PersonId.ToString()))
+            .ToList();
+    }
+
+    private static void RebuildSharedAccountOperationOptions(
+        FamilySharedAccountOperationViewModel model)
+    {
+        model.OperationKinds =
+        [
+            new SelectListItem(
+                PersonalTransactionKinds.GetNamePl(
+                    PersonalTransactionKinds.Income),
+                PersonalTransactionKinds.Income),
+            new SelectListItem(
+                PersonalTransactionKinds.GetNamePl(
+                    PersonalTransactionKinds.Expense),
+                PersonalTransactionKinds.Expense)
+        ];
+
+        model.Categories = PersonalFinanceCategories.All
+            .Select(x =>
+                new SelectListItem(
+                    x.NamePl,
+                    x.Code))
+            .ToList();
+    }
+
+    private static ConfirmFamilyChildIncomeReceiptViewModel BuildConfirmChildIncomeViewModel(
+        FamilyChildIncomeReceiptForm form)
+    {
+        var model = new ConfirmFamilyChildIncomeReceiptViewModel
+        {
+            FamilyGroupId = form.FamilyGroupId,
+            RuleId = form.RuleId,
+            Year = form.Year,
+            Month = form.Month,
+            ReceivedAtUtc = DateTime.Today
+        };
+
+        RebuildConfirmChildIncomeViewModel(model, form);
+        return model;
+    }
+
+    private static void RebuildConfirmChildIncomeViewModel(
+        ConfirmFamilyChildIncomeReceiptViewModel model,
+        FamilyChildIncomeReceiptForm form)
+    {
+        model.FamilyGroupName = form.FamilyGroupName;
+        model.BeneficiaryDisplayName = form.BeneficiaryDisplayName;
+        model.RuleName = form.RuleName;
+        model.IncomeKindNamePl = form.IncomeKindNamePl;
+        model.Amount = form.Amount;
+        model.PlannedDateUtc = form.PlannedDateUtc;
+        model.Accounts = form.Accounts
+            .Select(x =>
+                new SelectListItem(
+                    $"{x.AccountTypeNamePl}: {x.AccountName} · saldo {x.Balance:N2} {x.CurrencyCode}",
+                    $"{x.AccountType}|{x.AccountId:D}"))
+            .ToList();
+    }
+
+    private static bool TryParseIncomeReceiptAccountKey(
+        string? value,
+        out string? accountType,
+        out Guid accountId)
+    {
+        accountType = null;
+        accountId = Guid.Empty;
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var parts = value.Split('|', 2, StringSplitOptions.TrimEntries);
+        if (parts.Length != 2 ||
+            !FamilyIncomeReceiptAccountTypes.IsValid(parts[0]) ||
+            !Guid.TryParse(parts[1], out accountId))
+        {
+            return false;
+        }
+
+        accountType = parts[0];
+        return true;
     }
 
     private static PayFamilyExpenseViewModel BuildPayExpenseViewModel(

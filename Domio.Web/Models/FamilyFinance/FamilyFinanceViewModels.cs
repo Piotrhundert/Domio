@@ -197,3 +197,125 @@ public sealed class CreateFamilyChildIncomeViewModel
 
     public List<SelectListItem> Frequencies { get; set; } = [];
 }
+
+public sealed class ConfirmFamilyChildIncomeReceiptViewModel
+{
+    public Guid FamilyGroupId { get; set; }
+
+    public Guid RuleId { get; set; }
+
+    public int Year { get; set; }
+
+    public int Month { get; set; }
+
+    public string FamilyGroupName { get; set; } = string.Empty;
+
+    public string BeneficiaryDisplayName { get; set; } = string.Empty;
+
+    public string RuleName { get; set; } = string.Empty;
+
+    public string IncomeKindNamePl { get; set; } = string.Empty;
+
+    public decimal Amount { get; set; }
+
+    public DateTime PlannedDateUtc { get; set; }
+
+    [Required(ErrorMessage = "Wybierz konto, na które wpłynęły pieniądze.")]
+    [Display(Name = "Wpływ na konto")]
+    public string SelectedAccountKey { get; set; } = string.Empty;
+
+    [DataType(DataType.Date)]
+    [Display(Name = "Data wpływu")]
+    public DateTime ReceivedAtUtc { get; set; } = DateTime.Today;
+
+    public List<SelectListItem> Accounts { get; set; } = [];
+}
+
+public sealed class CreateFamilySharedAccountViewModel
+{
+    public Guid FamilyGroupId { get; set; }
+
+    public string FamilyGroupName { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Podaj nazwę wspólnego konta.")]
+    [MaxLength(120)]
+    [Display(Name = "Nazwa konta")]
+    public string Name { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Wybierz typ konta.")]
+    [Display(Name = "Typ konta")]
+    public string AccountTypeCode { get; set; } = string.Empty;
+
+    [Range(
+        typeof(decimal),
+        "0",
+        "999999999.99",
+        ParseLimitsInInvariantCulture = true,
+        ConvertValueInInvariantCulture = true,
+        ErrorMessage = "Saldo początkowe nie może być ujemne.")]
+    [Display(Name = "Saldo początkowe")]
+    public decimal InitialBalance { get; set; }
+
+    [Required(ErrorMessage = "Wybierz właściciela.")]
+    [Display(Name = "Właściciel")]
+    public Guid OwnerPersonId { get; set; }
+
+    [Required(ErrorMessage = "Wybierz współwłaściciela.")]
+    [Display(Name = "Współwłaściciel")]
+    public Guid CoOwnerPersonId { get; set; }
+
+    public List<SelectListItem> AccountTypes { get; set; } = [];
+
+    public List<SelectListItem> Adults { get; set; } = [];
+}
+
+public sealed class FamilySharedAccountOperationViewModel
+{
+    public Guid SharedAccountId { get; set; }
+
+    public Guid FamilyGroupId { get; set; }
+
+    public string FamilyGroupName { get; set; } = string.Empty;
+
+    public string AccountName { get; set; } = string.Empty;
+
+    public string CurrencyCode { get; set; } = "PLN";
+
+    public decimal Balance { get; set; }
+
+    public string CurrentPersonRoleNamePl { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Wybierz rodzaj operacji.")]
+    [Display(Name = "Rodzaj operacji")]
+    public string KindCode { get; set; } = string.Empty;
+
+    [Range(
+        typeof(decimal),
+        "0.01",
+        "999999999.99",
+        ParseLimitsInInvariantCulture = true,
+        ConvertValueInInvariantCulture = true,
+        ErrorMessage = "Kwota musi być większa od zera.")]
+    [Display(Name = "Kwota")]
+    public decimal Amount { get; set; }
+
+    [DataType(DataType.Date)]
+    [Display(Name = "Data operacji")]
+    public DateTime OccurredAtUtc { get; set; } = DateTime.Today;
+
+    [Display(Name = "Kategoria")]
+    public string CategoryCode { get; set; } = string.Empty;
+
+    [MaxLength(200)]
+    [Display(Name = "Kontrahent / płatnik")]
+    public string? Counterparty { get; set; }
+
+    [MaxLength(500)]
+    [Display(Name = "Opis")]
+    public string? Description { get; set; }
+
+    public List<SelectListItem> OperationKinds { get; set; } = [];
+
+    public List<SelectListItem> Categories { get; set; } = [];
+}
+

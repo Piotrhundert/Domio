@@ -3,7 +3,9 @@ using System.Data.Common;
 using Domio.Application.Auditing;
 using Domio.Application.FamilyFinance;
 using Domio.Domain.FamilyFinance;
+using Domio.Domain.HouseholdFinance;
 using Domio.Domain.PersonalFinance;
+using Domio.Domain.Users;
 using Domio.Infrastructure.Authorization;
 using Domio.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -130,6 +132,47 @@ public sealed class FamilyFinanceService(
                 .Distinct()
                 .ToArray();
 
+        var childIncomeRows =
+            await GetChildIncomeRuleRowsAsync(
+                selectedGroup.FamilyGroupId,
+                cancellationToken);
+
+        var sharedAccountRows =
+            await GetSharedAccountRowsForGroupAsync(
+                selectedGroup.FamilyGroupId,
+                cancellationToken);
+
+        var sharedPersonalAccountIds =
+            sharedAccountRows
+                .Select(x => x.PersonalAccountId)
+                .Distinct()
+                .ToArray();
+
+        var selectedPeriodKey =
+            $"{year:D4}-{month:D2}";
+
+        var childReceiptsForPeriod =
+            await GetChildIncomeReceiptRowsByPeriodAsync(
+                selectedGroup.FamilyGroupId,
+                selectedPeriodKey,
+                cancellationToken);
+
+        var childReceiptsReceivedInMonth =
+            await GetChildIncomeReceiptRowsByReceivedRangeAsync(
+                selectedGroup.FamilyGroupId,
+                monthStart,
+                monthEnd,
+                cancellationToken);
+
+        var personalChildReceiptSourceIds =
+            childReceiptsReceivedInMonth
+                .Where(x =>
+                    x.SourceType ==
+                        FamilyBudgetSourceTypes.PersonalTransaction)
+                .Select(x => x.SourceId)
+                .Distinct()
+                .ToArray();
+
         var plannedIncome =
             plannedPersonIds.Length == 0
                 ? new Dictionary<Guid, long>()
@@ -158,11 +201,15 @@ public sealed class FamilyFinanceService(
                     .AsNoTracking()
                     .Where(x =>
                         actualPersonIds.Contains(x.OwnerPersonId) &&
+                        !sharedPersonalAccountIds.Contains(x.AccountId) &&
                         x.OccurredAtUtc >= monthStart &&
                         x.OccurredAtUtc < monthEnd &&
-                        (x.KindCode == PersonalTransactionKinds.Income ||
+                        ((x.KindCode == PersonalTransactionKinds.Income &&
+                          !personalChildReceiptSourceIds.Contains(x.Id)) ||
                          (x.KindCode == PersonalTransactionKinds.Correction &&
                           x.CorrectsTransactionId.HasValue &&
+                          !personalChildReceiptSourceIds.Contains(
+                              x.CorrectsTransactionId.Value) &&
                           dbContext.PersonalFinancialTransactions.Any(source =>
                               source.Id == x.CorrectsTransactionId.Value &&
                               source.OwnerPersonId == x.OwnerPersonId &&
@@ -178,11 +225,6 @@ public sealed class FamilyFinanceService(
                         x => x.AmountMinor,
                         cancellationToken);
 
-        var childIncomeRows =
-            await GetChildIncomeRuleRowsAsync(
-                selectedGroup.FamilyGroupId,
-                cancellationToken);
-
         var childPlannedIncome =
             childIncomeRows
                 .Where(x => AppliesInMonth(x, monthStart))
@@ -191,17 +233,48 @@ public sealed class FamilyFinanceService(
                     x => x.Key,
                     x => x.Sum(y => y.PlannedAmountMinor));
 
+        var childActualIncome =
+            childReceiptsReceivedInMonth
+                .GroupBy(x => x.BeneficiaryPersonId)
+                .ToDictionary(
+                    x => x.Key,
+                    x => x.Sum(y => y.AmountMinor));
+
+        var receiptsByRule =
+            childReceiptsForPeriod
+                .GroupBy(x => x.RuleId)
+                .ToDictionary(
+                    x => x.Key,
+                    x => x.Single());
+
         var memberNames =
             members.ToDictionary(
                 x => x.PersonId,
                 x => x.DisplayName);
+
+        var currentMonthStart =
+            new DateTime(
+                DateTime.UtcNow.Year,
+                DateTime.UtcNow.Month,
+                1,
+                0,
+                0,
+                0,
+                DateTimeKind.Utc);
 
         var childIncomeRules =
             childIncomeRows
                 .OrderByDescending(x => x.IsActive)
                 .ThenBy(x => x.Name)
                 .Select(x =>
-                    new FamilyChildIncomeRuleSummary(
+                {
+                    var applies = AppliesInMonth(x, monthStart);
+                    receiptsByRule.TryGetValue(x.Id, out var receipt);
+                    var plannedDate = applies
+                        ? BuildPlannedDate(year, month, x.DueDay)
+                        : (DateTime?)null;
+
+                    return new FamilyChildIncomeRuleSummary(
                         x.Id,
                         x.BeneficiaryPersonId,
                         memberNames.GetValueOrDefault(
@@ -220,7 +293,19 @@ public sealed class FamilyFinanceService(
                         x.ActiveFromUtc,
                         x.ActiveToUtc,
                         x.IsActive,
-                        AppliesInMonth(x, monthStart)))
+                        applies,
+                        selectedPeriodKey,
+                        plannedDate,
+                        receipt is not null,
+                        receipt is null
+                            ? null
+                            : FamilyFinanceMoney.FromMinorUnits(
+                                receipt.AmountMinor),
+                        receipt?.ReceivedAtUtc,
+                        applies &&
+                            receipt is null &&
+                            monthStart <= currentMonthStart);
+                })
                 .ToArray();
 
         var memberSummaries =
@@ -248,7 +333,9 @@ public sealed class FamilyFinanceService(
                                         member.PersonId))
                                 : null,
                         member.FamilyRoleCode == FamilyRoles.Child
-                            ? null
+                            ? FamilyFinanceMoney.FromMinorUnits(
+                                childActualIncome.GetValueOrDefault(
+                                    member.PersonId))
                             : member.ShareActualIncome
                                 ? FamilyFinanceMoney.FromMinorUnits(
                                     actualIncome.GetValueOrDefault(
@@ -279,6 +366,12 @@ public sealed class FamilyFinanceService(
                         ownMember.ValidFromUtc);
         }
 
+        var sharedAccounts =
+            await BuildSharedAccountSummariesAsync(
+                sharedAccountRows,
+                actor.PersonId,
+                cancellationToken);
+
         return new FamilyFinanceOverview(
             actor.HouseholdId,
             actor.HouseholdName,
@@ -297,7 +390,10 @@ public sealed class FamilyFinanceService(
                 .Where(x => x.ActualIncome.HasValue)
                 .Sum(x => x.ActualIncome!.Value),
             childIncomeRules,
-            ownSharing);
+            ownSharing)
+        {
+            SharedAccounts = sharedAccounts
+        };
     }
 
     public async Task<Guid> CreateGroupAsync(
@@ -1141,6 +1237,1015 @@ public sealed class FamilyFinanceService(
         await transaction.CommitAsync(cancellationToken);
     }
 
+    public async Task<FamilyChildIncomeReceiptForm?> GetChildIncomeReceiptFormAsync(
+        Guid familyGroupId,
+        Guid ruleId,
+        int year,
+        int month,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default)
+    {
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            FamilyFinancePermissions.Manage,
+            cancellationToken);
+
+        ValidatePeriod(year, month);
+
+        var actor = await GetActorContextAsync(
+            actorUserId,
+            cancellationToken);
+
+        if (actor.HouseholdId is null)
+        {
+            throw new InvalidOperationException(
+                "Brak aktywnego gospodarstwa.");
+        }
+
+        var familyGroup = await EnsureActiveMembershipAsync(
+            familyGroupId,
+            actor.HouseholdId.Value,
+            actor.PersonId,
+            cancellationToken);
+
+        var rule = await GetChildIncomeRuleByIdAsync(
+            ruleId,
+            cancellationToken);
+
+        if (rule is null || rule.FamilyGroupId != familyGroupId)
+        {
+            return null;
+        }
+
+        var monthStart = new DateTime(
+            year,
+            month,
+            1,
+            0,
+            0,
+            0,
+            DateTimeKind.Utc);
+
+        if (!AppliesInMonth(rule, monthStart))
+        {
+            throw new InvalidOperationException(
+                "Ten przychód nie przypada w wybranym miesiącu.");
+        }
+
+        var currentMonthStart = new DateTime(
+            DateTime.UtcNow.Year,
+            DateTime.UtcNow.Month,
+            1,
+            0,
+            0,
+            0,
+            DateTimeKind.Utc);
+
+        if (monthStart > currentMonthStart)
+        {
+            throw new InvalidOperationException(
+                "Nie można potwierdzić wpływu dla przyszłego miesiąca.");
+        }
+
+        var periodKey = $"{year:D4}-{month:D2}";
+        var existingReceipt = await GetChildIncomeReceiptByRulePeriodAsync(
+            ruleId,
+            periodKey,
+            cancellationToken);
+
+        if (existingReceipt is not null)
+        {
+            throw new InvalidOperationException(
+                "Wpływ tego przychodu w wybranym miesiącu został już potwierdzony.");
+        }
+
+        var child = (await GetActiveMembersAsync(
+                familyGroupId,
+                cancellationToken))
+            .SingleOrDefault(x =>
+                x.PersonId == rule.BeneficiaryPersonId &&
+                x.FamilyRoleCode == FamilyRoles.Child)
+            ?? throw new InvalidOperationException(
+                "Dziecko przypisane do tego przychodu nie jest już aktywnym członkiem rodziny.");
+
+        var accounts = new List<FamilyIncomeReceiptAccount>();
+
+        var canUsePersonalAccount = await PermissionEnforcement.HasUserAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinancePersonalManageOwn,
+            cancellationToken);
+
+        if (canUsePersonalAccount)
+        {
+            var allSharedRows = await GetSharedAccountRowsForPersonAsync(
+                actor.PersonId,
+                cancellationToken);
+
+            var sharedPersonalAccountIds = allSharedRows
+                .Select(x => x.PersonalAccountId)
+                .Distinct()
+                .ToArray();
+
+            var personalAccounts = await dbContext.PersonalFinancialAccounts
+                .AsNoTracking()
+                .Where(x =>
+                    x.OwnerPersonId == actor.PersonId &&
+                    x.IsActive &&
+                    x.CurrencyCode == "PLN" &&
+                    !sharedPersonalAccountIds.Contains(x.Id))
+                .OrderBy(x => x.Name)
+                .ToArrayAsync(cancellationToken);
+
+            var accountIds = personalAccounts.Select(x => x.Id).ToArray();
+            var balances = accountIds.Length == 0
+                ? new Dictionary<Guid, long>()
+                : await dbContext.PersonalFinancialTransactions
+                    .AsNoTracking()
+                    .Where(x =>
+                        x.OwnerPersonId == actor.PersonId &&
+                        accountIds.Contains(x.AccountId))
+                    .GroupBy(x => x.AccountId)
+                    .Select(x => new
+                    {
+                        AccountId = x.Key,
+                        BalanceMinor = x.Sum(y => y.AmountMinor)
+                    })
+                    .ToDictionaryAsync(
+                        x => x.AccountId,
+                        x => x.BalanceMinor,
+                        cancellationToken);
+
+            accounts.AddRange(
+                personalAccounts.Select(account =>
+                    new FamilyIncomeReceiptAccount(
+                        FamilyIncomeReceiptAccountTypes.PersonalAccount,
+                        FamilyIncomeReceiptAccountTypes.GetNamePl(
+                            FamilyIncomeReceiptAccountTypes.PersonalAccount),
+                        account.Id,
+                        account.Name,
+                        account.CurrencyCode,
+                        FamilyFinanceMoney.FromMinorUnits(
+                            balances.GetValueOrDefault(account.Id)))));
+
+            var sharedRows = allSharedRows
+                .Where(x => x.FamilyGroupId == familyGroupId)
+                .ToArray();
+
+            var sharedAccounts = await BuildSharedAccountSummariesAsync(
+                sharedRows,
+                actor.PersonId,
+                cancellationToken);
+
+            accounts.AddRange(
+                sharedAccounts
+                    .Where(x => x.IsActive && x.CurrencyCode == "PLN")
+                    .Select(account =>
+                        new FamilyIncomeReceiptAccount(
+                            FamilyIncomeReceiptAccountTypes.FamilySharedAccount,
+                            FamilyIncomeReceiptAccountTypes.GetNamePl(
+                                FamilyIncomeReceiptAccountTypes.FamilySharedAccount),
+                            account.AccountId,
+                            $"{account.AccountName} ({account.OwnerDisplayName} + {account.CoOwnerDisplayName})",
+                            account.CurrencyCode,
+                            account.Balance)));
+        }
+
+        var canManageHousehold = await PermissionEnforcement.HasUserAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinanceHouseholdManage,
+            cancellationToken);
+
+        // Konto domu pobieramy po gospodarstwie grupy, nie po identyfikatorze rodziny.
+        if (canManageHousehold)
+        {
+            var householdAccounts = await dbContext.HouseholdAccounts
+                .AsNoTracking()
+                .Where(x =>
+                    x.HouseholdId == actor.HouseholdId.Value &&
+                    x.IsActive &&
+                    x.CurrencyCode == "PLN")
+                .OrderBy(x => x.Name)
+                .ToArrayAsync(cancellationToken);
+
+            var accountIds = householdAccounts.Select(x => x.Id).ToArray();
+            var balances = accountIds.Length == 0
+                ? new Dictionary<Guid, long>()
+                : await dbContext.HouseholdEntries
+                    .AsNoTracking()
+                    .Where(x =>
+                        x.HouseholdId == actor.HouseholdId.Value &&
+                        accountIds.Contains(x.AccountId))
+                    .GroupBy(x => x.AccountId)
+                    .Select(x => new
+                    {
+                        AccountId = x.Key,
+                        BalanceMinor = x.Sum(y => y.AmountMinor)
+                    })
+                    .ToDictionaryAsync(
+                        x => x.AccountId,
+                        x => x.BalanceMinor,
+                        cancellationToken);
+
+            accounts.AddRange(
+                householdAccounts.Select(account =>
+                    new FamilyIncomeReceiptAccount(
+                        FamilyIncomeReceiptAccountTypes.HouseholdAccount,
+                        FamilyIncomeReceiptAccountTypes.GetNamePl(
+                            FamilyIncomeReceiptAccountTypes.HouseholdAccount),
+                        account.Id,
+                        account.Name,
+                        account.CurrencyCode,
+                        FamilyFinanceMoney.FromMinorUnits(
+                            balances.GetValueOrDefault(account.Id)))));
+        }
+
+        return new FamilyChildIncomeReceiptForm(
+            familyGroupId,
+            familyGroup.Name,
+            rule.Id,
+            rule.Name,
+            FamilyIncomeKinds.GetNamePl(rule.IncomeKindCode),
+            rule.BeneficiaryPersonId,
+            child.DisplayName,
+            year,
+            month,
+            periodKey,
+            FamilyFinanceMoney.FromMinorUnits(rule.PlannedAmountMinor),
+            BuildPlannedDate(year, month, rule.DueDay),
+            accounts);
+    }
+
+    public async Task<FamilyChildIncomeReceiptResult> ConfirmChildIncomeReceiptAsync(
+        ConfirmFamilyChildIncomeReceiptRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            FamilyFinancePermissions.Manage,
+            cancellationToken);
+
+        ValidatePeriod(request.Year, request.Month);
+
+        if (!FamilyIncomeReceiptAccountTypes.IsValid(request.AccountType))
+        {
+            throw new ArgumentException(
+                "Wybierz poprawny rodzaj konta dla wpływu.");
+        }
+
+        var actor = await GetActorContextAsync(
+            actorUserId,
+            cancellationToken);
+
+        if (actor.HouseholdId is null)
+        {
+            throw new InvalidOperationException(
+                "Brak aktywnego gospodarstwa.");
+        }
+
+        await EnsureActiveMembershipAsync(
+            request.FamilyGroupId,
+            actor.HouseholdId.Value,
+            actor.PersonId,
+            cancellationToken);
+
+        var rule = await GetChildIncomeRuleByIdAsync(
+            request.RuleId,
+            cancellationToken)
+            ?? throw new InvalidOperationException(
+                "Nie znaleziono przychodu dziecka.");
+
+        if (rule.FamilyGroupId != request.FamilyGroupId)
+        {
+            throw new UnauthorizedAccessException(
+                "Ten przychód należy do innej rodziny.");
+        }
+
+        var monthStart = new DateTime(
+            request.Year,
+            request.Month,
+            1,
+            0,
+            0,
+            0,
+            DateTimeKind.Utc);
+
+        if (!AppliesInMonth(rule, monthStart))
+        {
+            throw new InvalidOperationException(
+                "Ten przychód nie przypada w wybranym miesiącu.");
+        }
+
+        var periodKey = $"{request.Year:D4}-{request.Month:D2}";
+
+        if (await GetChildIncomeReceiptByRulePeriodAsync(
+                rule.Id,
+                periodKey,
+                cancellationToken) is not null)
+        {
+            throw new InvalidOperationException(
+                "Wpływ tego przychodu w wybranym miesiącu został już potwierdzony.");
+        }
+
+        var receivedAtUtc = request.ReceivedAtUtc == default
+            ? DateTime.UtcNow
+            : NormalizeUtcDate(request.ReceivedAtUtc);
+
+        if (receivedAtUtc.Date > DateTime.UtcNow.Date)
+        {
+            throw new ArgumentException(
+                "Data wpływu nie może być późniejsza niż dzisiaj.");
+        }
+
+        if (receivedAtUtc.Date < monthStart.Date)
+        {
+            throw new ArgumentException(
+                "Data wpływu nie może być wcześniejsza niż miesiąc, którego dotyczy potwierdzany przychód.");
+        }
+
+        var now = DateTime.UtcNow;
+        var receiptId = Guid.NewGuid();
+        var sourceId = Guid.NewGuid();
+        string sourceType;
+        Guid? receivedIntoPersonId;
+
+        await using var dbTransaction = await dbContext.Database.BeginTransactionAsync(
+            cancellationToken);
+
+        if (request.AccountType == FamilyIncomeReceiptAccountTypes.PersonalAccount)
+        {
+            await PermissionEnforcement.EnsureUserHasAsync(
+                dbContext,
+                actorUserId,
+                SystemPermissions.FinancePersonalManageOwn,
+                cancellationToken);
+
+            var account = await dbContext.PersonalFinancialAccounts
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id == request.AccountId &&
+                        x.OwnerPersonId == actor.PersonId &&
+                        x.IsActive &&
+                        x.CurrencyCode == "PLN",
+                    cancellationToken)
+                ?? throw new UnauthorizedAccessException(
+                    "Wybrane konto osobiste nie istnieje, jest nieaktywne albo nie należy do zalogowanego użytkownika.");
+
+            dbContext.PersonalFinancialTransactions.Add(
+                new PersonalFinancialTransaction
+                {
+                    Id = sourceId,
+                    AccountId = account.Id,
+                    OwnerPersonId = actor.PersonId,
+                    KindCode = PersonalTransactionKinds.Income,
+                    AmountMinor = rule.PlannedAmountMinor,
+                    OccurredAtUtc = receivedAtUtc,
+                    CategoryCode = PersonalFinanceCategories.OtherIncome,
+                    Counterparty = "Świadczenie rodzinne",
+                    Description = $"{rule.Name} — {periodKey}",
+                    CreatedByUserId = actorUserId,
+                    CreatedAtUtc = now
+                });
+
+            account.UpdatedAtUtc = now;
+            sourceType = FamilyBudgetSourceTypes.PersonalTransaction;
+            receivedIntoPersonId = actor.PersonId;
+        }
+        else if (request.AccountType == FamilyIncomeReceiptAccountTypes.FamilySharedAccount)
+        {
+            await PermissionEnforcement.EnsureUserHasAsync(
+                dbContext,
+                actorUserId,
+                SystemPermissions.FinancePersonalManageOwn,
+                cancellationToken);
+
+            var sharedRow = (await GetSharedAccountRowsForPersonAsync(
+                    actor.PersonId,
+                    cancellationToken))
+                .SingleOrDefault(x =>
+                    x.FamilyGroupId == request.FamilyGroupId &&
+                    x.PersonalAccountId == request.AccountId)
+                ?? throw new UnauthorizedAccessException(
+                    "Wybrane wspólne konto nie należy do tej rodziny albo nie jesteś jego właścicielem lub współwłaścicielem.");
+
+            var account = await dbContext.PersonalFinancialAccounts
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id == sharedRow.PersonalAccountId &&
+                        x.IsActive &&
+                        x.CurrencyCode == "PLN",
+                    cancellationToken)
+                ?? throw new InvalidOperationException(
+                    "Wybrane wspólne konto rodziny jest nieaktywne.");
+
+            dbContext.PersonalFinancialTransactions.Add(
+                new PersonalFinancialTransaction
+                {
+                    Id = sourceId,
+                    AccountId = account.Id,
+                    OwnerPersonId = sharedRow.OwnerPersonId,
+                    KindCode = PersonalTransactionKinds.Income,
+                    AmountMinor = rule.PlannedAmountMinor,
+                    OccurredAtUtc = receivedAtUtc,
+                    CategoryCode = PersonalFinanceCategories.OtherIncome,
+                    Counterparty = "Świadczenie rodzinne",
+                    Description = $"{rule.Name} — {periodKey}",
+                    CreatedByUserId = actorUserId,
+                    CreatedAtUtc = now
+                });
+
+            account.UpdatedAtUtc = now;
+            sourceType = FamilyBudgetSourceTypes.PersonalTransaction;
+            receivedIntoPersonId = null;
+        }
+        else
+        {
+            await PermissionEnforcement.EnsureUserHasAsync(
+                dbContext,
+                actorUserId,
+                SystemPermissions.FinanceHouseholdManage,
+                cancellationToken);
+
+            var account = await dbContext.HouseholdAccounts
+                .SingleOrDefaultAsync(
+                    x =>
+                        x.Id == request.AccountId &&
+                        x.HouseholdId == actor.HouseholdId.Value &&
+                        x.IsActive &&
+                        x.CurrencyCode == "PLN",
+                    cancellationToken)
+                ?? throw new UnauthorizedAccessException(
+                    "Wybrane konto domowe nie istnieje albo jest nieaktywne.");
+
+            dbContext.HouseholdEntries.Add(
+                new HouseholdEntry
+                {
+                    Id = sourceId,
+                    HouseholdId = actor.HouseholdId.Value,
+                    AccountId = account.Id,
+                    EntryTypeCode = HouseholdEntryTypes.Income,
+                    AmountMinor = rule.PlannedAmountMinor,
+                    OccurredAtUtc = receivedAtUtc,
+                    CategoryCode = HouseholdFinanceCategories.HouseholdIncome,
+                    Description = $"{rule.Name} — {periodKey}",
+                    SourceType = "FamilyChildIncomeReceipt",
+                    SourceId = receiptId.ToString(),
+                    CreatedByUserId = actorUserId,
+                    CreatedAtUtc = now
+                });
+
+            account.UpdatedAtUtc = now;
+            sourceType = FamilyBudgetSourceTypes.HouseholdEntry;
+            receivedIntoPersonId = null;
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var inserted = await ExecuteAsync(
+            """
+            INSERT INTO FamilyIncomeReceipts
+                (Id, FamilyGroupId, RuleId, PeriodKey, BeneficiaryPersonId,
+                 SourceType, SourceId, ReceivedIntoAccountId, ReceivedIntoPersonId,
+                 AmountMinor, ReceivedByUserId, ReceivedAtUtc, CreatedAtUtc)
+            VALUES
+                ($id, $groupId, $ruleId, $periodKey, $beneficiaryPersonId,
+                 $sourceType, $sourceId, $accountId, $personId,
+                 $amountMinor, $actorUserId, $receivedAtUtc, $now);
+            """,
+            [
+                P("$id", receiptId),
+                P("$groupId", request.FamilyGroupId),
+                P("$ruleId", rule.Id),
+                P("$periodKey", periodKey),
+                P("$beneficiaryPersonId", rule.BeneficiaryPersonId),
+                P("$sourceType", sourceType),
+                P("$sourceId", sourceId),
+                P("$accountId", request.AccountId),
+                P("$personId", receivedIntoPersonId),
+                P("$amountMinor", rule.PlannedAmountMinor),
+                P("$actorUserId", actorUserId),
+                P("$receivedAtUtc", receivedAtUtc),
+                P("$now", now)
+            ],
+            cancellationToken);
+
+        if (inserted != 1)
+        {
+            throw new InvalidOperationException(
+                "Nie udało się zapisać potwierdzenia wpływu.");
+        }
+
+        await auditService.WriteAsync(
+            new AuditEntry(
+                EventType: "M04.8.5.ChildIncomeReceiptConfirmed",
+                EntityType: "FamilyIncomeReceipt",
+                EntityId: receiptId.ToString(),
+                ActorId: actorUserId.ToString(),
+                CorrelationId: correlationId,
+                Description:
+                    "Potwierdzono rzeczywisty wpływ przychodu przypisanego do dziecka i zaksięgowano go na wybranym koncie. Kwota i nazwa konta nie są zapisywane w audycie."),
+            cancellationToken);
+
+        await dbTransaction.CommitAsync(cancellationToken);
+
+        return new FamilyChildIncomeReceiptResult(
+            receiptId,
+            sourceType,
+            sourceId);
+    }
+
+
+    public async Task<CreateFamilySharedAccountForm?> GetCreateSharedAccountFormAsync(
+        Guid familyGroupId,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default)
+    {
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            FamilyFinancePermissions.Manage,
+            cancellationToken);
+
+        var actor = await GetActorContextAsync(
+            actorUserId,
+            cancellationToken);
+
+        if (actor.HouseholdId is null)
+        {
+            throw new InvalidOperationException(
+                "Brak aktywnego gospodarstwa.");
+        }
+
+        var familyGroup = await EnsureActiveMembershipAsync(
+            familyGroupId,
+            actor.HouseholdId.Value,
+            actor.PersonId,
+            cancellationToken);
+
+        var members = await GetActiveMembersAsync(
+            familyGroupId,
+            cancellationToken);
+
+        var adultPersonIds = members
+            .Where(x => x.FamilyRoleCode == FamilyRoles.Adult)
+            .Select(x => x.PersonId)
+            .Distinct()
+            .ToArray();
+
+        var userPersonIds = adultPersonIds.Length == 0
+            ? Array.Empty<Guid>()
+            : await dbContext.UserAccounts
+                .AsNoTracking()
+                .Where(x =>
+                    x.IsActive &&
+                    adultPersonIds.Contains(x.PersonId))
+                .Select(x => x.PersonId)
+                .Distinct()
+                .ToArrayAsync(cancellationToken);
+
+        var eligible = userPersonIds.ToHashSet();
+
+        var adults = members
+            .Where(x =>
+                x.FamilyRoleCode == FamilyRoles.Adult &&
+                eligible.Contains(x.PersonId))
+            .OrderBy(x => x.DisplayName)
+            .Select(x =>
+                new FamilySharedAccountPersonOption(
+                    x.PersonId,
+                    x.DisplayName))
+            .ToArray();
+
+        return new CreateFamilySharedAccountForm(
+            familyGroup.Id,
+            familyGroup.Name,
+            adults);
+    }
+
+    public async Task<Guid> CreateSharedAccountAsync(
+        CreateFamilySharedAccountRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            FamilyFinancePermissions.Manage,
+            cancellationToken);
+
+        var actor = await GetActorContextAsync(
+            actorUserId,
+            cancellationToken);
+
+        if (actor.HouseholdId is null)
+        {
+            throw new InvalidOperationException(
+                "Brak aktywnego gospodarstwa.");
+        }
+
+        await EnsureActiveMembershipAsync(
+            request.FamilyGroupId,
+            actor.HouseholdId.Value,
+            actor.PersonId,
+            cancellationToken);
+
+        var name = NormalizeRequiredText(
+            request.Name,
+            "Nazwa wspólnego konta",
+            120);
+
+        if (!PersonalAccountTypes.IsValid(request.AccountTypeCode))
+        {
+            throw new ArgumentException(
+                "Wybrano nieprawidłowy typ konta.");
+        }
+
+        if (request.InitialBalance < 0m)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(request.InitialBalance),
+                "Saldo początkowe nie może być ujemne.");
+        }
+
+        var initialBalanceMinor =
+            PersonalFinanceMoney.ToMinorUnits(
+                request.InitialBalance);
+
+        if (request.OwnerPersonId == request.CoOwnerPersonId)
+        {
+            throw new ArgumentException(
+                "Właściciel i współwłaściciel muszą być dwiema różnymi osobami.");
+        }
+
+        var members = await GetActiveMembersAsync(
+            request.FamilyGroupId,
+            cancellationToken);
+
+        var adultIds = members
+            .Where(x => x.FamilyRoleCode == FamilyRoles.Adult)
+            .Select(x => x.PersonId)
+            .ToHashSet();
+
+        if (!adultIds.Contains(request.OwnerPersonId) ||
+            !adultIds.Contains(request.CoOwnerPersonId))
+        {
+            throw new ArgumentException(
+                "Właściciel i współwłaściciel muszą być aktywnymi dorosłymi członkami tej rodziny.");
+        }
+
+        var activeUserPersonIds = await dbContext.UserAccounts
+            .AsNoTracking()
+            .Where(x =>
+                x.IsActive &&
+                (x.PersonId == request.OwnerPersonId ||
+                 x.PersonId == request.CoOwnerPersonId))
+            .Select(x => x.PersonId)
+            .Distinct()
+            .ToArrayAsync(cancellationToken);
+
+        if (activeUserPersonIds.Length != 2)
+        {
+            throw new InvalidOperationException(
+                "Właściciel i współwłaściciel muszą mieć aktywne konta użytkownika Domio.");
+        }
+
+        var existingSharedAccounts =
+            await BuildSharedAccountSummariesForGroupAsync(
+                request.FamilyGroupId,
+                actor.PersonId,
+                cancellationToken);
+
+        if (existingSharedAccounts.Any(x =>
+                x.IsActive &&
+                string.Equals(
+                    x.AccountName,
+                    name,
+                    StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidOperationException(
+                "W tej rodzinie istnieje już aktywne wspólne konto o takiej nazwie.");
+        }
+
+        var now = DateTime.UtcNow;
+        var sharedAccountId = Guid.NewGuid();
+        var account = new PersonalFinancialAccount
+        {
+            Id = Guid.NewGuid(),
+            OwnerPersonId = request.OwnerPersonId,
+            Name = name,
+            AccountTypeCode = request.AccountTypeCode,
+            CurrencyCode = "PLN",
+            IsActive = true,
+            CreatedAtUtc = now,
+            UpdatedAtUtc = now
+        };
+
+        await using var dbTransaction =
+            await dbContext.Database.BeginTransactionAsync(
+                cancellationToken);
+
+        dbContext.PersonalFinancialAccounts.Add(account);
+
+        if (initialBalanceMinor > 0)
+        {
+            dbContext.PersonalFinancialTransactions.Add(
+                new PersonalFinancialTransaction
+                {
+                    Id = Guid.NewGuid(),
+                    AccountId = account.Id,
+                    OwnerPersonId = request.OwnerPersonId,
+                    KindCode = PersonalTransactionKinds.OpeningBalance,
+                    AmountMinor = initialBalanceMinor,
+                    OccurredAtUtc = now,
+                    Description = "Saldo początkowe wspólnego konta rodziny",
+                    CreatedByUserId = actorUserId,
+                    CreatedAtUtc = now
+                });
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var inserted = await ExecuteAsync(
+            """
+            INSERT INTO FamilySharedAccounts
+                (Id, FamilyGroupId, PersonalAccountId, OwnerPersonId,
+                 CoOwnerPersonId, CreatedByUserId, CreatedAtUtc, ClosedAtUtc)
+            VALUES
+                ($id, $groupId, $accountId, $ownerPersonId,
+                 $coOwnerPersonId, $actorUserId, $createdAtUtc, NULL);
+            """,
+            [
+                P("$id", sharedAccountId),
+                P("$groupId", request.FamilyGroupId),
+                P("$accountId", account.Id),
+                P("$ownerPersonId", request.OwnerPersonId),
+                P("$coOwnerPersonId", request.CoOwnerPersonId),
+                P("$actorUserId", actorUserId),
+                P("$createdAtUtc", now)
+            ],
+            cancellationToken);
+
+        if (inserted != 1)
+        {
+            throw new InvalidOperationException(
+                "Nie udało się utworzyć wspólnego konta rodziny.");
+        }
+
+        await auditService.WriteAsync(
+            new AuditEntry(
+                EventType: "M04.8.6.FamilySharedAccountCreated",
+                EntityType: "FamilySharedAccount",
+                EntityId: sharedAccountId.ToString(),
+                ActorId: actorUserId.ToString(),
+                CorrelationId: correlationId,
+                Description:
+                    "Utworzono wspólne konto rodziny z właścicielem i współwłaścicielem. Kwota początkowa i nazwa konta nie są zapisywane w audycie."),
+            cancellationToken);
+
+        await dbTransaction.CommitAsync(cancellationToken);
+
+        return sharedAccountId;
+    }
+
+    public async Task<IReadOnlyList<FamilySharedAccountSummary>> GetSharedAccountsForUserAsync(
+        Guid actorUserId,
+        CancellationToken cancellationToken = default)
+    {
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinancePersonalViewOwn,
+            cancellationToken);
+
+        var actor = await GetActorContextAsync(
+            actorUserId,
+            cancellationToken);
+
+        var rows = await GetSharedAccountRowsForPersonAsync(
+            actor.PersonId,
+            cancellationToken);
+
+        return await BuildSharedAccountSummariesAsync(
+            rows,
+            actor.PersonId,
+            cancellationToken);
+    }
+
+    public async Task<FamilySharedAccountOperationForm?> GetSharedAccountOperationFormAsync(
+        Guid sharedAccountId,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default)
+    {
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinancePersonalViewOwn,
+            cancellationToken);
+
+        var actor = await GetActorContextAsync(
+            actorUserId,
+            cancellationToken);
+
+        var row = await GetSharedAccountRowForPersonAsync(
+            sharedAccountId,
+            actor.PersonId,
+            cancellationToken);
+
+        if (row is null)
+        {
+            return null;
+        }
+
+        var account = await dbContext.PersonalFinancialAccounts
+            .AsNoTracking()
+            .SingleOrDefaultAsync(
+                x =>
+                    x.Id == row.PersonalAccountId &&
+                    x.IsActive,
+                cancellationToken);
+
+        if (account is null)
+        {
+            return null;
+        }
+
+        var balanceMinor = await dbContext.PersonalFinancialTransactions
+            .AsNoTracking()
+            .Where(x => x.AccountId == account.Id)
+            .SumAsync(x => x.AmountMinor, cancellationToken);
+
+        var roleCode = row.OwnerPersonId == actor.PersonId
+            ? FamilySharedAccountRoles.Owner
+            : FamilySharedAccountRoles.CoOwner;
+
+        return new FamilySharedAccountOperationForm(
+            row.Id,
+            row.FamilyGroupId,
+            row.FamilyGroupName,
+            account.Id,
+            account.Name,
+            account.CurrencyCode,
+            PersonalFinanceMoney.FromMinorUnits(balanceMinor),
+            FamilySharedAccountRoles.GetNamePl(roleCode));
+    }
+
+    public async Task<Guid> PostSharedAccountOperationAsync(
+        PostFamilySharedAccountOperationRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.FinancePersonalManageOwn,
+            cancellationToken);
+
+        var actor = await GetActorContextAsync(
+            actorUserId,
+            cancellationToken);
+
+        var row = await GetSharedAccountRowForPersonAsync(
+            request.SharedAccountId,
+            actor.PersonId,
+            cancellationToken)
+            ?? throw new UnauthorizedAccessException(
+                "Nie jesteś właścicielem ani współwłaścicielem tego wspólnego konta.");
+
+        var account = await dbContext.PersonalFinancialAccounts
+            .SingleOrDefaultAsync(
+                x =>
+                    x.Id == row.PersonalAccountId &&
+                    x.IsActive,
+                cancellationToken)
+            ?? throw new InvalidOperationException(
+                "Wspólne konto jest nieaktywne.");
+
+        if (request.KindCode != PersonalTransactionKinds.Income &&
+            request.KindCode != PersonalTransactionKinds.Expense)
+        {
+            throw new ArgumentException(
+                "Na wspólnym koncie można ręcznie dodać przychód albo wydatek.");
+        }
+
+        if (request.Amount <= 0m)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(request.Amount),
+                "Kwota musi być większa od zera.");
+        }
+
+        var amountMinor =
+            PersonalFinanceMoney.ToMinorUnits(request.Amount);
+
+        var categoryCode = string.IsNullOrWhiteSpace(request.CategoryCode)
+            ? request.KindCode == PersonalTransactionKinds.Income
+                ? PersonalFinanceCategories.OtherIncome
+                : PersonalFinanceCategories.OtherExpense
+            : request.CategoryCode.Trim();
+
+        if (!PersonalFinanceCategories.IsValid(categoryCode))
+        {
+            throw new ArgumentException(
+                "Wybrano nieprawidłową kategorię.");
+        }
+
+        var description = string.IsNullOrWhiteSpace(request.Description)
+            ? null
+            : NormalizeRequiredText(
+                request.Description,
+                "Opis",
+                500);
+
+        var counterparty = string.IsNullOrWhiteSpace(request.Counterparty)
+            ? null
+            : NormalizeRequiredText(
+                request.Counterparty,
+                "Kontrahent",
+                200);
+
+        var occurredAtUtc = request.OccurredAtUtc == default
+            ? DateTime.UtcNow
+            : NormalizeUtcDate(request.OccurredAtUtc);
+
+        if (occurredAtUtc.Date > DateTime.UtcNow.Date)
+        {
+            throw new ArgumentException(
+                "Data operacji nie może być późniejsza niż dzisiaj.");
+        }
+
+        var currentBalanceMinor = await dbContext.PersonalFinancialTransactions
+            .AsNoTracking()
+            .Where(x => x.AccountId == account.Id)
+            .SumAsync(x => x.AmountMinor, cancellationToken);
+
+        if (request.KindCode == PersonalTransactionKinds.Expense &&
+            currentBalanceMinor < amountMinor)
+        {
+            throw new InvalidOperationException(
+                "Niewystarczające środki na wspólnym koncie.");
+        }
+
+        var signedAmountMinor =
+            request.KindCode == PersonalTransactionKinds.Expense
+                ? -amountMinor
+                : amountMinor;
+
+        var now = DateTime.UtcNow;
+        var transactionId = Guid.NewGuid();
+
+        dbContext.PersonalFinancialTransactions.Add(
+            new PersonalFinancialTransaction
+            {
+                Id = transactionId,
+                AccountId = account.Id,
+                OwnerPersonId = row.OwnerPersonId,
+                KindCode = request.KindCode,
+                AmountMinor = signedAmountMinor,
+                OccurredAtUtc = occurredAtUtc,
+                CategoryCode = categoryCode,
+                Counterparty = counterparty,
+                Description = description,
+                CreatedByUserId = actorUserId,
+                CreatedAtUtc = now
+            });
+
+        account.UpdatedAtUtc = now;
+
+        await using var dbTransaction =
+            await dbContext.Database.BeginTransactionAsync(
+                cancellationToken);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        await auditService.WriteAsync(
+            new AuditEntry(
+                EventType: "M04.8.6.FamilySharedAccountOperationPosted",
+                EntityType: "PersonalFinancialTransaction",
+                EntityId: transactionId.ToString(),
+                ActorId: actorUserId.ToString(),
+                CorrelationId: correlationId,
+                Description:
+                    "Właściciel lub współwłaściciel zaksięgował operację na wspólnym koncie rodziny. Kwota i opis nie są zapisywane w audycie."),
+            cancellationToken);
+
+        await dbTransaction.CommitAsync(cancellationToken);
+
+        return transactionId;
+    }
+
     private async Task<ActorContext> GetActorContextAsync(
         Guid actorUserId,
         CancellationToken cancellationToken)
@@ -1400,6 +2505,146 @@ public sealed class FamilyFinanceService(
         return result;
     }
 
+    private async Task<IReadOnlyList<ChildIncomeReceiptRow>> GetChildIncomeReceiptRowsByPeriodAsync(
+        Guid familyGroupId,
+        string periodKey,
+        CancellationToken cancellationToken)
+    {
+        var result = new List<ChildIncomeReceiptRow>();
+
+        await WithConnectionAsync(
+            async connection =>
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText =
+                    """
+                    SELECT Id, FamilyGroupId, RuleId, PeriodKey,
+                           BeneficiaryPersonId, SourceType, SourceId,
+                           ReceivedIntoAccountId, ReceivedIntoPersonId,
+                           AmountMinor, ReceivedByUserId, ReceivedAtUtc, CreatedAtUtc
+                    FROM FamilyIncomeReceipts
+                    WHERE FamilyGroupId = $groupId
+                      AND PeriodKey = $periodKey
+                    ORDER BY ReceivedAtUtc;
+                    """;
+
+                AddParameter(command, "$groupId", familyGroupId);
+                AddParameter(command, "$periodKey", periodKey);
+                AttachCurrentTransaction(command);
+
+                await using var reader =
+                    await command.ExecuteReaderAsync(cancellationToken);
+
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    result.Add(ReadChildIncomeReceipt(reader));
+                }
+            },
+            cancellationToken);
+
+        return result;
+    }
+
+    private async Task<IReadOnlyList<ChildIncomeReceiptRow>> GetChildIncomeReceiptRowsByReceivedRangeAsync(
+        Guid familyGroupId,
+        DateTime fromUtc,
+        DateTime toUtc,
+        CancellationToken cancellationToken)
+    {
+        var result = new List<ChildIncomeReceiptRow>();
+
+        await WithConnectionAsync(
+            async connection =>
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText =
+                    """
+                    SELECT Id, FamilyGroupId, RuleId, PeriodKey,
+                           BeneficiaryPersonId, SourceType, SourceId,
+                           ReceivedIntoAccountId, ReceivedIntoPersonId,
+                           AmountMinor, ReceivedByUserId, ReceivedAtUtc, CreatedAtUtc
+                    FROM FamilyIncomeReceipts
+                    WHERE FamilyGroupId = $groupId
+                      AND ReceivedAtUtc >= $fromUtc
+                      AND ReceivedAtUtc < $toUtc
+                    ORDER BY ReceivedAtUtc;
+                    """;
+
+                AddParameter(command, "$groupId", familyGroupId);
+                AddParameter(command, "$fromUtc", fromUtc);
+                AddParameter(command, "$toUtc", toUtc);
+                AttachCurrentTransaction(command);
+
+                await using var reader =
+                    await command.ExecuteReaderAsync(cancellationToken);
+
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    result.Add(ReadChildIncomeReceipt(reader));
+                }
+            },
+            cancellationToken);
+
+        return result;
+    }
+
+    private async Task<ChildIncomeReceiptRow?> GetChildIncomeReceiptByRulePeriodAsync(
+        Guid ruleId,
+        string periodKey,
+        CancellationToken cancellationToken)
+    {
+        ChildIncomeReceiptRow? result = null;
+
+        await WithConnectionAsync(
+            async connection =>
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText =
+                    """
+                    SELECT Id, FamilyGroupId, RuleId, PeriodKey,
+                           BeneficiaryPersonId, SourceType, SourceId,
+                           ReceivedIntoAccountId, ReceivedIntoPersonId,
+                           AmountMinor, ReceivedByUserId, ReceivedAtUtc, CreatedAtUtc
+                    FROM FamilyIncomeReceipts
+                    WHERE RuleId = $ruleId
+                      AND PeriodKey = $periodKey
+                    LIMIT 1;
+                    """;
+
+                AddParameter(command, "$ruleId", ruleId);
+                AddParameter(command, "$periodKey", periodKey);
+                AttachCurrentTransaction(command);
+
+                await using var reader =
+                    await command.ExecuteReaderAsync(cancellationToken);
+
+                if (await reader.ReadAsync(cancellationToken))
+                {
+                    result = ReadChildIncomeReceipt(reader);
+                }
+            },
+            cancellationToken);
+
+        return result;
+    }
+
+    private static ChildIncomeReceiptRow ReadChildIncomeReceipt(
+        DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            reader.GetGuid(1),
+            reader.GetGuid(2),
+            reader.GetString(3),
+            reader.GetGuid(4),
+            reader.GetString(5),
+            reader.GetGuid(6),
+            reader.GetGuid(7),
+            reader.IsDBNull(8) ? null : reader.GetGuid(8),
+            reader.GetInt64(9),
+            reader.GetGuid(10),
+            ReadDateTime(reader, 11),
+            ReadDateTime(reader, 12));
+
     private async Task<IReadOnlyList<ChildIncomeRuleRow>> GetChildIncomeRuleRowsAsync(
         Guid familyGroupId,
         CancellationToken cancellationToken)
@@ -1597,6 +2842,291 @@ public sealed class FamilyFinanceService(
         return result;
     }
 
+
+    private async Task<IReadOnlyList<FamilySharedAccountSummary>>
+        BuildSharedAccountSummariesForGroupAsync(
+            Guid familyGroupId,
+            Guid currentPersonId,
+            CancellationToken cancellationToken)
+    {
+        var rows = await GetSharedAccountRowsForGroupAsync(
+            familyGroupId,
+            cancellationToken);
+
+        return await BuildSharedAccountSummariesAsync(
+            rows,
+            currentPersonId,
+            cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<FamilySharedAccountSummary>>
+        BuildSharedAccountSummariesAsync(
+            IReadOnlyList<SharedAccountRow> rows,
+            Guid currentPersonId,
+            CancellationToken cancellationToken)
+    {
+        if (rows.Count == 0)
+        {
+            return [];
+        }
+
+        var accountIds = rows
+            .Select(x => x.PersonalAccountId)
+            .Distinct()
+            .ToArray();
+
+        var accounts = await dbContext.PersonalFinancialAccounts
+            .AsNoTracking()
+            .Where(x => accountIds.Contains(x.Id))
+            .ToDictionaryAsync(
+                x => x.Id,
+                cancellationToken);
+
+        var balances = await dbContext.PersonalFinancialTransactions
+            .AsNoTracking()
+            .Where(x => accountIds.Contains(x.AccountId))
+            .GroupBy(x => x.AccountId)
+            .Select(x => new
+            {
+                AccountId = x.Key,
+                BalanceMinor = x.Sum(y => y.AmountMinor)
+            })
+            .ToDictionaryAsync(
+                x => x.AccountId,
+                x => x.BalanceMinor,
+                cancellationToken);
+
+        var personIds = rows
+            .SelectMany(x => new[]
+            {
+                x.OwnerPersonId,
+                x.CoOwnerPersonId
+            })
+            .Distinct()
+            .ToArray();
+
+        var people = await dbContext.People
+            .AsNoTracking()
+            .Where(x => personIds.Contains(x.Id))
+            .ToDictionaryAsync(
+                x => x.Id,
+                x => BuildDisplayName(
+                    x.DisplayName,
+                    x.FirstName,
+                    x.LastName),
+                cancellationToken);
+
+        var result = new List<FamilySharedAccountSummary>();
+
+        foreach (var row in rows)
+        {
+            if (!accounts.TryGetValue(
+                    row.PersonalAccountId,
+                    out var account))
+            {
+                continue;
+            }
+
+            var roleCode = row.OwnerPersonId == currentPersonId
+                ? FamilySharedAccountRoles.Owner
+                : row.CoOwnerPersonId == currentPersonId
+                    ? FamilySharedAccountRoles.CoOwner
+                    : FamilySharedAccountRoles.Viewer;
+
+            result.Add(
+                new FamilySharedAccountSummary(
+                    row.Id,
+                    row.FamilyGroupId,
+                    row.FamilyGroupName,
+                    account.Id,
+                    account.Name,
+                    account.AccountTypeCode,
+                    PersonalAccountTypes.GetNamePl(
+                        account.AccountTypeCode),
+                    account.CurrencyCode,
+                    PersonalFinanceMoney.FromMinorUnits(
+                        balances.GetValueOrDefault(account.Id)),
+                    row.OwnerPersonId,
+                    people.GetValueOrDefault(
+                        row.OwnerPersonId,
+                        "Właściciel"),
+                    row.CoOwnerPersonId,
+                    people.GetValueOrDefault(
+                        row.CoOwnerPersonId,
+                        "Współwłaściciel"),
+                    roleCode,
+                    FamilySharedAccountRoles.GetNamePl(roleCode),
+                    account.IsActive && row.ClosedAtUtc is null));
+        }
+
+        return result
+            .OrderByDescending(x => x.IsActive)
+            .ThenBy(x => x.AccountName)
+            .ToArray();
+    }
+
+    private async Task<IReadOnlyList<SharedAccountRow>>
+        GetSharedAccountRowsForGroupAsync(
+            Guid familyGroupId,
+            CancellationToken cancellationToken)
+    {
+        var result = new List<SharedAccountRow>();
+
+        await WithConnectionAsync(
+            async connection =>
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText =
+                    """
+                    SELECT s.Id, s.FamilyGroupId, g.Name, s.PersonalAccountId,
+                           s.OwnerPersonId, s.CoOwnerPersonId, s.ClosedAtUtc
+                    FROM FamilySharedAccounts s
+                    INNER JOIN FamilyGroups g
+                        ON g.Id = s.FamilyGroupId
+                    WHERE s.FamilyGroupId = $familyGroupId
+                      AND g.IsActive = 1
+                    ORDER BY s.CreatedAtUtc, s.Id;
+                    """;
+
+                AddParameter(
+                    command,
+                    "$familyGroupId",
+                    familyGroupId);
+                AttachCurrentTransaction(command);
+
+                await using var reader =
+                    await command.ExecuteReaderAsync(
+                        cancellationToken);
+
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    result.Add(
+                        ReadSharedAccountRow(reader));
+                }
+            },
+            cancellationToken);
+
+        return result;
+    }
+
+    private async Task<IReadOnlyList<SharedAccountRow>>
+        GetSharedAccountRowsForPersonAsync(
+            Guid personId,
+            CancellationToken cancellationToken)
+    {
+        var result = new List<SharedAccountRow>();
+
+        await WithConnectionAsync(
+            async connection =>
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText =
+                    """
+                    SELECT DISTINCT
+                           s.Id, s.FamilyGroupId, g.Name, s.PersonalAccountId,
+                           s.OwnerPersonId, s.CoOwnerPersonId, s.ClosedAtUtc
+                    FROM FamilySharedAccounts s
+                    INNER JOIN FamilyGroups g
+                        ON g.Id = s.FamilyGroupId
+                    INNER JOIN FamilyMembers m
+                        ON m.FamilyGroupId = s.FamilyGroupId
+                       AND m.PersonId = $personId
+                       AND m.ValidToUtc IS NULL
+                    WHERE (s.OwnerPersonId = $personId
+                           OR s.CoOwnerPersonId = $personId)
+                      AND g.IsActive = 1
+                    ORDER BY g.Name, s.CreatedAtUtc, s.Id;
+                    """;
+
+                AddParameter(
+                    command,
+                    "$personId",
+                    personId);
+                AttachCurrentTransaction(command);
+
+                await using var reader =
+                    await command.ExecuteReaderAsync(
+                        cancellationToken);
+
+                while (await reader.ReadAsync(cancellationToken))
+                {
+                    result.Add(
+                        ReadSharedAccountRow(reader));
+                }
+            },
+            cancellationToken);
+
+        return result;
+    }
+
+    private async Task<SharedAccountRow?>
+        GetSharedAccountRowForPersonAsync(
+            Guid sharedAccountId,
+            Guid personId,
+            CancellationToken cancellationToken)
+    {
+        SharedAccountRow? result = null;
+
+        await WithConnectionAsync(
+            async connection =>
+            {
+                await using var command = connection.CreateCommand();
+                command.CommandText =
+                    """
+                    SELECT s.Id, s.FamilyGroupId, g.Name, s.PersonalAccountId,
+                           s.OwnerPersonId, s.CoOwnerPersonId, s.ClosedAtUtc
+                    FROM FamilySharedAccounts s
+                    INNER JOIN FamilyGroups g
+                        ON g.Id = s.FamilyGroupId
+                    INNER JOIN FamilyMembers m
+                        ON m.FamilyGroupId = s.FamilyGroupId
+                       AND m.PersonId = $personId
+                       AND m.ValidToUtc IS NULL
+                    WHERE s.Id = $sharedAccountId
+                      AND (s.OwnerPersonId = $personId
+                           OR s.CoOwnerPersonId = $personId)
+                      AND g.IsActive = 1
+                    LIMIT 1;
+                    """;
+
+                AddParameter(
+                    command,
+                    "$sharedAccountId",
+                    sharedAccountId);
+                AddParameter(
+                    command,
+                    "$personId",
+                    personId);
+                AttachCurrentTransaction(command);
+
+                await using var reader =
+                    await command.ExecuteReaderAsync(
+                        cancellationToken);
+
+                if (await reader.ReadAsync(cancellationToken))
+                {
+                    result =
+                        ReadSharedAccountRow(reader);
+                }
+            },
+            cancellationToken);
+
+        return result;
+    }
+
+    private static SharedAccountRow ReadSharedAccountRow(
+        DbDataReader reader) =>
+        new(
+            reader.GetGuid(0),
+            reader.GetGuid(1),
+            reader.GetString(2),
+            reader.GetGuid(3),
+            reader.GetGuid(4),
+            reader.GetGuid(5),
+            reader.IsDBNull(6)
+                ? (DateTime?)null
+                : ReadDateTime(reader, 6));
+
     private async Task<int> ExecuteAsync(
         string sql,
         IReadOnlyList<ParameterValue> parameters,
@@ -1729,6 +3259,33 @@ public sealed class FamilyFinanceService(
             ? $"{firstName} {lastName}".Trim()
             : displayName.Trim();
 
+    private static DateTime BuildPlannedDate(
+        int year,
+        int month,
+        int dueDay)
+    {
+        var day = Math.Min(
+            Math.Max(dueDay, 1),
+            DateTime.DaysInMonth(year, month));
+
+        return new DateTime(
+            year,
+            month,
+            day,
+            0,
+            0,
+            0,
+            DateTimeKind.Utc);
+    }
+
+    private static DateTime NormalizeUtcDate(DateTime value) =>
+        value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+        };
+
     private static void ValidatePeriod(
         int year,
         int month)
@@ -1776,6 +3333,15 @@ public sealed class FamilyFinanceService(
         bool ShareRecurringRules,
         DateTime? SharingEffectiveFromUtc);
 
+    private sealed record SharedAccountRow(
+        Guid Id,
+        Guid FamilyGroupId,
+        string FamilyGroupName,
+        Guid PersonalAccountId,
+        Guid OwnerPersonId,
+        Guid CoOwnerPersonId,
+        DateTime? ClosedAtUtc);
+
     private sealed record ChildIncomeRuleRow(
         Guid Id,
         Guid FamilyGroupId,
@@ -1788,6 +3354,21 @@ public sealed class FamilyFinanceService(
         DateTime ActiveFromUtc,
         DateTime? ActiveToUtc,
         bool IsActive);
+
+    private sealed record ChildIncomeReceiptRow(
+        Guid Id,
+        Guid FamilyGroupId,
+        Guid RuleId,
+        string PeriodKey,
+        Guid BeneficiaryPersonId,
+        string SourceType,
+        Guid SourceId,
+        Guid ReceivedIntoAccountId,
+        Guid? ReceivedIntoPersonId,
+        long AmountMinor,
+        Guid ReceivedByUserId,
+        DateTime ReceivedAtUtc,
+        DateTime CreatedAtUtc);
 
     private sealed record ParameterValue(
         string Name,

@@ -1,0 +1,97 @@
+@model Domio.Web.Models.FamilyFinance.ConfirmFamilyChildIncomeReceiptViewModel
+@{
+    ViewData["Title"] = "Potwierdź wpływ przychodu dziecka";
+}
+
+<div class="family-finance-page">
+    <div class="family-finance-form-header">
+        <div>
+            <div class="family-finance-kicker">M04.8.5 · POTWIERDZENIE WPŁYWU</div>
+            <h1>Potwierdź wpływ pieniędzy</h1>
+            <p>
+                Rodzina: <strong>@Model.FamilyGroupName</strong>. Potwierdzenie utworzy rzeczywisty
+                przychód na wybranym koncie i przypisze go w budżecie rodzinnym do
+                <strong>@Model.BeneficiaryDisplayName</strong>.
+            </p>
+        </div>
+        <a asp-action="Index"
+           asp-route-familyGroupId="@Model.FamilyGroupId"
+           asp-route-year="@Model.Year"
+           asp-route-month="@Model.Month"
+           class="btn btn-outline-secondary">Wróć</a>
+    </div>
+
+    <form asp-action="ConfirmChildIncome" method="post" class="family-finance-form-card">
+        <input type="hidden" asp-for="FamilyGroupId" />
+        <input type="hidden" asp-for="RuleId" />
+        <input type="hidden" asp-for="Year" />
+        <input type="hidden" asp-for="Month" />
+
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+        <div class="family-finance-form-note mb-3">
+            <strong>@Model.RuleName</strong><br />
+            @Model.IncomeKindNamePl · planowany dzień wpływu: @Model.PlannedDateUtc.ToString("dd.MM.yyyy")
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Kwota wpływu</label>
+                <div class="input-group">
+                    <input class="form-control" value="@Model.Amount.ToString("N2")" readonly />
+                    <span class="input-group-text">zł</span>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="ReceivedAtUtc" class="form-label"></label>
+                <input asp-for="ReceivedAtUtc" type="date" class="form-control" />
+                <span asp-validation-for="ReceivedAtUtc" class="text-danger"></span>
+            </div>
+        </div>
+
+        <div class="mb-3 mt-3">
+            <label asp-for="SelectedAccountKey" class="form-label"></label>
+            @if (Model.Accounts.Count > 0)
+            {
+                <select asp-for="SelectedAccountKey" asp-items="Model.Accounts" class="form-select">
+                    <option value="">— wybierz konto, na które wpłynęły pieniądze —</option>
+                </select>
+                <span asp-validation-for="SelectedAccountKey" class="text-danger"></span>
+            }
+            else
+            {
+                <div class="alert alert-warning mb-0">
+                    Nie masz dostępnego konta PLN, na którym można zaksięgować ten wpływ.
+                    Możesz użyć własnego konta osobistego, wspólnego konta rodziny albo konta domowego,
+                    jeśli masz odpowiednie uprawnienia.
+                </div>
+            }
+        </div>
+
+        <div class="family-finance-form-note">
+            <strong>Konto osobiste:</strong> kwota zwiększy saldo Twojego wybranego konta, ale w finansach rodzinnych zostanie przypisana do dziecka, więc nie będzie liczona drugi raz jako Twój przychód rodzinny.<br />
+            <strong>Wspólne konto rodziny:</strong> kwota zwiększy jedno wspólne saldo właściciela i współwłaściciela i będzie nadal raportowana jako przychód przypisany do dziecka.<br />
+            <strong>Konto domowe:</strong> kwota zwiększy saldo wybranego konta domu i jednocześnie zostanie oznaczona jako rzeczywisty przychód przypisany do dziecka.
+        </div>
+
+        <div class="family-finance-form-actions">
+            @if (Model.Accounts.Count == 0)
+            {
+                <button type="submit" class="btn btn-primary" disabled>
+                    Potwierdź wpływ @Model.Amount.ToString("N2") zł
+                </button>
+            }
+            else
+            {
+                <button type="submit" class="btn btn-primary">
+                    Potwierdź wpływ @Model.Amount.ToString("N2") zł
+                </button>
+            }
+            <a asp-action="Index"
+               asp-route-familyGroupId="@Model.FamilyGroupId"
+               asp-route-year="@Model.Year"
+               asp-route-month="@Model.Month"
+               class="btn btn-outline-secondary">Anuluj</a>
+        </div>
+    </form>
+</div>

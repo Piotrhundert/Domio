@@ -8,6 +8,7 @@ using Domio.Domain.Users;
 using Domio.Infrastructure;
 using Domio.Infrastructure.Persistence;
 using Domio.Web.Errors;
+using Domio.Web.Filters;
 using Domio.Web.Middleware;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
@@ -16,7 +17,11 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllersWithViews();
+builder.Services.AddScoped<FamilySharedAccountsPersonalFinanceFilter>();
+builder.Services.AddControllersWithViews(options =>
+{
+    options.Filters.AddService<FamilySharedAccountsPersonalFinanceFilter>();
+});
 builder.Services.AddInfrastructure(
     builder.Configuration,
     builder.Environment.EnvironmentName,
@@ -405,7 +410,7 @@ app.MapGet("/health", async (
                 : "Unhealthy",
             application = "Domio",
             module = "M04",
-            package = "M04.8.4",
+            package = "M04.8.6",
             environment =
                 app.Environment.EnvironmentName,
             correlationId =
