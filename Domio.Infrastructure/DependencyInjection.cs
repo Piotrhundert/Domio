@@ -77,6 +77,9 @@ public static class DependencyInjection
             IHouseholdFinanceService,
             HouseholdFinanceService>();
         services.AddScoped<
+            IHouseholdContributionAdminService,
+            HouseholdContributionAdminService>();
+        services.AddScoped<
             IPersonalFinanceService,
             PersonalFinanceService>();
         services.AddScoped<

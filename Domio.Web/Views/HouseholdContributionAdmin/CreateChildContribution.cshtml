@@ -1,0 +1,134 @@
+@model Domio.Web.Models.HouseholdFinance.CreateHouseholdChildContributionViewModel
+@{
+    ViewData["Title"] = "Składka dziecka";
+}
+
+<div class="household-finance-page household-finance-form-page">
+    <div class="household-finance-header">
+        <div>
+            <div class="household-finance-kicker">
+                DZIECKO · SKŁADKA
+            </div>
+            <h1>@Model.ChildName</h1>
+            <p>
+                Ustaw stałą miesięczną składkę przypisaną do dziecka.
+                Dziecko nie potrzebuje konta użytkownika ani prywatnego
+                konta finansowego.
+            </p>
+        </div>
+
+        <a asp-action="Index"
+           class="btn btn-outline-secondary">
+            Wróć
+        </a>
+    </div>
+
+    <form asp-action="CreateChildContribution"
+          asp-route-householdMemberId="@Model.HouseholdMemberId"
+          method="post"
+          class="household-finance-form-card">
+
+        <input asp-for="HouseholdMemberId" type="hidden" />
+
+        <div asp-validation-summary="ModelOnly"
+             class="text-danger mb-3"></div>
+
+        <div class="household-finance-info mt-0 mb-3">
+            <strong>Składka dziecka ma stałą kwotę.</strong>
+            <span>
+                Ponieważ dziecko nie posiada konta użytkownika i planowanej
+                pensji, Domio nie nalicza tutaj procentu od wynagrodzenia.
+                Termin określasz jako konkretny dzień miesiąca.
+            </span>
+        </div>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label asp-for="FixedAmount"
+                       class="form-label"></label>
+                <div class="input-group">
+                    <input asp-for="FixedAmount"
+                           type="text"
+                           inputmode="decimal"
+                           class="form-control" />
+                    <span class="input-group-text">@Model.CurrencyCode</span>
+                </div>
+                <span asp-validation-for="FixedAmount"
+                      class="text-danger small"></span>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="TargetHouseholdAccountId"
+                       class="form-label"></label>
+                <select asp-for="TargetHouseholdAccountId"
+                        asp-items="Model.TargetAccounts"
+                        class="form-select"></select>
+                <span asp-validation-for="TargetHouseholdAccountId"
+                      class="text-danger small"></span>
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="DueDay"
+                       class="form-label"></label>
+                <input asp-for="DueDay"
+                       type="number"
+                       min="1"
+                       max="28"
+                       class="form-control" />
+                <span asp-validation-for="DueDay"
+                      class="text-danger small"></span>
+                <div class="form-text">
+                    Zakres 1-28 gwarantuje poprawny termin w każdym miesiącu.
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="ReminderDays"
+                       class="form-label"></label>
+                <input asp-for="ReminderDays"
+                       type="number"
+                       min="0"
+                       max="28"
+                       class="form-control" />
+                <span asp-validation-for="ReminderDays"
+                      class="text-danger small"></span>
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="ValidFrom"
+                       class="form-label"></label>
+                <input asp-for="ValidFrom"
+                       type="date"
+                       class="form-control" />
+                <span asp-validation-for="ValidFrom"
+                      class="text-danger small"></span>
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="ValidTo"
+                       class="form-label"></label>
+                <input asp-for="ValidTo"
+                       type="date"
+                       class="form-control" />
+                <span asp-validation-for="ValidTo"
+                      class="text-danger small"></span>
+            </div>
+        </div>
+
+        <div class="household-finance-form-actions">
+            <a asp-action="Index"
+               class="btn btn-outline-secondary">
+                Anuluj
+            </a>
+
+            <button type="submit"
+                    class="btn btn-primary">
+                Dodaj składkę dziecka
+            </button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

@@ -1,0 +1,82 @@
+@model Domio.Web.Models.HouseholdFinance.CreateHouseholdChildViewModel
+@{
+    ViewData["Title"] = "Dodaj dziecko";
+}
+
+<div class="household-finance-page household-finance-form-page">
+    <div class="household-finance-header">
+        <div>
+            <div class="household-finance-kicker">
+                DOMOWNIK · DZIECKO
+            </div>
+            <h1>Dodaj dziecko bez konta</h1>
+            <p>
+                Dziecko zostanie zapisane jako osoba i członek gospodarstwa,
+                ale Domio nie utworzy dla niego loginu ani konta użytkownika.
+            </p>
+        </div>
+
+        <a asp-action="Index"
+           class="btn btn-outline-secondary">
+            Wróć
+        </a>
+    </div>
+
+    <form asp-action="CreateChild"
+          method="post"
+          class="household-finance-form-card">
+
+        <div asp-validation-summary="ModelOnly"
+             class="text-danger mb-3"></div>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label asp-for="FirstName" class="form-label"></label>
+                <input asp-for="FirstName" class="form-control" />
+                <span asp-validation-for="FirstName"
+                      class="text-danger small"></span>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="LastName" class="form-label"></label>
+                <input asp-for="LastName" class="form-control" />
+                <span asp-validation-for="LastName"
+                      class="text-danger small"></span>
+            </div>
+
+            <div class="col-12">
+                <label asp-for="DisplayName" class="form-label"></label>
+                <input asp-for="DisplayName" class="form-control" />
+                <div class="form-text">
+                    Możesz wpisać np. „Tymek”. Jeśli pozostawisz puste,
+                    Domio pokaże imię i nazwisko.
+                </div>
+            </div>
+        </div>
+
+        <div class="household-finance-info">
+            <strong>Bez konta użytkownika.</strong>
+            <span>
+                Dziecko będzie widoczne jako domownik i będzie można później
+                przypisać je do grupy rodzinnej oraz świadczeń rodzinnych.
+                Nie otrzyma dostępu do logowania.
+            </span>
+        </div>
+
+        <div class="household-finance-form-actions">
+            <a asp-action="Index"
+               class="btn btn-outline-secondary">
+                Anuluj
+            </a>
+
+            <button type="submit"
+                    class="btn btn-primary">
+                Dodaj dziecko
+            </button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

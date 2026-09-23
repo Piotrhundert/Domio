@@ -1,0 +1,221 @@
+@using Domio.Domain.HouseholdFinance
+@model Domio.Web.Models.HouseholdFinance.HouseholdContributionAdminIndexViewModel
+@{
+    ViewData["Title"] = "Składki i domownicy";
+    var overview = Model.Overview;
+}
+
+<div class="household-finance-page">
+    <div class="household-finance-header">
+        <div>
+            <div class="household-finance-kicker">
+                SKŁADKI · ZARZĄDZANIE
+            </div>
+            <h1>Składki i domownicy</h1>
+            <p>
+                Edytuj aktualne reguły składek oraz dodawaj dzieci,
+                które nie potrzebują konta użytkownika Domio.
+            </p>
+        </div>
+
+        <div class="household-finance-header-actions">
+            <a asp-controller="HouseholdFinance"
+               asp-action="Contributions"
+               class="btn btn-outline-secondary">
+                Zobowiązania i wpłaty
+            </a>
+
+            <a asp-action="CreateChild"
+               class="btn btn-primary">
+                + Dodaj dziecko bez konta
+            </a>
+        </div>
+    </div>
+
+    @if (TempData["HouseholdFinanceMessage"] is string message)
+    {
+        <div class="alert alert-success mb-4">@message</div>
+    }
+
+    @if (TempData["HouseholdFinanceError"] is string error)
+    {
+        <div class="alert alert-danger mb-4">@error</div>
+    }
+
+    <section class="household-finance-section">
+        <div class="household-finance-section-heading">
+            <div>
+                <div class="household-finance-section-number">01</div>
+                <h2>Aktywne reguły składek</h2>
+                <p>
+                    Edycja tworzy nową wersję reguły. Opłacone okresy
+                    pozostają bez zmian, a przyszłe nieopłacone miesiące
+                    są przeliczane od najbliższego bezpiecznego miesiąca.
+                </p>
+            </div>
+        </div>
+
+        @if (overview.ActiveRules.Count == 0)
+        {
+            <div class="household-finance-empty compact">
+                <h3>Brak aktywnych reguł</h3>
+                <p>Utwórz regułę na ekranie składek domowników.</p>
+            </div>
+        }
+        else
+        {
+            <div class="household-contribution-rule-grid">
+                @foreach (var rule in overview.ActiveRules)
+                {
+                    <article class="household-contribution-rule-card">
+                        <div class="household-contribution-rule-top">
+                            <div>
+                                <span>@rule.HouseholdMemberName</span>
+                                <h3>@rule.ModeNamePl</h3>
+                            </div>
+
+                            <span class="household-account-status is-active">
+                                Aktywna
+                            </span>
+                        </div>
+
+                        <dl class="household-contribution-rule-details">
+                            @if (rule.ModeCode == HouseholdContributionModes.FixedAmount)
+                            {
+                                <div>
+                                    <dt>Kwota</dt>
+                                    <dd>@rule.FixedAmount?.ToString("N2") @overview.CurrencyCode</dd>
+                                </div>
+                            }
+                            else
+                            {
+                                <div>
+                                    <dt>Procent</dt>
+                                    <dd>@rule.Percentage?.ToString("N2")%</dd>
+                                </div>
+                            }
+
+                            <div>
+                                <dt>Konto docelowe</dt>
+                                <dd>@rule.TargetAccountName</dd>
+                            </div>
+
+                            <div>
+                                <dt>Termin</dt>
+                                <dd>
+                                    @if (rule.IsChildContribution)
+                                    {
+                                        <span>@rule.DueOffsetDays. dzień miesiąca</span>
+                                    }
+                                    else
+                                    {
+                                        <span>+@rule.DueOffsetDays dni od planowanej wypłaty</span>
+                                    }
+                                </dd>
+                            </div>
+
+                            <div>
+                                <dt>Przypomnienie</dt>
+                                <dd>@rule.ReminderDays dni wcześniej</dd>
+                            </div>
+                        </dl>
+
+                        <div class="mt-3">
+                            <a asp-action="EditRule"
+                               asp-route-id="@rule.RuleId"
+                               class="btn btn-outline-primary btn-sm">
+                                Edytuj aktualną regułę
+                            </a>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </section>
+
+    <section class="household-finance-section">
+        <div class="household-finance-section-heading">
+            <div>
+                <div class="household-finance-section-number">02</div>
+                <h2>Dzieci bez konta użytkownika</h2>
+                <p>
+                    Dziecko jest normalnym członkiem gospodarstwa i może być
+                    później dodane także do grupy rodzinnej. Nie otrzymuje loginu,
+                    hasła ani prywatnego konta finansowego.
+                </p>
+            </div>
+        </div>
+
+        @if (overview.Children.Count == 0)
+        {
+            <div class="household-finance-empty compact">
+                <h3>Nie dodano jeszcze dziecka</h3>
+                <p>Dodaj dziecko przyciskiem powyżej.</p>
+            </div>
+        }
+        else
+        {
+            <div class="household-contribution-rule-grid">
+                @foreach (var child in overview.Children)
+                {
+                    <article class="household-contribution-rule-card">
+                        <div class="household-contribution-rule-top">
+                            <div>
+                                <span>Dziecko · bez konta użytkownika</span>
+                                <h3>@child.DisplayName</h3>
+                            </div>
+
+                            @if (child.ActiveContributionRuleId.HasValue)
+                            {
+                                <span class="household-account-status is-active">
+                                    Składka aktywna
+                                </span>
+                            }
+                        </div>
+
+                        @if (child.ActiveContributionRuleId.HasValue)
+                        {
+                            <dl class="household-contribution-rule-details">
+                                <div>
+                                    <dt>Miesięcznie</dt>
+                                    <dd>
+                                        @child.ActiveContributionAmount?.ToString("N2")
+                                        @overview.CurrencyCode
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt>Termin</dt>
+                                    <dd>@child.ActiveContributionDueDay. dzień miesiąca</dd>
+                                </div>
+                                <div>
+                                    <dt>Konto docelowe</dt>
+                                    <dd>@child.ActiveContributionTargetAccountName</dd>
+                                </div>
+                            </dl>
+
+                            <div class="mt-3">
+                                <a asp-action="EditRule"
+                                   asp-route-id="@child.ActiveContributionRuleId"
+                                   class="btn btn-outline-primary btn-sm">
+                                    Edytuj składkę
+                                </a>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-muted mb-3">
+                                Dziecko nie ma jeszcze przypisanej miesięcznej składki.
+                            </p>
+
+                            <a asp-action="CreateChildContribution"
+                               asp-route-householdMemberId="@child.HouseholdMemberId"
+                               class="btn btn-outline-primary btn-sm">
+                                + Dodaj składkę
+                            </a>
+                        }
+                    </article>
+                }
+            </div>
+        }
+    </section>
+</div>

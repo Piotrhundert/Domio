@@ -1,0 +1,191 @@
+@using Domio.Domain.HouseholdFinance
+@model Domio.Web.Models.HouseholdFinance.EditHouseholdContributionRuleViewModel
+@{
+    ViewData["Title"] = "Edycja reguły składki";
+}
+
+<div class="household-finance-page household-finance-form-page">
+    <div class="household-finance-header">
+        <div>
+            <div class="household-finance-kicker">
+                SKŁADKA · EDYCJA
+            </div>
+            <h1>@Model.HouseholdMemberName</h1>
+            <p>
+                Zmieniasz aktualną regułę. Domio zachowa historię opłaconych
+                okresów i przeliczy tylko przyszłe, nieopłacone zobowiązania.
+            </p>
+        </div>
+
+        <a asp-action="Index"
+           class="btn btn-outline-secondary">
+            Wróć
+        </a>
+    </div>
+
+    <form asp-action="EditRule"
+          asp-route-id="@Model.RuleId"
+          method="post"
+          class="household-finance-form-card">
+
+        <input asp-for="RuleId" type="hidden" />
+
+        <div asp-validation-summary="ModelOnly"
+             class="text-danger mb-3"></div>
+
+        <div class="household-finance-info mt-0 mb-3">
+            <strong>Historia pozostaje bez zmian.</strong>
+            <span>
+                Jeżeli bieżący miesiąc jest już opłacony albo ma wpłatę
+                oczekującą na akceptację, nowa wersja zacznie obowiązywać
+                od kolejnego wolnego miesiąca.
+            </span>
+        </div>
+
+        @if (Model.IsChildContribution)
+        {
+            <div class="household-finance-info mt-0 mb-3">
+                <strong>Składka dziecka jest stałą kwotą miesięczną.</strong>
+                <span>
+                    Pole terminu oznacza konkretny dzień miesiąca, a nie liczbę
+                    dni po wypłacie. Dziecko nie potrzebuje wynagrodzenia ani
+                    konta użytkownika.
+                </span>
+            </div>
+        }
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                @if (Model.IsChildContribution)
+                {
+                    <label class="form-label">Sposób naliczania</label>
+                    <input asp-for="ModeCode" type="hidden" />
+                    <input type="text"
+                           value="Stała kwota miesięczna"
+                           class="form-control"
+                           disabled />
+                }
+                else
+                {
+                    <label asp-for="ModeCode" class="form-label"></label>
+                    <select asp-for="ModeCode"
+                            asp-items="Model.Modes"
+                            id="contribution-mode"
+                            class="form-select"></select>
+                }
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="TargetHouseholdAccountId"
+                       class="form-label"></label>
+                <select asp-for="TargetHouseholdAccountId"
+                        asp-items="Model.TargetAccounts"
+                        class="form-select"></select>
+            </div>
+
+            <div class="col-md-6" id="fixed-amount-wrap">
+                <label asp-for="FixedAmount" class="form-label"></label>
+                <input asp-for="FixedAmount"
+                       type="text"
+                       inputmode="decimal"
+                       class="form-control" />
+                <div class="form-text">Np. 1200,00</div>
+            </div>
+
+            @if (!Model.IsChildContribution)
+            {
+                <div class="col-md-6" id="percentage-wrap">
+                    <label asp-for="Percentage" class="form-label"></label>
+                    <div class="input-group">
+                        <input asp-for="Percentage"
+                               type="text"
+                               inputmode="decimal"
+                               class="form-control" />
+                        <span class="input-group-text">%</span>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(Model.IncomeRuleName))
+                    {
+                        <div class="form-text">
+                            Plan: @Model.IncomeRuleName
+                            @if (Model.PlannedIncomeAmount.HasValue)
+                            {
+                                <span>· @Model.PlannedIncomeAmount.Value.ToString("N2") @Model.CurrencyCode</span>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+
+            <div class="col-md-4">
+                <label class="form-label">
+                    @(Model.IsChildContribution
+                        ? "Termin składki - dzień miesiąca"
+                        : "Termin po planowanej wypłacie (dni)")
+                </label>
+                <input asp-for="DueOffsetDays"
+                       type="number"
+                       min="@(Model.IsChildContribution ? 1 : 0)"
+                       max="@(Model.IsChildContribution ? 28 : 31)"
+                       class="form-control" />
+                @if (Model.IsChildContribution)
+                {
+                    <div class="form-text">Dla dziecka wybierz dzień od 1 do 28.</div>
+                }
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="ReminderDays" class="form-label"></label>
+                <input asp-for="ReminderDays"
+                       type="number"
+                       min="0"
+                       max="31"
+                       class="form-control" />
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="ValidTo" class="form-label"></label>
+                <input asp-for="ValidTo"
+                       type="date"
+                       class="form-control" />
+            </div>
+        </div>
+
+        <div class="household-finance-form-actions">
+            <a asp-action="Index"
+               class="btn btn-outline-secondary">
+                Anuluj
+            </a>
+
+            <button type="submit"
+                    class="btn btn-primary">
+                Zapisz nową wersję reguły
+            </button>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+
+    <script>
+        (() => {
+            const mode = document.getElementById("contribution-mode");
+            const fixedWrap = document.getElementById("fixed-amount-wrap");
+            const percentageWrap = document.getElementById("percentage-wrap");
+
+            const refreshMode = () => {
+                if (!mode || !fixedWrap || !percentageWrap) {
+                    return;
+                }
+
+                const percentage = mode.value === "PercentageOfIncome";
+                fixedWrap.hidden = percentage;
+                percentageWrap.hidden = !percentage;
+            };
+
+            mode?.addEventListener("change", refreshMode);
+            refreshMode();
+        })();
+    </script>
+}

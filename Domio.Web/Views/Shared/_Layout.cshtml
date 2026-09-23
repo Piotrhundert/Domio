@@ -30,6 +30,11 @@
             DomioClaimTypes.Permission,
             SystemPermissions.FinanceHouseholdView);
 
+    var canManageHouseholdFinance =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.FinanceHouseholdManage);
+
     var canViewFamilyFinance =
         User.HasClaim(
             DomioClaimTypes.Permission,
@@ -178,6 +183,16 @@
                             <span class="domio-side-icon">D</span>
                             <span>Finanse domu</span>
                         </a>
+
+                        @if (canManageHouseholdFinance)
+                        {
+                            <a asp-controller="HouseholdContributionAdmin"
+                               asp-action="Index"
+                               class="domio-side-link">
+                                <span class="domio-side-icon">S</span>
+                                <span>Składki i domownicy</span>
+                            </a>
+                        }
                     }
                     else
                     {
