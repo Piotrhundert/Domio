@@ -34,20 +34,6 @@
         User.HasClaim(
             DomioClaimTypes.Permission,
             FamilyFinancePermissions.View);
-
-    var currentController =
-        ViewContext.RouteData.Values["controller"]?.ToString();
-    var currentAction =
-        ViewContext.RouteData.Values["action"]?.ToString();
-    var showFamilySharedAccounts =
-        string.Equals(
-            currentController,
-            "PersonalFinance",
-            StringComparison.OrdinalIgnoreCase) &&
-        string.Equals(
-            currentAction,
-            "Index",
-            StringComparison.OrdinalIgnoreCase);
 }
 <!DOCTYPE html>
 <html lang="pl">
@@ -73,6 +59,9 @@
           asp-append-version="true" />
     <link rel="stylesheet"
           href="~/css/family-finance.css"
+          asp-append-version="true" />
+    <link rel="stylesheet"
+          href="~/css/sap-theme.css"
           asp-append-version="true" />
     <link rel="stylesheet"
           href="~/Domio.Web.styles.css"
@@ -224,10 +213,6 @@
 
             <main role="main"
                   class="domio-main domio-main-with-sidebar">
-                @if (showFamilySharedAccounts)
-                {
-                    @await Component.InvokeAsync("FamilySharedAccounts")
-                }
                 @RenderBody()
             </main>
         </div>
@@ -242,7 +227,7 @@
     <footer class="domio-footer">
         <div class="container-fluid px-4 d-flex flex-column flex-md-row justify-content-between gap-2">
             <span>Domio · domowe centrum zarządzania</span>
-            <span>M04.8.6 · wspólne konto rodzinne</span>
+            <span>UI-01 · motyw wizualny SAP dla modułów aplikacji</span>
         </div>
     </footer>
 
