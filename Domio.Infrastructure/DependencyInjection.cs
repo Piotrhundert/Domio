@@ -1,4 +1,4 @@
-﻿﻿using Domio.Application.Auditing;
+﻿﻿﻿using Domio.Application.Auditing;
 using Domio.Application.Authentication;
 using Domio.Application.Authorization;
 using Domio.Application.Diagnostics;
@@ -92,6 +92,9 @@ public static class DependencyInjection
         services.AddScoped<
             INotificationService,
             NotificationService>();
+        services.AddScoped<
+            IFamilyAndGoalNotificationScanService,
+            FamilyAndGoalNotificationScanService>();
         services.AddScoped<
             IPersonalFinanceService,
             PersonalFinanceService>();

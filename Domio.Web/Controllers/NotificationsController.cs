@@ -8,7 +8,8 @@ namespace Domio.Web.Controllers;
 
 [Authorize]
 public sealed class NotificationsController(
-    INotificationService notificationService)
+    INotificationService notificationService,
+    IFamilyAndGoalNotificationScanService familyAndGoalNotificationScanService)
     : Controller
 {
     [HttpGet]
@@ -18,9 +19,16 @@ public sealed class NotificationsController(
     {
         try
         {
+            var userId =
+                GetCurrentUserId();
+
+            await familyAndGoalNotificationScanService.ScanAsync(
+                userId,
+                cancellationToken);
+
             var overview =
                 await notificationService.GetOverviewAsync(
-                    GetCurrentUserId(),
+                    userId,
                     cancellationToken);
 
             return View(

@@ -7,7 +7,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace Domio.Web.ViewComponents;
 
 public sealed class NotificationBellViewComponent(
-    INotificationService notificationService)
+    INotificationService notificationService,
+    IFamilyAndGoalNotificationScanService familyAndGoalNotificationScanService)
     : ViewComponent
 {
     public async Task<IViewComponentResult> InvokeAsync()
@@ -38,6 +39,10 @@ public sealed class NotificationBellViewComponent(
 
         try
         {
+            await familyAndGoalNotificationScanService.ScanAsync(
+                userId,
+                ViewContext.HttpContext.RequestAborted);
+
             var model =
                 await notificationService.GetHeaderAsync(
                     userId,
