@@ -73,6 +73,9 @@ public sealed record FamilyFinanceOverview(
     public bool HasFamily => SelectedFamilyGroupId.HasValue;
 
     public IReadOnlyList<FamilySharedAccountSummary> SharedAccounts { get; init; } = [];
+
+    public IReadOnlyList<FamilyChildHouseholdContributionSummary>
+        ChildHouseholdContributions { get; init; } = [];
 }
 
 public sealed record CreateFamilyGroupRequest(
@@ -201,4 +204,62 @@ public sealed record PostFamilySharedAccountOperationRequest(
     string? Description,
     string? CategoryCode,
     string? Counterparty);
+
+public sealed record FamilyChildHouseholdContributionSummary(
+    Guid? ObligationId,
+    Guid ContributionRuleId,
+    Guid ChildPersonId,
+    string ChildDisplayName,
+    string PeriodKey,
+    decimal Amount,
+    decimal PaidAmount,
+    decimal OutstandingAmount,
+    DateTime DueDateUtc,
+    string StatusCode,
+    string StatusNamePl,
+    Guid TargetHouseholdAccountId,
+    string TargetHouseholdAccountName,
+    string CurrencyCode,
+    bool CanPay,
+    string? AvailabilityNote);
+
+public sealed record FamilyChildContributionPaymentSource(
+    string SourceType,
+    string SourceTypeNamePl,
+    Guid SourceId,
+    string AccountName,
+    string CurrencyCode,
+    decimal Balance,
+    bool IsTargetHouseholdAccount);
+
+public sealed record FamilyChildContributionPaymentForm(
+    Guid FamilyGroupId,
+    string FamilyGroupName,
+    Guid ObligationId,
+    Guid ChildPersonId,
+    string ChildDisplayName,
+    string PeriodKey,
+    decimal Amount,
+    decimal PaidAmount,
+    decimal OutstandingAmount,
+    DateTime DueDateUtc,
+    Guid TargetHouseholdAccountId,
+    string TargetHouseholdAccountName,
+    string CurrencyCode,
+    IReadOnlyList<FamilyChildContributionPaymentSource> Sources);
+
+public sealed record PayFamilyChildContributionRequest(
+    Guid FamilyGroupId,
+    Guid ObligationId,
+    string SourceType,
+    Guid SourceId,
+    DateTime PaidAtUtc);
+
+public sealed record FamilyChildContributionPaymentResult(
+    Guid ObligationId,
+    string SourceType,
+    Guid SourceId,
+    Guid? SourceTransactionId,
+    Guid? HouseholdEntryId,
+    decimal PaidAmount);
 

@@ -372,6 +372,14 @@ public sealed class FamilyFinanceService(
                 actor.PersonId,
                 cancellationToken);
 
+        var childHouseholdContributions =
+            await BuildChildHouseholdContributionSummariesAsync(
+                actor.HouseholdId.Value,
+                members,
+                year,
+                month,
+                cancellationToken);
+
         return new FamilyFinanceOverview(
             actor.HouseholdId,
             actor.HouseholdName,
@@ -392,7 +400,8 @@ public sealed class FamilyFinanceService(
             childIncomeRules,
             ownSharing)
         {
-            SharedAccounts = sharedAccounts
+            SharedAccounts = sharedAccounts,
+            ChildHouseholdContributions = childHouseholdContributions
         };
     }
 
@@ -1762,6 +1771,688 @@ public sealed class FamilyFinanceService(
     }
 
 
+
+    public async Task<FamilyChildContributionPaymentForm?> GetChildContributionPaymentFormAsync(
+        Guid familyGroupId,
+        Guid obligationId,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default)
+    {
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            FamilyFinancePermissions.Manage,
+            cancellationToken);
+
+        var actor =
+            await GetActorContextAsync(
+                actorUserId,
+                cancellationToken);
+
+        if (actor.HouseholdId is null)
+        {
+            throw new InvalidOperationException(
+                "Brak aktywnego gospodarstwa.");
+        }
+
+        var familyGroup =
+            await EnsureActiveMembershipAsync(
+                familyGroupId,
+                actor.HouseholdId.Value,
+                actor.PersonId,
+                cancellationToken);
+
+        var familyChildren =
+            (await GetActiveMembersAsync(
+                familyGroupId,
+                cancellationToken))
+            .Where(x =>
+                x.FamilyRoleCode == FamilyRoles.Child)
+            .ToDictionary(
+                x => x.PersonId,
+                x => x.DisplayName);
+
+        if (familyChildren.Count == 0)
+        {
+            return null;
+        }
+
+        var row =
+            await (
+                from obligation in dbContext.HouseholdContributionObligations
+                    .AsNoTracking()
+                join rule in dbContext.HouseholdContributionRules
+                    .AsNoTracking()
+                    on obligation.ContributionRuleId equals rule.Id
+                join householdMember in dbContext.HouseholdMembers
+                    .AsNoTracking()
+                    on obligation.HouseholdMemberId equals householdMember.Id
+                join childPerson in dbContext.People
+                    .AsNoTracking()
+                    on householdMember.PersonId equals childPerson.Id
+                join targetAccount in dbContext.HouseholdAccounts
+                    .AsNoTracking()
+                    on obligation.TargetHouseholdAccountId equals targetAccount.Id
+                where
+                    obligation.Id == obligationId &&
+                    obligation.HouseholdId == actor.HouseholdId.Value &&
+                    rule.HouseholdId == actor.HouseholdId.Value &&
+                    rule.ModeCode == HouseholdContributionModes.FixedAmount &&
+                    !rule.IncomeRuleId.HasValue &&
+                    householdMember.HouseholdId == actor.HouseholdId.Value &&
+                    householdMember.IsActive &&
+                    childPerson.IsActive &&
+                    childPerson.PersonTypeCode == PersonTypes.Child &&
+                    targetAccount.IsActive
+                select new
+                {
+                    Obligation = obligation,
+                    Rule = rule,
+                    HouseholdMember = householdMember,
+                    Person = childPerson,
+                    TargetAccount = targetAccount
+                })
+                .SingleOrDefaultAsync(
+                    cancellationToken);
+
+        if (row is null ||
+            !familyChildren.TryGetValue(
+                row.Person.Id,
+                out var childDisplayName))
+        {
+            return null;
+        }
+
+        if (row.Obligation.StatusCode ==
+                HouseholdContributionStatuses.Cancelled ||
+            row.Obligation.StatusCode ==
+                HouseholdContributionStatuses.Corrected)
+        {
+            throw new InvalidOperationException(
+                "Tego zobowiązania dziecka nie można już opłacić.");
+        }
+
+        var outstandingMinor =
+            Math.Max(
+                0,
+                row.Obligation.AmountMinor -
+                row.Obligation.PaidAmountMinor);
+
+        if (outstandingMinor <= 0)
+        {
+            throw new InvalidOperationException(
+                "Składka dziecka za ten miesiąc jest już opłacona.");
+        }
+
+        var sources =
+            new List<FamilyChildContributionPaymentSource>();
+
+        var canUseSharedAccounts =
+            await PermissionEnforcement.HasUserAsync(
+                dbContext,
+                actorUserId,
+                SystemPermissions.FinancePersonalManageOwn,
+                cancellationToken);
+
+        var canUseHouseholdAccounts =
+            await PermissionEnforcement.HasUserAsync(
+                dbContext,
+                actorUserId,
+                SystemPermissions.FinanceHouseholdManage,
+                cancellationToken);
+
+        IReadOnlyList<SharedAccountRow> sharedRows =
+            canUseSharedAccounts
+                ? await GetSharedAccountRowsForGroupAsync(
+                    familyGroupId,
+                    cancellationToken)
+                : [];
+
+        var availableSharedRows =
+            sharedRows
+                .Where(x =>
+                    x.ClosedAtUtc is null &&
+                    (x.OwnerPersonId == actor.PersonId ||
+                     x.CoOwnerPersonId == actor.PersonId))
+                .ToArray();
+
+        if (availableSharedRows.Length > 0)
+        {
+            var personalAccountIds =
+                availableSharedRows
+                    .Select(x => x.PersonalAccountId)
+                    .Distinct()
+                    .ToArray();
+
+            var sharedAccounts =
+                await dbContext.PersonalFinancialAccounts
+                    .AsNoTracking()
+                    .Where(x =>
+                        personalAccountIds.Contains(x.Id) &&
+                        x.IsActive &&
+                        x.CurrencyCode == row.TargetAccount.CurrencyCode)
+                    .ToDictionaryAsync(
+                        x => x.Id,
+                        cancellationToken);
+
+            var sharedBalances =
+                await dbContext.PersonalFinancialTransactions
+                    .AsNoTracking()
+                    .Where(x =>
+                        personalAccountIds.Contains(x.AccountId))
+                    .GroupBy(x => x.AccountId)
+                    .Select(x => new
+                    {
+                        AccountId = x.Key,
+                        BalanceMinor = x.Sum(y => y.AmountMinor)
+                    })
+                    .ToDictionaryAsync(
+                        x => x.AccountId,
+                        x => x.BalanceMinor,
+                        cancellationToken);
+
+            foreach (var sharedRow in availableSharedRows)
+            {
+                if (!sharedAccounts.TryGetValue(
+                        sharedRow.PersonalAccountId,
+                        out var sharedAccount))
+                {
+                    continue;
+                }
+
+                sources.Add(
+                    new FamilyChildContributionPaymentSource(
+                        FamilyChildContributionPaymentSourceTypes.FamilySharedAccount,
+                        FamilyChildContributionPaymentSourceTypes.GetNamePl(
+                            FamilyChildContributionPaymentSourceTypes.FamilySharedAccount),
+                        sharedRow.Id,
+                        sharedAccount.Name,
+                        sharedAccount.CurrencyCode,
+                        PersonalFinanceMoney.FromMinorUnits(
+                            sharedBalances.GetValueOrDefault(
+                                sharedAccount.Id)),
+                        false));
+            }
+        }
+
+        HouseholdAccount[] householdAccounts =
+            canUseHouseholdAccounts
+                ? await dbContext.HouseholdAccounts
+                    .AsNoTracking()
+                    .Where(x =>
+                        x.HouseholdId == actor.HouseholdId.Value &&
+                        x.IsActive &&
+                        x.CurrencyCode == row.TargetAccount.CurrencyCode)
+                    .OrderBy(x => x.Name)
+                    .ToArrayAsync(
+                        cancellationToken)
+                : [];
+
+        var householdAccountIds =
+            householdAccounts
+                .Select(x => x.Id)
+                .ToArray();
+
+        var householdBalances =
+            householdAccountIds.Length == 0
+                ? new Dictionary<Guid, long>()
+                : await dbContext.HouseholdEntries
+                    .AsNoTracking()
+                    .Where(x =>
+                        householdAccountIds.Contains(x.AccountId) &&
+                        x.HouseholdId == actor.HouseholdId.Value)
+                    .GroupBy(x => x.AccountId)
+                    .Select(x => new
+                    {
+                        AccountId = x.Key,
+                        BalanceMinor = x.Sum(y => y.AmountMinor)
+                    })
+                    .ToDictionaryAsync(
+                        x => x.AccountId,
+                        x => x.BalanceMinor,
+                        cancellationToken);
+
+        foreach (var householdAccount in householdAccounts)
+        {
+            sources.Add(
+                new FamilyChildContributionPaymentSource(
+                    FamilyChildContributionPaymentSourceTypes.HouseholdAccount,
+                    FamilyChildContributionPaymentSourceTypes.GetNamePl(
+                        FamilyChildContributionPaymentSourceTypes.HouseholdAccount),
+                    householdAccount.Id,
+                    householdAccount.Name,
+                    householdAccount.CurrencyCode,
+                    HouseholdFinanceMoney.FromMinorUnits(
+                        householdBalances.GetValueOrDefault(
+                            householdAccount.Id)),
+                    householdAccount.Id ==
+                        row.TargetAccount.Id));
+        }
+
+        return new FamilyChildContributionPaymentForm(
+            familyGroup.Id,
+            familyGroup.Name,
+            row.Obligation.Id,
+            row.Person.Id,
+            childDisplayName,
+            row.Obligation.PeriodKey,
+            HouseholdFinanceMoney.FromMinorUnits(
+                row.Obligation.AmountMinor),
+            HouseholdFinanceMoney.FromMinorUnits(
+                row.Obligation.PaidAmountMinor),
+            HouseholdFinanceMoney.FromMinorUnits(
+                outstandingMinor),
+            row.Obligation.DueDateUtc,
+            row.TargetAccount.Id,
+            row.TargetAccount.Name,
+            row.TargetAccount.CurrencyCode,
+            sources);
+    }
+
+    public async Task<FamilyChildContributionPaymentResult> PayChildContributionAsync(
+        PayFamilyChildContributionRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            FamilyFinancePermissions.Manage,
+            cancellationToken);
+
+        if (!FamilyChildContributionPaymentSourceTypes.IsValid(
+                request.SourceType))
+        {
+            throw new ArgumentException(
+                "Wybrano nieprawidłowe źródło składki dziecka.");
+        }
+
+        var actor =
+            await GetActorContextAsync(
+                actorUserId,
+                cancellationToken);
+
+        if (actor.HouseholdId is null)
+        {
+            throw new InvalidOperationException(
+                "Brak aktywnego gospodarstwa.");
+        }
+
+        await EnsureActiveMembershipAsync(
+            request.FamilyGroupId,
+            actor.HouseholdId.Value,
+            actor.PersonId,
+            cancellationToken);
+
+        var familyChildren =
+            (await GetActiveMembersAsync(
+                request.FamilyGroupId,
+                cancellationToken))
+            .Where(x =>
+                x.FamilyRoleCode == FamilyRoles.Child)
+            .ToDictionary(
+                x => x.PersonId,
+                x => x.DisplayName);
+
+        var paidAtUtc =
+            request.PaidAtUtc == default
+                ? DateTime.UtcNow
+                : NormalizeUtcDate(
+                    request.PaidAtUtc);
+
+        if (paidAtUtc.Date > DateTime.UtcNow.Date)
+        {
+            throw new ArgumentException(
+                "Data przekazania składki nie może być późniejsza niż dzisiaj.");
+        }
+
+        if (request.SourceType ==
+            FamilyChildContributionPaymentSourceTypes.FamilySharedAccount)
+        {
+            await PermissionEnforcement.EnsureUserHasAsync(
+                dbContext,
+                actorUserId,
+                SystemPermissions.FinancePersonalManageOwn,
+                cancellationToken);
+        }
+        else
+        {
+            await PermissionEnforcement.EnsureUserHasAsync(
+                dbContext,
+                actorUserId,
+                SystemPermissions.FinanceHouseholdManage,
+                cancellationToken);
+        }
+
+        await using var dbTransaction =
+            await dbContext.Database.BeginTransactionAsync(
+                cancellationToken);
+
+        var row =
+            await (
+                from obligation in dbContext.HouseholdContributionObligations
+                join rule in dbContext.HouseholdContributionRules
+                    on obligation.ContributionRuleId equals rule.Id
+                join householdMember in dbContext.HouseholdMembers
+                    on obligation.HouseholdMemberId equals householdMember.Id
+                join childPerson in dbContext.People
+                    on householdMember.PersonId equals childPerson.Id
+                join targetAccount in dbContext.HouseholdAccounts
+                    on obligation.TargetHouseholdAccountId equals targetAccount.Id
+                where
+                    obligation.Id == request.ObligationId &&
+                    obligation.HouseholdId == actor.HouseholdId.Value &&
+                    rule.HouseholdId == actor.HouseholdId.Value &&
+                    rule.ModeCode == HouseholdContributionModes.FixedAmount &&
+                    !rule.IncomeRuleId.HasValue &&
+                    householdMember.HouseholdId == actor.HouseholdId.Value &&
+                    householdMember.IsActive &&
+                    childPerson.IsActive &&
+                    childPerson.PersonTypeCode == PersonTypes.Child &&
+                    targetAccount.IsActive
+                select new
+                {
+                    Obligation = obligation,
+                    Rule = rule,
+                    HouseholdMember = householdMember,
+                    Person = childPerson,
+                    TargetAccount = targetAccount
+                })
+                .SingleOrDefaultAsync(
+                    cancellationToken)
+            ?? throw new InvalidOperationException(
+                "Nie znaleziono składki dziecka do przekazania.");
+
+        if (!familyChildren.TryGetValue(
+                row.Person.Id,
+                out var childDisplayName))
+        {
+            throw new UnauthorizedAccessException(
+                "Dziecko przypisane do składki nie jest aktywnym członkiem tej rodziny.");
+        }
+
+        var obligationMonth =
+            new DateTime(
+                row.Obligation.DueDateUtc.Year,
+                row.Obligation.DueDateUtc.Month,
+                1,
+                0,
+                0,
+                0,
+                DateTimeKind.Utc);
+
+        var currentMonth =
+            new DateTime(
+                DateTime.UtcNow.Year,
+                DateTime.UtcNow.Month,
+                1,
+                0,
+                0,
+                0,
+                DateTimeKind.Utc);
+
+        if (obligationMonth > currentMonth)
+        {
+            throw new InvalidOperationException(
+                "Nie można przekazać składki dziecka za przyszły miesiąc.");
+        }
+
+        if (row.Obligation.StatusCode ==
+                HouseholdContributionStatuses.Cancelled ||
+            row.Obligation.StatusCode ==
+                HouseholdContributionStatuses.Corrected)
+        {
+            throw new InvalidOperationException(
+                "Tego zobowiązania dziecka nie można już opłacić.");
+        }
+
+        var outstandingMinor =
+            Math.Max(
+                0,
+                row.Obligation.AmountMinor -
+                row.Obligation.PaidAmountMinor);
+
+        if (outstandingMinor <= 0)
+        {
+            throw new InvalidOperationException(
+                "Składka dziecka za ten miesiąc jest już opłacona.");
+        }
+
+        var now =
+            DateTime.UtcNow;
+
+        var paymentId =
+            Guid.NewGuid();
+
+        Guid? sourceTransactionId = null;
+        Guid? householdEntryId = null;
+
+        if (request.SourceType ==
+            FamilyChildContributionPaymentSourceTypes.FamilySharedAccount)
+        {
+            var sharedRow =
+                (await GetSharedAccountRowsForGroupAsync(
+                    request.FamilyGroupId,
+                    cancellationToken))
+                .SingleOrDefault(x =>
+                    x.Id == request.SourceId &&
+                    x.ClosedAtUtc is null &&
+                    (x.OwnerPersonId == actor.PersonId ||
+                     x.CoOwnerPersonId == actor.PersonId))
+                ?? throw new UnauthorizedAccessException(
+                    "Nie jesteś właścicielem ani współwłaścicielem wybranego wspólnego konta rodziny.");
+
+            var sourceAccount =
+                await dbContext.PersonalFinancialAccounts
+                    .SingleOrDefaultAsync(
+                        x =>
+                            x.Id == sharedRow.PersonalAccountId &&
+                            x.IsActive,
+                        cancellationToken)
+                ?? throw new InvalidOperationException(
+                    "Wybrane wspólne konto rodziny jest nieaktywne.");
+
+            if (!string.Equals(
+                    sourceAccount.CurrencyCode,
+                    row.TargetAccount.CurrencyCode,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "Waluta wspólnego konta rodziny i konta domu nie jest zgodna.");
+            }
+
+            var sourceBalanceMinor =
+                await dbContext.PersonalFinancialTransactions
+                    .Where(x =>
+                        x.AccountId == sourceAccount.Id)
+                    .SumAsync(
+                        x => x.AmountMinor,
+                        cancellationToken);
+
+            if (sourceBalanceMinor < outstandingMinor)
+            {
+                throw new InvalidOperationException(
+                    "Na wybranym wspólnym koncie rodziny nie ma wystarczających środków.");
+            }
+
+            sourceTransactionId =
+                Guid.NewGuid();
+
+            householdEntryId =
+                Guid.NewGuid();
+
+            dbContext.PersonalFinancialTransactions.Add(
+                new PersonalFinancialTransaction
+                {
+                    Id = sourceTransactionId.Value,
+                    AccountId = sourceAccount.Id,
+                    OwnerPersonId = sharedRow.OwnerPersonId,
+                    KindCode = PersonalTransactionKinds.Expense,
+                    AmountMinor = -outstandingMinor,
+                    OccurredAtUtc = paidAtUtc,
+                    CategoryCode = PersonalFinanceCategories.HouseholdContribution,
+                    Counterparty = "Budżet domu",
+                    Description =
+                        $"Składka za {childDisplayName} za {row.Obligation.PeriodKey}",
+                    CreatedByUserId = actorUserId,
+                    CreatedAtUtc = now
+                });
+
+            dbContext.HouseholdEntries.Add(
+                new HouseholdEntry
+                {
+                    Id = householdEntryId.Value,
+                    HouseholdId = actor.HouseholdId.Value,
+                    AccountId = row.TargetAccount.Id,
+                    EntryTypeCode = HouseholdEntryTypes.MemberContribution,
+                    AmountMinor = outstandingMinor,
+                    OccurredAtUtc = paidAtUtc,
+                    CategoryCode = HouseholdFinanceCategories.HouseholdIncome,
+                    Description =
+                        $"Składka za dziecko {childDisplayName} za {row.Obligation.PeriodKey}",
+                    SourceType = "FamilyChildContributionPayment",
+                    SourceId = paymentId.ToString(),
+                    CreatedByUserId = actorUserId,
+                    CreatedAtUtc = now
+                });
+
+            sourceAccount.UpdatedAtUtc = now;
+            row.TargetAccount.UpdatedAtUtc = now;
+        }
+        else
+        {
+            var sourceAccount =
+                await dbContext.HouseholdAccounts
+                    .SingleOrDefaultAsync(
+                        x =>
+                            x.Id == request.SourceId &&
+                            x.HouseholdId == actor.HouseholdId.Value &&
+                            x.IsActive,
+                        cancellationToken)
+                ?? throw new InvalidOperationException(
+                    "Wybrane konto domu nie istnieje albo jest nieaktywne.");
+
+            if (!string.Equals(
+                    sourceAccount.CurrencyCode,
+                    row.TargetAccount.CurrencyCode,
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "Waluta konta źródłowego i docelowego domu nie jest zgodna.");
+            }
+
+            var sourceBalanceMinor =
+                await dbContext.HouseholdEntries
+                    .Where(x =>
+                        x.HouseholdId == actor.HouseholdId.Value &&
+                        x.AccountId == sourceAccount.Id)
+                    .SumAsync(
+                        x => x.AmountMinor,
+                        cancellationToken);
+
+            if (sourceBalanceMinor < outstandingMinor)
+            {
+                throw new InvalidOperationException(
+                    "Na wybranym koncie domu nie ma wystarczających środków.");
+            }
+
+            if (sourceAccount.Id != row.TargetAccount.Id)
+            {
+                var sourceEntryId =
+                    Guid.NewGuid();
+
+                var targetEntryId =
+                    Guid.NewGuid();
+
+                sourceTransactionId =
+                    sourceEntryId;
+
+                householdEntryId =
+                    targetEntryId;
+
+                dbContext.HouseholdEntries.AddRange(
+                    new HouseholdEntry
+                    {
+                        Id = sourceEntryId,
+                        HouseholdId = actor.HouseholdId.Value,
+                        AccountId = sourceAccount.Id,
+                        EntryTypeCode = HouseholdEntryTypes.TransferOut,
+                        AmountMinor = -outstandingMinor,
+                        OccurredAtUtc = paidAtUtc,
+                        CategoryCode = null,
+                        Description =
+                            $"Pokrycie składki za {childDisplayName} za {row.Obligation.PeriodKey}",
+                        SourceType = "FamilyChildContributionCoverage",
+                        SourceId = paymentId.ToString(),
+                        CreatedByUserId = actorUserId,
+                        CreatedAtUtc = now
+                    },
+                    new HouseholdEntry
+                    {
+                        Id = targetEntryId,
+                        HouseholdId = actor.HouseholdId.Value,
+                        AccountId = row.TargetAccount.Id,
+                        EntryTypeCode = HouseholdEntryTypes.TransferIn,
+                        AmountMinor = outstandingMinor,
+                        OccurredAtUtc = paidAtUtc,
+                        CategoryCode = null,
+                        Description =
+                            $"Składka za {childDisplayName} za {row.Obligation.PeriodKey}",
+                        SourceType = "FamilyChildContributionCoverage",
+                        SourceId = paymentId.ToString(),
+                        CreatedByUserId = actorUserId,
+                        CreatedAtUtc = now
+                    });
+
+                sourceAccount.UpdatedAtUtc = now;
+                row.TargetAccount.UpdatedAtUtc = now;
+            }
+            else
+            {
+                row.TargetAccount.UpdatedAtUtc = now;
+            }
+        }
+
+        row.Obligation.PaidAmountMinor +=
+            outstandingMinor;
+
+        row.Obligation.StatusCode =
+            HouseholdContributionStatuses.Paid;
+
+        row.Obligation.UpdatedAtUtc =
+            now;
+
+        await dbContext.SaveChangesAsync(
+            cancellationToken);
+
+        await auditService.WriteAsync(
+            new AuditEntry(
+                EventType: "M04.8.7.ChildHouseholdContributionPaid",
+                EntityType: "HouseholdContributionObligation",
+                EntityId: row.Obligation.Id.ToString(),
+                ActorId: actorUserId.ToString(),
+                CorrelationId: correlationId,
+                Description:
+                    "Przekazano za dziecko składkę dla domu. Kwota i nazwa konta źródłowego nie są zapisywane w audycie."),
+            cancellationToken);
+
+        await dbTransaction.CommitAsync(
+            cancellationToken);
+
+        return new FamilyChildContributionPaymentResult(
+            row.Obligation.Id,
+            request.SourceType,
+            request.SourceId,
+            sourceTransactionId,
+            householdEntryId,
+            HouseholdFinanceMoney.FromMinorUnits(
+                outstandingMinor));
+    }
+
+
     public async Task<CreateFamilySharedAccountForm?> GetCreateSharedAccountFormAsync(
         Guid familyGroupId,
         Guid actorUserId,
@@ -2840,6 +3531,350 @@ public sealed class FamilyFinanceService(
             cancellationToken);
 
         return result;
+    }
+
+
+
+    private async Task<IReadOnlyList<FamilyChildHouseholdContributionSummary>>
+        BuildChildHouseholdContributionSummariesAsync(
+            Guid householdId,
+            IReadOnlyList<FamilyMemberRow> familyMembers,
+            int year,
+            int month,
+            CancellationToken cancellationToken)
+    {
+        var childPeople =
+            familyMembers
+                .Where(x =>
+                    x.FamilyRoleCode == FamilyRoles.Child)
+                .ToDictionary(
+                    x => x.PersonId,
+                    x => x.DisplayName);
+
+        if (childPeople.Count == 0)
+        {
+            return [];
+        }
+
+        var childPersonIds =
+            childPeople.Keys.ToArray();
+
+        var householdMemberships =
+            await dbContext.HouseholdMembers
+                .AsNoTracking()
+                .Where(x =>
+                    x.HouseholdId == householdId &&
+                    x.IsActive &&
+                    childPersonIds.Contains(x.PersonId))
+                .Select(x => new
+                {
+                    x.Id,
+                    x.PersonId
+                })
+                .ToArrayAsync(
+                    cancellationToken);
+
+        if (householdMemberships.Length == 0)
+        {
+            return [];
+        }
+
+        var membershipToPerson =
+            householdMemberships.ToDictionary(
+                x => x.Id,
+                x => x.PersonId);
+
+        var householdMemberIds =
+            membershipToPerson.Keys.ToArray();
+
+        var ruleRows =
+            await (
+                from rule in dbContext.HouseholdContributionRules
+                    .AsNoTracking()
+                join targetAccount in dbContext.HouseholdAccounts
+                    .AsNoTracking()
+                    on rule.TargetHouseholdAccountId equals targetAccount.Id
+                where
+                    rule.HouseholdId == householdId &&
+                    householdMemberIds.Contains(rule.HouseholdMemberId) &&
+                    rule.ModeCode == HouseholdContributionModes.FixedAmount &&
+                    !rule.IncomeRuleId.HasValue &&
+                    rule.FixedAmountMinor.HasValue
+                orderby
+                    rule.IsActive descending,
+                    rule.ValidFromUtc descending
+                select new
+                {
+                    Rule = rule,
+                    TargetAccount = targetAccount
+                })
+                .ToArrayAsync(
+                    cancellationToken);
+
+        if (ruleRows.Length == 0)
+        {
+            return [];
+        }
+
+        var periodKey =
+            $"{year:D4}-{month:D2}";
+
+        var ruleIds =
+            ruleRows
+                .Select(x => x.Rule.Id)
+                .ToArray();
+
+        var obligations =
+            await dbContext.HouseholdContributionObligations
+                .AsNoTracking()
+                .Where(x =>
+                    ruleIds.Contains(x.ContributionRuleId) &&
+                    x.PeriodKey == periodKey)
+                .ToArrayAsync(
+                    cancellationToken);
+
+        var obligationByRule =
+            obligations
+                .GroupBy(x => x.ContributionRuleId)
+                .ToDictionary(
+                    x => x.Key,
+                    x => x
+                        .OrderByDescending(y => y.UpdatedAtUtc)
+                        .First());
+
+        var todayUtc =
+            DateTime.UtcNow.Date;
+
+        var currentMonth =
+            new DateTime(
+                todayUtc.Year,
+                todayUtc.Month,
+                1,
+                0,
+                0,
+                0,
+                DateTimeKind.Utc);
+
+        var selectedMonth =
+            new DateTime(
+                year,
+                month,
+                1,
+                0,
+                0,
+                0,
+                DateTimeKind.Utc);
+
+        var result =
+            new List<FamilyChildHouseholdContributionSummary>();
+
+        foreach (var row in ruleRows)
+        {
+            var rule = row.Rule;
+            var personId =
+                membershipToPerson[rule.HouseholdMemberId];
+
+            obligationByRule.TryGetValue(
+                rule.Id,
+                out var obligation);
+
+            var validFromMonth =
+                new DateTime(
+                    rule.ValidFromUtc.Year,
+                    rule.ValidFromUtc.Month,
+                    1,
+                    0,
+                    0,
+                    0,
+                    DateTimeKind.Utc);
+
+            DateTime? validToMonth =
+                rule.ValidToUtc.HasValue
+                    ? new DateTime(
+                        rule.ValidToUtc.Value.Year,
+                        rule.ValidToUtc.Value.Month,
+                        1,
+                        0,
+                        0,
+                        0,
+                        DateTimeKind.Utc)
+                    : null;
+
+            var appliesByMonth =
+                selectedMonth >= validFromMonth &&
+                (!validToMonth.HasValue ||
+                 selectedMonth <= validToMonth.Value);
+
+            // Zawsze pokazujemy aktualną regułę dziecka. Historyczną wersję
+            // pokazujemy tylko wtedy, gdy ma zobowiązanie w wybranym miesiącu.
+            if (obligation is null &&
+                !rule.IsActive &&
+                !appliesByMonth)
+            {
+                continue;
+            }
+
+            if (obligation is not null)
+            {
+                var outstandingMinor =
+                    Math.Max(
+                        0,
+                        obligation.AmountMinor -
+                        obligation.PaidAmountMinor);
+
+                var statusCode =
+                    ResolveChildContributionStatus(
+                        obligation,
+                        todayUtc);
+
+                var canPay =
+                    outstandingMinor > 0 &&
+                    statusCode !=
+                        HouseholdContributionStatuses.Cancelled &&
+                    statusCode !=
+                        HouseholdContributionStatuses.Corrected &&
+                    selectedMonth <= currentMonth;
+
+                result.Add(
+                    new FamilyChildHouseholdContributionSummary(
+                        obligation.Id,
+                        rule.Id,
+                        personId,
+                        childPeople.GetValueOrDefault(
+                            personId,
+                            "Dziecko"),
+                        obligation.PeriodKey,
+                        HouseholdFinanceMoney.FromMinorUnits(
+                            obligation.AmountMinor),
+                        HouseholdFinanceMoney.FromMinorUnits(
+                            obligation.PaidAmountMinor),
+                        HouseholdFinanceMoney.FromMinorUnits(
+                            outstandingMinor),
+                        obligation.DueDateUtc,
+                        statusCode,
+                        HouseholdContributionStatuses.GetNamePl(
+                            statusCode),
+                        row.TargetAccount.Id,
+                        row.TargetAccount.Name,
+                        row.TargetAccount.CurrencyCode,
+                        canPay,
+                        null));
+
+                continue;
+            }
+
+            var dueDay =
+                Math.Clamp(
+                    rule.DueOffsetDays,
+                    1,
+                    28);
+
+            var dueDateUtc =
+                new DateTime(
+                    year,
+                    month,
+                    dueDay,
+                    0,
+                    0,
+                    0,
+                    DateTimeKind.Utc);
+
+            string statusName;
+            string availabilityNote;
+
+            if (selectedMonth < validFromMonth)
+            {
+                statusName = "Jeszcze nie obowiązuje";
+                availabilityNote =
+                    $"Reguła obowiązuje od {validFromMonth:MM.yyyy}.";
+            }
+            else if (validToMonth.HasValue &&
+                     selectedMonth > validToMonth.Value)
+            {
+                statusName = "Poza okresem";
+                availabilityNote =
+                    $"Reguła obowiązywała do {validToMonth.Value:MM.yyyy}.";
+            }
+            else if (dueDateUtc.Date < rule.ValidFromUtc.Date)
+            {
+                statusName = "Od następnego miesiąca";
+                availabilityNote =
+                    "Regułę ustawiono po terminie składki w tym miesiącu. Pierwsze zobowiązanie pojawi się w następnym miesiącu.";
+            }
+            else if (!rule.IsActive)
+            {
+                statusName = "Reguła zakończona";
+                availabilityNote =
+                    "Ta wersja reguły nie jest już aktywna.";
+            }
+            else
+            {
+                statusName = "Reguła aktywna";
+                availabilityNote =
+                    "Składka jest ustawiona, ale dla wybranego miesiąca nie ma jeszcze zobowiązania do przekazania.";
+            }
+
+            var amountMinor =
+                rule.FixedAmountMinor ?? 0;
+
+            result.Add(
+                new FamilyChildHouseholdContributionSummary(
+                    null,
+                    rule.Id,
+                    personId,
+                    childPeople.GetValueOrDefault(
+                        personId,
+                        "Dziecko"),
+                    periodKey,
+                    HouseholdFinanceMoney.FromMinorUnits(
+                        amountMinor),
+                    0m,
+                    HouseholdFinanceMoney.FromMinorUnits(
+                        amountMinor),
+                    dueDateUtc,
+                    "RuleOnly",
+                    statusName,
+                    row.TargetAccount.Id,
+                    row.TargetAccount.Name,
+                    row.TargetAccount.CurrencyCode,
+                    false,
+                    availabilityNote));
+        }
+
+        return result
+            .OrderBy(x => x.ChildDisplayName)
+            .ThenBy(x => x.DueDateUtc)
+            .ToArray();
+    }
+
+    private static string ResolveChildContributionStatus(
+        HouseholdContributionObligation obligation,
+        DateTime todayUtc)
+    {
+        if (obligation.StatusCode ==
+                HouseholdContributionStatuses.Cancelled ||
+            obligation.StatusCode ==
+                HouseholdContributionStatuses.Corrected)
+        {
+            return obligation.StatusCode;
+        }
+
+        if (obligation.PaidAmountMinor >=
+            obligation.AmountMinor)
+        {
+            return HouseholdContributionStatuses.Paid;
+        }
+
+        if (obligation.PaidAmountMinor > 0)
+        {
+            return obligation.DueDateUtc.Date < todayUtc
+                ? HouseholdContributionStatuses.Overdue
+                : HouseholdContributionStatuses.PartiallyPaid;
+        }
+
+        return obligation.DueDateUtc.Date < todayUtc
+            ? HouseholdContributionStatuses.Overdue
+            : HouseholdContributionStatuses.Pending;
     }
 
 

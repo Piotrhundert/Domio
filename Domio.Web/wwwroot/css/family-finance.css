@@ -504,3 +504,158 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* M04.8.7 – folder navigation and child contribution payment */
+.family-finance-header-clean {
+  padding-bottom: 2px;
+}
+
+.family-finance-folder-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  overflow-x: auto;
+  padding: 8px 10px 0;
+  border-bottom: 1px solid #cbd6e2;
+  scrollbar-width: thin;
+}
+
+.family-finance-folder-tab {
+  position: relative;
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 10px 14px 9px;
+  border: 1px solid #d5dde6;
+  border-bottom: 0;
+  border-radius: 9px 9px 0 0;
+  background: #eef3f8;
+  color: #43566a;
+  text-decoration: none;
+  font-size: .72rem;
+  font-weight: 760;
+  line-height: 1;
+  transition: background-color .15s ease, color .15s ease, transform .15s ease;
+}
+
+.family-finance-folder-tab:hover {
+  background: #f8fbfe;
+  color: #0a5cab;
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+
+.family-finance-folder-tab.is-active {
+  z-index: 1;
+  margin-bottom: -1px;
+  padding-top: 11px;
+  background: #fff;
+  border-color: #b9cadb;
+  color: #0a5cab;
+  box-shadow: 0 -2px 0 #0a6ed1 inset;
+}
+
+.family-finance-folder-tab.is-tool {
+  background: #f7f9fb;
+  color: #5b6b7c;
+}
+
+.family-finance-folder-tab.is-add {
+  background: #eaf3fc;
+  border-color: #c3d8ee;
+  color: #0a5cab;
+}
+
+.family-finance-folder-separator {
+  flex: 0 0 12px;
+}
+
+.family-finance-section {
+  scroll-margin-top: 18px;
+}
+
+.family-finance-section-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  color: #0a5cab;
+  background: transparent;
+  text-decoration: none;
+  font-size: .7rem;
+  font-weight: 760;
+}
+
+.family-finance-section-link:hover {
+  background: #edf5fd;
+  color: #084b8a;
+  text-decoration: none;
+}
+
+.family-finance-child-contribution-section {
+  padding-top: 2px;
+}
+
+.family-finance-complete-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #eaf8f0;
+  color: #2f7552;
+  font-size: .64rem;
+  font-weight: 760;
+}
+
+.family-finance-payment-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--domio-border);
+  border-radius: 14px;
+  background: var(--domio-border);
+}
+
+.family-finance-payment-summary > div {
+  display: grid;
+  gap: 4px;
+  padding: 14px 15px;
+  background: #fff;
+}
+
+.family-finance-payment-summary span {
+  color: var(--domio-muted);
+  font-size: .64rem;
+}
+
+.family-finance-payment-summary strong {
+  font-size: .78rem;
+}
+
+.family-finance-child-payment-form {
+  width: min(780px, 100%);
+}
+
+@media (max-width: 900px) {
+  .family-finance-payment-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .family-finance-folder-tabs {
+    padding-left: 3px;
+    padding-right: 3px;
+  }
+
+  .family-finance-folder-tab {
+    padding-left: 11px;
+    padding-right: 11px;
+  }
+
+  .family-finance-payment-summary {
+    grid-template-columns: 1fr;
+  }
+}

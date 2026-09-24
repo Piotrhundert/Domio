@@ -714,3 +714,159 @@ textarea:focus {
         padding: 1rem;
     }
 }
+
+/* ================================================================
+   UI-02 – wspólne zakładki/foldery we wszystkich modułach Domio
+   ================================================================ */
+.domio-folder-tabs,
+.family-finance-folder-tabs {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.25rem;
+    width: 100%;
+    margin: 0.15rem 0 1.35rem;
+    padding: 0 0.65rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-bottom: 1px solid var(--sap-border-strong);
+    scrollbar-width: thin;
+}
+
+.domio-folder-tab,
+.family-finance-folder-tab {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    min-height: 2.75rem;
+    margin-bottom: -1px;
+    padding: 0.68rem 1rem 0.72rem;
+    border: 1px solid transparent;
+    border-bottom: 1px solid var(--sap-border-strong);
+    border-radius: 0.72rem 0.72rem 0 0;
+    background: transparent;
+    color: var(--sap-text-soft);
+    font: inherit;
+    font-size: 0.86rem;
+    font-weight: 700;
+    line-height: 1.15;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+        background-color 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+.domio-folder-tab:hover,
+.family-finance-folder-tab:hover {
+    background: #eef4fb;
+    border-color: #c7d8ea;
+    border-bottom-color: var(--sap-border-strong);
+    color: var(--sap-primary-strong);
+    text-decoration: none;
+}
+
+.domio-folder-tab.is-active,
+.domio-folder-tab[aria-selected="true"],
+.family-finance-folder-tab.is-active {
+    z-index: 1;
+    background: var(--sap-surface);
+    border-color: var(--sap-border-strong);
+    border-bottom-color: var(--sap-surface);
+    color: var(--sap-primary-strong);
+    box-shadow: 0 -0.12rem 0.45rem rgba(27, 40, 56, 0.04);
+}
+
+.domio-folder-tab.is-active::before,
+.domio-folder-tab[aria-selected="true"]::before,
+.family-finance-folder-tab.is-active::before {
+    content: "";
+    position: absolute;
+    top: -1px;
+    left: 0.55rem;
+    right: 0.55rem;
+    height: 0.2rem;
+    border-radius: 0 0 999px 999px;
+    background: var(--sap-primary);
+}
+
+.domio-folder-tabs + .domio-tab-panel,
+.domio-tabs-enhanced .domio-tab-panel {
+    animation: domio-tab-fade 0.14s ease-out;
+}
+
+.domio-tab-panel[hidden] {
+    display: none !important;
+}
+
+@keyframes domio-tab-fade {
+    from {
+        opacity: 0.55;
+        transform: translateY(2px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Nagłówek pozostaje widoczny, a ciężar nawigacji przejmują zakładki. */
+.finance-page.domio-tabs-enhanced .finance-page-header,
+.household-finance-page.domio-tabs-enhanced .household-finance-header,
+.users-page.domio-tabs-enhanced .users-page-header {
+    margin-bottom: 0.8rem;
+}
+
+/* Użytkownicy – jedna sekcja na całą szerokość po przełączeniu zakładki. */
+.users-page.domio-tabs-enhanced .users-panel.domio-tab-panel {
+    margin-top: 0 !important;
+}
+
+/* Profil – po przełączeniu widzimy jedną kartę zamiast siatki wielu kart. */
+.profile-page.domio-tabs-enhanced .profile-section-grid {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.profile-page.domio-tabs-enhanced .profile-card.domio-tab-panel {
+    width: 100%;
+    margin-top: 0 !important;
+}
+
+/* Role – zakładki modułów uprawnień mają być lżejsze niż karta roli. */
+.roles-single-page .role-permission-body > .domio-folder-tabs {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+}
+
+.roles-single-page .permission-module-group.domio-tab-panel {
+    margin-top: 0;
+}
+
+/* Finanse domu / osobiste – zakładki nie zmieniają istniejących kart i tabel. */
+.finance-page.domio-tabs-enhanced .finance-section.domio-tab-panel,
+.household-finance-page.domio-tabs-enhanced .household-finance-section.domio-tab-panel {
+    margin-top: 0 !important;
+}
+
+/* Na małych ekranach zakładki przewijają się poziomo zamiast łamać układ. */
+@media (max-width: 767.98px) {
+    .domio-folder-tabs,
+    .family-finance-folder-tabs {
+        margin-left: -0.25rem;
+        margin-right: -0.25rem;
+        width: calc(100% + 0.5rem);
+        padding-left: 0.25rem;
+        padding-right: 0.25rem;
+    }
+
+    .domio-folder-tab,
+    .family-finance-folder-tab {
+        min-height: 2.55rem;
+        padding: 0.62rem 0.8rem 0.66rem;
+        font-size: 0.8rem;
+    }
+}

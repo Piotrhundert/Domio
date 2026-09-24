@@ -49,6 +49,26 @@ public static class FamilySharedAccountRoles
         };
 }
 
+
+public static class FamilyChildContributionPaymentSourceTypes
+{
+    public const string FamilySharedAccount = "FamilySharedAccount";
+    public const string HouseholdAccount = "HouseholdAccount";
+
+    public static readonly IReadOnlyList<FamilyFinanceCodeItem> All =
+    [
+        new(FamilySharedAccount, "Wspólne konto rodziny"),
+        new(HouseholdAccount, "Konto domu")
+    ];
+
+    public static bool IsValid(string code) =>
+        All.Any(x => x.Code == code);
+
+    public static string GetNamePl(string code) =>
+        All.FirstOrDefault(x => x.Code == code)?.NamePl ?? code;
+}
+
+
 public static class FamilyBudgetSourceTypes
 {
     public const string PersonalTransaction = "PersonalTransaction";

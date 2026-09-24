@@ -70,6 +70,20 @@ public interface IFamilyFinanceService
         CancellationToken cancellationToken = default);
 
 
+
+
+    Task<FamilyChildContributionPaymentForm?> GetChildContributionPaymentFormAsync(
+        Guid familyGroupId,
+        Guid obligationId,
+        Guid actorUserId,
+        CancellationToken cancellationToken = default);
+
+    Task<FamilyChildContributionPaymentResult> PayChildContributionAsync(
+        PayFamilyChildContributionRequest request,
+        Guid actorUserId,
+        string correlationId,
+        CancellationToken cancellationToken = default);
+
     Task<CreateFamilySharedAccountForm?> GetCreateSharedAccountFormAsync(
         Guid familyGroupId,
         Guid actorUserId,

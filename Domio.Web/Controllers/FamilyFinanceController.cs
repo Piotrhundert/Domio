@@ -21,6 +21,7 @@ public sealed class FamilyFinanceController(
         Guid? familyGroupId,
         int? year,
         int? month,
+        string? tab,
         CancellationToken cancellationToken = default)
     {
         var today = DateTime.Today;
@@ -53,7 +54,8 @@ public sealed class FamilyFinanceController(
                 new FamilyFinanceIndexViewModel
                 {
                     Overview = overview,
-                    Budget = budget
+                    Budget = budget,
+                    SelectedTab = NormalizeFamilyFinanceTab(tab)
                 });
         }
         catch (UnauthorizedAccessException)
@@ -836,7 +838,8 @@ public sealed class FamilyFinanceController(
                 {
                     familyGroupId = model.FamilyGroupId,
                     year = model.Year,
-                    month = model.Month
+                    month = model.Month,
+                    tab = "children"
                 });
         }
         catch (UnauthorizedAccessException)
@@ -900,6 +903,168 @@ public sealed class FamilyFinanceController(
         catch (InvalidOperationException exception)
         {
             ModelState.AddModelError(string.Empty, exception.Message);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        return View(model);
+    }
+
+
+    [HttpGet]
+    [Authorize(Policy = FamilyFinancePermissions.Manage)]
+    public async Task<IActionResult> PayChildContribution(
+        Guid familyGroupId,
+        Guid obligationId,
+        int year,
+        int month,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var form =
+                await familyFinanceService
+                    .GetChildContributionPaymentFormAsync(
+                        familyGroupId,
+                        obligationId,
+                        GetCurrentUserId(),
+                        cancellationToken);
+
+            if (form is null)
+            {
+                return NotFound();
+            }
+
+            return View(
+                BuildPayChildContributionViewModel(
+                    form,
+                    year,
+                    month));
+        }
+        catch (InvalidOperationException exception)
+        {
+            TempData["FamilyFinanceError"] =
+                exception.Message;
+
+            return RedirectToAction(
+                nameof(Index),
+                new
+                {
+                    familyGroupId,
+                    year,
+                    month,
+                    tab = "child-contributions"
+                });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    [Authorize(Policy = FamilyFinancePermissions.Manage)]
+    public async Task<IActionResult> PayChildContribution(
+        PayFamilyChildContributionViewModel model,
+        CancellationToken cancellationToken = default)
+    {
+        FamilyChildContributionPaymentForm? form;
+
+        try
+        {
+            form =
+                await familyFinanceService
+                    .GetChildContributionPaymentFormAsync(
+                        model.FamilyGroupId,
+                        model.ObligationId,
+                        GetCurrentUserId(),
+                        cancellationToken);
+        }
+        catch (InvalidOperationException exception)
+        {
+            TempData["FamilyFinanceError"] =
+                exception.Message;
+
+            return RedirectToAction(
+                nameof(Index),
+                new
+                {
+                    familyGroupId = model.FamilyGroupId,
+                    year = model.Year,
+                    month = model.Month,
+                    tab = "child-contributions"
+                });
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        if (form is null)
+        {
+            return NotFound();
+        }
+
+        RebuildPayChildContributionViewModel(
+            model,
+            form);
+
+        if (!TryParseChildContributionSourceKey(
+                model.SelectedSourceKey,
+                out var sourceType,
+                out var sourceId))
+        {
+            ModelState.AddModelError(
+                nameof(model.SelectedSourceKey),
+                "Wybierz poprawne źródło środków.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return View(model);
+        }
+
+        try
+        {
+            await familyFinanceService
+                .PayChildContributionAsync(
+                    new PayFamilyChildContributionRequest(
+                        model.FamilyGroupId,
+                        model.ObligationId,
+                        sourceType!,
+                        sourceId,
+                        model.PaidAtUtc),
+                    GetCurrentUserId(),
+                    HttpContext.TraceIdentifier,
+                    cancellationToken);
+
+            TempData["FamilyFinanceMessage"] =
+                $"Przekazano składkę za {form.ChildDisplayName} do budżetu domu.";
+
+            return RedirectToAction(
+                nameof(Index),
+                new
+                {
+                    familyGroupId = model.FamilyGroupId,
+                    year = model.Year,
+                    month = model.Month,
+                    tab = "child-contributions"
+                });
+        }
+        catch (ArgumentException exception)
+        {
+            ModelState.AddModelError(
+                string.Empty,
+                exception.Message);
+        }
+        catch (InvalidOperationException exception)
+        {
+            ModelState.AddModelError(
+                string.Empty,
+                exception.Message);
         }
         catch (UnauthorizedAccessException)
         {
@@ -1417,6 +1582,107 @@ public sealed class FamilyFinanceController(
             .ToList();
     }
 
+
+    private static PayFamilyChildContributionViewModel BuildPayChildContributionViewModel(
+        FamilyChildContributionPaymentForm form,
+        int year,
+        int month)
+    {
+        var model =
+            new PayFamilyChildContributionViewModel
+            {
+                FamilyGroupId = form.FamilyGroupId,
+                ObligationId = form.ObligationId,
+                Year = year,
+                Month = month,
+                PaidAtUtc = DateTime.Today
+            };
+
+        RebuildPayChildContributionViewModel(
+            model,
+            form);
+
+        return model;
+    }
+
+    private static void RebuildPayChildContributionViewModel(
+        PayFamilyChildContributionViewModel model,
+        FamilyChildContributionPaymentForm form)
+    {
+        model.FamilyGroupName =
+            form.FamilyGroupName;
+        model.ChildDisplayName =
+            form.ChildDisplayName;
+        model.PeriodKey =
+            form.PeriodKey;
+        model.Amount =
+            form.Amount;
+        model.OutstandingAmount =
+            form.OutstandingAmount;
+        model.DueDateUtc =
+            form.DueDateUtc;
+        model.TargetHouseholdAccountName =
+            form.TargetHouseholdAccountName;
+        model.CurrencyCode =
+            form.CurrencyCode;
+
+        model.Sources =
+            form.Sources
+                .Select(x =>
+                {
+                    var suffix =
+                        x.SourceType ==
+                            FamilyChildContributionPaymentSourceTypes.HouseholdAccount &&
+                        x.IsTargetHouseholdAccount
+                            ? " · środki już na koncie docelowym"
+                            : string.Empty;
+
+                    return new SelectListItem(
+                        $"{x.SourceTypeNamePl}: {x.AccountName} · saldo {x.Balance:N2} {x.CurrencyCode}{suffix}",
+                        $"{x.SourceType}|{x.SourceId:D}");
+                })
+                .ToList();
+    }
+
+    private static bool TryParseChildContributionSourceKey(
+        string? value,
+        out string? sourceType,
+        out Guid sourceId)
+    {
+        sourceType =
+            null;
+        sourceId =
+            Guid.Empty;
+
+        if (string.IsNullOrWhiteSpace(
+                value))
+        {
+            return false;
+        }
+
+        var parts =
+            value.Split(
+                '|',
+                2,
+                StringSplitOptions.TrimEntries);
+
+        if (parts.Length != 2 ||
+            !FamilyChildContributionPaymentSourceTypes.IsValid(
+                parts[0]) ||
+            !Guid.TryParse(
+                parts[1],
+                out sourceId))
+        {
+            return false;
+        }
+
+        sourceType =
+            parts[0];
+
+        return true;
+    }
+
+
     private static ConfirmFamilyChildIncomeReceiptViewModel BuildConfirmChildIncomeViewModel(
         FamilyChildIncomeReceiptForm form)
     {
@@ -1557,6 +1823,17 @@ public sealed class FamilyFinanceController(
                         x.Code))
                 .ToList();
     }
+
+    private static string NormalizeFamilyFinanceTab(string? tab) =>
+        tab switch
+        {
+            "members" => "members",
+            "children" => "children",
+            "child-contributions" => "child-contributions",
+            "expenses" => "expenses",
+            "shared" => "shared",
+            _ => "overview"
+        };
 
     private Guid GetCurrentUserId()
     {

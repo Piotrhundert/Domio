@@ -9,6 +9,8 @@ public sealed class FamilyFinanceIndexViewModel
     public required FamilyFinanceOverview Overview { get; init; }
 
     public FamilyBudgetOverview? Budget { get; init; }
+
+    public string SelectedTab { get; init; } = "overview";
 }
 
 public sealed class CreateFamilyGroupViewModel
@@ -317,5 +319,42 @@ public sealed class FamilySharedAccountOperationViewModel
     public List<SelectListItem> OperationKinds { get; set; } = [];
 
     public List<SelectListItem> Categories { get; set; } = [];
+}
+
+public sealed class PayFamilyChildContributionViewModel
+{
+    public Guid FamilyGroupId { get; set; }
+
+    public Guid ObligationId { get; set; }
+
+    public string FamilyGroupName { get; set; } = string.Empty;
+
+    public string ChildDisplayName { get; set; } = string.Empty;
+
+    public string PeriodKey { get; set; } = string.Empty;
+
+    public int Year { get; set; }
+
+    public int Month { get; set; }
+
+    public decimal Amount { get; set; }
+
+    public decimal OutstandingAmount { get; set; }
+
+    public DateTime DueDateUtc { get; set; }
+
+    public string TargetHouseholdAccountName { get; set; } = string.Empty;
+
+    public string CurrencyCode { get; set; } = "PLN";
+
+    [Required(ErrorMessage = "Wybierz konto, z którego ma zostać pokryta składka dziecka.")]
+    [Display(Name = "Źródło środków")]
+    public string SelectedSourceKey { get; set; } = string.Empty;
+
+    [DataType(DataType.Date)]
+    [Display(Name = "Data przekazania")]
+    public DateTime PaidAtUtc { get; set; } = DateTime.Today;
+
+    public List<SelectListItem> Sources { get; set; } = [];
 }
 

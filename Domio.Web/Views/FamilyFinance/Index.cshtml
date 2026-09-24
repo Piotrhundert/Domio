@@ -17,71 +17,80 @@
     var currentPeriod = new DateTime(overview.Year, overview.Month, 1);
     var previousPeriod = currentPeriod.AddMonths(-1);
     var nextPeriod = currentPeriod.AddMonths(1);
+    var hasChildren =
+        overview.Members.Any(x =>
+            x.FamilyRoleCode == FamilyRoles.Child);
 }
 
 <div class="family-finance-page">
-    <div class="family-finance-header">
+    <div class="family-finance-header family-finance-header-clean">
         <div>
-            <div class="family-finance-kicker">M04.8.6 · FINANSE RODZINNE</div>
+            <div class="family-finance-kicker">M04.8.7 · FINANSE RODZINNE</div>
             <h1>Finanse rodzinne</h1>
             <p>
-                Wspólny plan i wykonanie rodziny oraz rzeczywiste wspólne konto.
-                M04.8.6 pozwala utworzyć jeden rachunek z właścicielem i współwłaścicielem
-                oraz kierować na niego m.in. przychody przypisane do dzieci.
+                Wspólny plan i wykonanie rodziny, przychody dzieci, składki dla domu
+                oraz rzeczywiste wspólne konto rodziny.
             </p>
         </div>
+    </div>
 
-        <div class="family-finance-header-actions">
-            @if (overview.HasFamily && canShare && overview.OwnSharing is not null)
+    @if (overview.HasFamily)
+    {
+        <nav class="family-finance-folder-tabs"
+             aria-label="Sekcje finansów rodzinnych">
+            <a asp-action="Index"
+               asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
+               asp-route-year="@overview.Year"
+               asp-route-month="@overview.Month"
+               asp-route-tab="overview"
+               class="family-finance-folder-tab @(Model.SelectedTab == "overview" ? "is-active" : "")">
+                Przegląd
+            </a>
+            <a asp-action="Index"
+               asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
+               asp-route-year="@overview.Year"
+               asp-route-month="@overview.Month"
+               asp-route-tab="members"
+               class="family-finance-folder-tab @(Model.SelectedTab == "members" ? "is-active" : "")">
+                Członkowie
+            </a>
+            @if (hasChildren)
             {
-                <a asp-action="Sharing"
-                   asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
-                   class="btn btn-outline-primary">
-                    Moje udostępnianie
-                </a>
-            }
-
-            @if (overview.HasFamily)
-            {
-                <a asp-action="BudgetLinks"
+                <a asp-action="Index"
                    asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
                    asp-route-year="@overview.Year"
                    asp-route-month="@overview.Month"
-                   class="btn btn-outline-primary">
-                    Powiąż wydatki
+                   asp-route-tab="children"
+                   class="family-finance-folder-tab @(Model.SelectedTab == "children" ? "is-active" : "")">
+                    Dzieci
+                </a>
+                <a asp-action="Index"
+                   asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
+                   asp-route-year="@overview.Year"
+                   asp-route-month="@overview.Month"
+                   asp-route-tab="child-contributions"
+                   class="family-finance-folder-tab @(Model.SelectedTab == "child-contributions" ? "is-active" : "")">
+                    Składki dzieci
                 </a>
             }
-
-            @if (overview.HasFamily && canManage)
-            {
-                <a asp-action="CreateSharedAccount"
-                   asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
-                   class="btn btn-outline-primary">
-                    + Wspólne konto
-                </a>
-
-                <a asp-action="CreateExpense"
-                   asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
-                   class="btn btn-primary">
-                    + Koszt / subskrypcja
-                </a>
-
-                <a asp-action="AddMember"
-                   asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
-                   class="btn btn-outline-secondary">
-                    + Dodaj członka
-                </a>
-            }
-
-            @if (overview.HasHousehold && canManage)
-            {
-                <a asp-action="CreateGroup"
-                   class="btn btn-primary">
-                    + Nowa rodzina
-                </a>
-            }
-        </div>
-    </div>
+            <a asp-action="Index"
+               asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
+               asp-route-year="@overview.Year"
+               asp-route-month="@overview.Month"
+               asp-route-tab="expenses"
+               class="family-finance-folder-tab @(Model.SelectedTab == "expenses" ? "is-active" : "")">
+                Koszty
+            </a>
+            <a asp-action="Index"
+               asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
+               asp-route-year="@overview.Year"
+               asp-route-month="@overview.Month"
+               asp-route-tab="shared"
+               class="family-finance-folder-tab @(Model.SelectedTab == "shared" ? "is-active" : "")">
+                Wspólne konto
+            </a>
+        </nav>
+    }
 
     @if (TempData["FamilyFinanceMessage"] is string message)
     {
@@ -139,6 +148,7 @@
                        asp-route-familyGroupId="@group.FamilyGroupId"
                        asp-route-year="@overview.Year"
                        asp-route-month="@overview.Month"
+                       asp-route-tab="@Model.SelectedTab"
                        class="family-finance-group-tab @(group.FamilyGroupId == overview.SelectedFamilyGroupId ? "is-active" : "")">
                         <strong>@group.Name</strong>
                         <span>@group.CurrentMemberRoleNamePl</span>
@@ -147,7 +157,17 @@
             </div>
         }
 
-        <div class="family-finance-family-card">
+        @if (Model.SelectedTab == "overview" && canManage && overview.HasHousehold)
+        {
+            <div class="d-flex justify-content-end">
+                <a asp-action="CreateGroup"
+                   class="family-finance-section-link">
+                    + Nowa rodzina
+                </a>
+            </div>
+        }
+
+        <div id="family-overview" class="family-finance-family-card @(Model.SelectedTab == "overview" ? "" : "d-none")">
             <div>
                 <span>Rodzina</span>
                 <strong>@overview.SelectedFamilyGroupName</strong>
@@ -171,6 +191,7 @@
                asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
                asp-route-year="@previousPeriod.Year"
                asp-route-month="@previousPeriod.Month"
+               asp-route-tab="@Model.SelectedTab"
                class="btn btn-sm btn-outline-secondary">
                 ← Poprzedni
             </a>
@@ -181,12 +202,13 @@
                asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
                asp-route-year="@nextPeriod.Year"
                asp-route-month="@nextPeriod.Month"
+               asp-route-tab="@Model.SelectedTab"
                class="btn btn-sm btn-outline-secondary">
                 Następny →
             </a>
         </div>
 
-        <div class="family-finance-summary-grid">
+        <div class="family-finance-summary-grid @(Model.SelectedTab == "overview" ? "" : "d-none")">
             <article class="family-finance-summary-card">
                 <span>Planowane przychody</span>
                 <strong>@overview.PlannedIncomeTotal.ToString("N2") zł</strong>
@@ -219,7 +241,7 @@
         </div>
 
 
-        <section class="family-finance-section">
+        <section id="family-shared-accounts" class="family-finance-section @(Model.SelectedTab == "shared" ? "" : "d-none")">
             <div class="family-finance-section-heading">
                 <div>
                     <div class="family-finance-section-number">KONTO</div>
@@ -234,7 +256,7 @@
                 {
                     <a asp-action="CreateSharedAccount"
                        asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
-                       class="btn btn-sm btn-primary">
+                       class="family-finance-section-link">
                         + Utwórz konto
                     </a>
                 }
@@ -310,7 +332,7 @@
             }
         </section>
 
-        <section class="family-finance-section">
+        <section id="family-members" class="family-finance-section @(Model.SelectedTab == "members" ? "" : "d-none")">
             <div class="family-finance-section-heading">
                 <div>
                     <div class="family-finance-section-number">01</div>
@@ -319,6 +341,25 @@
                         Brak udostępnienia dorosłego nie jest traktowany jako 0 zł.
                         Przychody przypisane dziecku są częścią planu rodziny i nie wymagają konta dziecka.
                     </p>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 justify-content-end">
+                    @if (canShare && overview.OwnSharing is not null)
+                    {
+                        <a asp-action="Sharing"
+                           asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
+                           class="family-finance-section-link">
+                            Moje udostępnianie
+                        </a>
+                    }
+                    @if (canManage)
+                    {
+                        <a asp-action="AddMember"
+                           asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
+                           class="family-finance-section-link">
+                            + Dodaj członka
+                        </a>
+                    }
                 </div>
             </div>
 
@@ -481,7 +522,7 @@
 
         @if (overview.ChildIncomeRules.Count > 0)
         {
-            <section class="family-finance-section">
+            <section id="family-children" class="family-finance-section @(Model.SelectedTab == "children" ? "" : "d-none")">
                 <div class="family-finance-section-heading">
                     <div>
                         <h2>Przychody przypisane do dzieci</h2>
@@ -587,9 +628,160 @@
             </section>
         }
 
-        @if (Model.Budget is not null)
+
+        @if (hasChildren && overview.ChildIncomeRules.Count == 0)
         {
-            <section class="family-finance-section">
+            <section class="family-finance-section @(Model.SelectedTab == "children" ? "" : "d-none")">
+                <div class="family-finance-section-heading">
+                    <div>
+                        <div class="family-finance-section-number">DZIECI</div>
+                        <h2>Przychody dzieci</h2>
+                        <p>
+                            Dzieci są członkami rodziny, ale nie mają jeszcze przypisanych
+                            planowanych przychodów.
+                        </p>
+                    </div>
+                </div>
+                <div class="family-finance-inline-empty">
+                    Dodaj przychód dziecka z zakładki „Członkowie”.
+                </div>
+            </section>
+        }
+
+        @if (hasChildren)
+        {
+            <section id="family-child-contributions"
+                     class="family-finance-section family-finance-child-contribution-section @(Model.SelectedTab == "child-contributions" ? "" : "d-none")">
+                <div class="family-finance-section-heading">
+                    <div>
+                        <div class="family-finance-section-number">SKŁADKI DZIECI</div>
+                        <h2>Składki dzieci dla domu</h2>
+                        <p>
+                            Składka dziecka pochodzi z modułu „Składki i domownicy”.
+                            Możesz pokryć ją ze wspólnego konta rodziny albo ze środków
+                            już znajdujących się na koncie domu.
+                        </p>
+                    </div>
+
+                    @if (canManage)
+                    {
+                        <a asp-controller="HouseholdContributionAdmin"
+                           asp-action="Index"
+                           class="family-finance-section-link">
+                            Zarządzaj regułami składek
+                        </a>
+                    }
+                </div>
+
+                @if (overview.ChildHouseholdContributions.Count == 0)
+                {
+                    <div class="family-finance-inline-empty">
+                        Nie znaleziono żadnej reguły składki dla dziecka należącego do tej rodziny.
+                        Regułę składki możesz ustawić w „Składki i domownicy”.
+                    </div>
+                }
+                else
+                {
+                    <div class="table-responsive family-finance-table-wrap">
+                        <table class="table family-finance-table align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Dziecko</th>
+                                    <th>Miesiąc</th>
+                                    <th>Termin</th>
+                                    <th>Konto domu</th>
+                                    <th>Składka</th>
+                                    <th>Status</th>
+                                    @if (canManage)
+                                    {
+                                        <th class="text-end">Akcja</th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                            @foreach (var contribution in overview.ChildHouseholdContributions)
+                            {
+                                <tr>
+                                    <td>
+                                        <strong>@contribution.ChildDisplayName</strong>
+                                        <small class="d-block text-muted">
+                                            składka dla gospodarstwa
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <strong>@contribution.PeriodKey</strong>
+                                    </td>
+                                    <td>
+                                        @contribution.DueDateUtc.ToString("dd.MM.yyyy")
+                                    </td>
+                                    <td>
+                                        @contribution.TargetHouseholdAccountName
+                                    </td>
+                                    <td>
+                                        <strong>
+                                            @contribution.Amount.ToString("N2")
+                                            @contribution.CurrencyCode
+                                        </strong>
+                                        @if (contribution.PaidAmount > 0m &&
+                                             contribution.OutstandingAmount > 0m)
+                                        {
+                                            <small class="d-block text-muted">
+                                                pozostało @contribution.OutstandingAmount.ToString("N2")
+                                                @contribution.CurrencyCode
+                                            </small>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="family-finance-sharing-pill @(contribution.OutstandingAmount <= 0m ? "on" : "neutral")">
+                                            @contribution.StatusNamePl
+                                        </span>
+                                        @if (!string.IsNullOrWhiteSpace(contribution.AvailabilityNote))
+                                        {
+                                            <small class="d-block text-muted mt-1">
+                                                @contribution.AvailabilityNote
+                                            </small>
+                                        }
+                                    </td>
+                                    @if (canManage)
+                                    {
+                                        <td class="text-end">
+                                            @if (contribution.CanPay && contribution.ObligationId.HasValue)
+                                            {
+                                                <a asp-action="PayChildContribution"
+                                                   asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
+                                                   asp-route-obligationId="@contribution.ObligationId.Value"
+                                                   asp-route-year="@overview.Year"
+                                                   asp-route-month="@overview.Month"
+                                                   class="btn btn-sm btn-primary">
+                                                    Przekaż do domu
+                                                </a>
+                                            }
+                                            else if (contribution.OutstandingAmount <= 0m)
+                                            {
+                                                <span class="family-finance-complete-label">
+                                                    Przekazano ✓
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">
+                                                    Zaplanowana
+                                                </span>
+                                            }
+                                        </td>
+                                    }
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </section>
+        }
+
+        @if (Model.Budget is not null && Model.SelectedTab == "expenses")
+        {
+            <section id="family-expenses" class="family-finance-section">
                 <div class="family-finance-section-heading">
                     <div>
                         <div class="family-finance-section-number">02</div>
@@ -603,7 +795,7 @@
                     {
                         <a asp-action="CreateExpense"
                            asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
-                           class="btn btn-sm btn-primary">+ Dodaj koszt</a>
+                           class="family-finance-section-link">+ Dodaj koszt</a>
                     }
                 </div>
 
@@ -795,7 +987,7 @@
             </section>
         }
 
-        <section class="family-finance-section family-finance-privacy-note">
+        <section class="family-finance-section family-finance-privacy-note @(Model.SelectedTab == "overview" ? "" : "d-none")">
             <div class="family-finance-section-number">06</div>
             <div>
                 <h2>Prywatność jest domyślna</h2>

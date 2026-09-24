@@ -1,0 +1,134 @@
+@model Domio.Web.Models.FamilyFinance.PayFamilyChildContributionViewModel
+@{
+    ViewData["Title"] = "Przekaż składkę dziecka";
+}
+
+<div class="family-finance-page family-finance-form-page">
+    <div class="family-finance-form-header">
+        <div>
+            <div class="family-finance-kicker">
+                M04.8.7 · SKŁADKA DZIECKA DLA DOMU
+            </div>
+
+            <h1>Przekaż składkę za @Model.ChildDisplayName</h1>
+
+            <p>
+                Pokryj składkę dziecka ze wspólnego konta rodziny albo ze środków
+                znajdujących się już na koncie domu. Dziecko nie potrzebuje własnego
+                konta użytkownika ani rachunku bankowego.
+            </p>
+        </div>
+
+        <a asp-action="Index"
+           asp-route-familyGroupId="@Model.FamilyGroupId"
+           asp-route-year="@Model.Year"
+           asp-route-month="@Model.Month"
+           class="family-finance-section-link">
+            Wróć do finansów rodzinnych
+        </a>
+    </div>
+
+    <div class="family-finance-payment-summary">
+        <div>
+            <span>Dziecko</span>
+            <strong>@Model.ChildDisplayName</strong>
+        </div>
+        <div>
+            <span>Miesiąc</span>
+            <strong>@Model.PeriodKey</strong>
+        </div>
+        <div>
+            <span>Do przekazania</span>
+            <strong>@Model.OutstandingAmount.ToString("N2") @Model.CurrencyCode</strong>
+        </div>
+        <div>
+            <span>Konto docelowe domu</span>
+            <strong>@Model.TargetHouseholdAccountName</strong>
+        </div>
+    </div>
+
+    <form asp-action="PayChildContribution"
+          method="post"
+          class="family-finance-form-card family-finance-child-payment-form">
+
+        <input asp-for="FamilyGroupId" type="hidden" />
+        <input asp-for="ObligationId" type="hidden" />
+        <input asp-for="Year" type="hidden" />
+        <input asp-for="Month" type="hidden" />
+
+        <div asp-validation-summary="ModelOnly"
+             class="text-danger mb-3"></div>
+
+        @if (Model.Sources.Count == 0)
+        {
+            <div class="alert alert-warning mb-0">
+                Brak kont, z których można obecnie pokryć składkę dziecka.
+                Utwórz wspólne konto rodziny albo aktywne konto domu.
+            </div>
+        }
+        else
+        {
+            <div class="row g-3">
+                <div class="col-12">
+                    <label asp-for="SelectedSourceKey"
+                           class="form-label"></label>
+
+                    <select asp-for="SelectedSourceKey"
+                            asp-items="Model.Sources"
+                            class="form-select">
+                        <option value="">Wybierz źródło środków...</option>
+                    </select>
+
+                    <span asp-validation-for="SelectedSourceKey"
+                          class="text-danger small"></span>
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">Kwota</label>
+                    <input value="@Model.OutstandingAmount.ToString("0.00") @Model.CurrencyCode"
+                           class="form-control"
+                           disabled />
+                </div>
+
+                <div class="col-md-6">
+                    <label asp-for="PaidAtUtc"
+                           class="form-label"></label>
+                    <input asp-for="PaidAtUtc"
+                           type="date"
+                           class="form-control" />
+                    <span asp-validation-for="PaidAtUtc"
+                          class="text-danger small"></span>
+                </div>
+            </div>
+
+            <div class="family-finance-form-note">
+                <strong>Jak działa wybór źródła?</strong><br />
+                <strong>Wspólne konto rodziny</strong> — Domio zapisze wydatek na wspólnym
+                koncie i wpływ składki na konto domu.<br />
+                <strong>Konto domu</strong> — składka zostanie pokryta ze środków już
+                znajdujących się w gospodarstwie. Jeżeli wybierzesz inne konto domu niż
+                docelowe, Domio wykona transfer wewnętrzny. Jeżeli wybierzesz konto
+                docelowe, saldo nie zostanie sztucznie zwiększone drugi raz.
+            </div>
+
+            <div class="family-finance-form-actions">
+                <a asp-action="Index"
+                   asp-route-familyGroupId="@Model.FamilyGroupId"
+                   asp-route-year="@Model.Year"
+                   asp-route-month="@Model.Month"
+                   class="btn btn-outline-secondary">
+                    Anuluj
+                </a>
+
+                <button type="submit"
+                        class="btn btn-primary">
+                    Przekaż składkę do domu
+                </button>
+            </div>
+        }
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
