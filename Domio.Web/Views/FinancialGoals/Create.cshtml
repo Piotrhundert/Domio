@@ -1,0 +1,78 @@
+@model Domio.Web.Models.FinancialGoals.FinancialGoalFormViewModel
+@{
+    ViewData["Title"] = "Nowy cel finansowy";
+}
+
+<div class="financial-goals-page">
+    <div class="financial-goal-header">
+        <div>
+            <div class="financial-goal-kicker">M04.9.1 · NOWY CEL</div>
+            <h1>Nowy cel finansowy</h1>
+            <p>@Model.ScopeNamePl · @Model.OwnerDisplayName</p>
+        </div>
+        <a asp-action="Index"
+           asp-route-scope="@Model.ScopeCode"
+           asp-route-familyGroupId="@Model.FamilyGroupId"
+           class="btn btn-outline-secondary">
+            Wróć do celów
+        </a>
+    </div>
+
+    <form asp-action="Create" method="post" class="financial-goal-form-card">
+        <input asp-for="ScopeCode" type="hidden" />
+        <input asp-for="FamilyGroupId" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+        <div class="row g-3">
+            <div class="col-md-8">
+                <label asp-for="Name" class="form-label"></label>
+                <input asp-for="Name" class="form-control" placeholder="np. Wykup auta" />
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+            <div class="col-md-4">
+                <label asp-for="CategoryCode" class="form-label"></label>
+                <select asp-for="CategoryCode" asp-items="Model.Categories" class="form-select"></select>
+            </div>
+            <div class="col-md-4">
+                <label asp-for="TargetAmount" class="form-label"></label>
+                <div class="input-group">
+                    <input id="TargetAmount" name="TargetAmount" type="text" inputmode="decimal" class="form-control" value="@Model.TargetAmount.ToString("0.##")" placeholder="0,00" />
+                    <span class="input-group-text">zł</span>
+                </div>
+                <span asp-validation-for="TargetAmount" class="text-danger"></span>
+            </div>
+            <div class="col-md-4">
+                <label asp-for="InitialAmount" class="form-label"></label>
+                <div class="input-group">
+                    <input id="InitialAmount" name="InitialAmount" type="text" inputmode="decimal" class="form-control" value="@(Model.InitialAmount?.ToString("0.##") ?? string.Empty)" placeholder="0,00" />
+                    <span class="input-group-text">zł</span>
+                </div>
+                <div class="form-text">Opcjonalnie: kwota, którą już masz odłożoną.</div>
+            </div>
+            <div class="col-md-4">
+                <label asp-for="TargetDateUtc" class="form-label"></label>
+                <input asp-for="TargetDateUtc" type="date" class="form-control" />
+            </div>
+            <div class="col-12">
+                <label asp-for="Notes" class="form-label"></label>
+                <textarea asp-for="Notes" class="form-control" rows="3" placeholder="Opcjonalny opis celu"></textarea>
+            </div>
+        </div>
+
+        <div class="financial-goal-form-note">
+            <strong>Ważne:</strong> wpłaty na cel są rezerwą planistyczną. Nie tworzą wydatku, przelewu ani osobnego salda bankowego.
+        </div>
+
+        <div class="financial-goal-form-actions">
+            <button type="submit" class="btn btn-primary">Utwórz cel</button>
+            <a asp-action="Index"
+               asp-route-scope="@Model.ScopeCode"
+               asp-route-familyGroupId="@Model.FamilyGroupId"
+               class="btn btn-outline-secondary">Anuluj</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

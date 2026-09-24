@@ -1,0 +1,107 @@
+﻿@model Domio.Web.Models.FinancialGoals.FinancialGoalDetailsViewModel
+@{
+    ViewData["Title"] = Model.Details.Goal.Name;
+    var scope = Model.Details.Scope;
+    var goal = Model.Details.Goal;
+}
+
+<div class="financial-goals-page">
+    <div class="financial-goal-header">
+        <div>
+            <div class="financial-goal-kicker">M04.9.1 · SZCZEGÓŁY CELU</div>
+            <h1>@goal.Name</h1>
+            <p>@scope.ScopeNamePl · @scope.OwnerDisplayName</p>
+        </div>
+        <div class="financial-goal-header-actions">
+            @if (scope.CanContribute && goal.IsActive)
+            {
+                <a asp-action="AddContribution" asp-route-id="@goal.GoalId" class="btn btn-primary">+ Dodaj wpłatę</a>
+            }
+            @if (scope.CanManage && goal.IsActive)
+            {
+                <a asp-action="Edit" asp-route-id="@goal.GoalId" class="btn btn-outline-primary">Edytuj</a>
+            }
+            <a asp-action="Index"
+               asp-route-scope="@scope.ScopeCode"
+               asp-route-familyGroupId="@scope.FamilyGroupId"
+               class="btn btn-outline-secondary">Wróć do celów</a>
+        </div>
+    </div>
+
+    @if (TempData["FinancialGoalMessage"] is string message)
+    {
+        <div class="alert alert-success" role="alert">@message</div>
+    }
+
+    <article class="financial-goal-detail-card">
+        <div class="financial-goal-card-top">
+            <div>
+                <span class="financial-goal-category">@goal.CategoryNamePl</span>
+                <h2>@goal.Name</h2>
+            </div>
+            <span class="financial-goal-status @(goal.IsCompleted ? "complete" : goal.IsActive ? "active" : "archived")">
+                @(goal.IsActive ? (goal.IsCompleted ? "Cel osiągnięty" : "Aktywny") : "Archiwalny")
+            </span>
+        </div>
+
+        <div class="financial-goal-money-row large">
+            <div><span>Odłożono</span><strong>@goal.SavedAmount.ToString("N2") zł</strong></div>
+            <div><span>Pozostało</span><strong>@goal.RemainingAmount.ToString("N2") zł</strong></div>
+            <div><span>Kwota docelowa</span><strong>@goal.TargetAmount.ToString("N2") zł</strong></div>
+        </div>
+
+        <div class="financial-goal-progress">
+            <span style="width:@goal.ProgressPercent.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)%"></span>
+        </div>
+        <div class="financial-goal-progress-meta">
+            <strong>@goal.ProgressPercent.ToString("0.#")%</strong>
+            <span>Termin: @(goal.TargetDateUtc.HasValue ? goal.TargetDateUtc.Value.ToString("dd.MM.yyyy") : "bez terminu")</span>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(goal.Notes))
+        {
+            <div class="financial-goal-notes">@goal.Notes</div>
+        }
+    </article>
+
+    <section class="financial-goal-history">
+        <div class="financial-goal-section-heading">
+            <div>
+                <span>HISTORIA</span>
+                <h2>Wpłaty do celu</h2>
+            </div>
+            <strong>@Model.Details.Contributions.Count wpisów</strong>
+        </div>
+
+        @if (Model.Details.Contributions.Count == 0)
+        {
+            <div class="financial-goal-empty compact">Nie zapisano jeszcze żadnej wpłaty.</div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Wpłacił</th>
+                            <th>Opis</th>
+                            <th class="text-end">Kwota</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var contribution in Model.Details.Contributions)
+                    {
+                        <tr>
+                            <td>@contribution.ContributedAtUtc.ToString("dd.MM.yyyy")</td>
+                            <td><strong>@contribution.ContributorDisplayName</strong></td>
+                            <td>@(string.IsNullOrWhiteSpace(contribution.Note) ? "—" : contribution.Note)</td>
+                            <td class="text-end"><strong>+@contribution.Amount.ToString("N2") zł</strong></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>

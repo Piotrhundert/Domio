@@ -173,6 +173,32 @@
         activate(selectedItem.key);
     };
 
+
+    const appendExternalTab = (nav, label, href, key) => {
+        if (!nav || nav.querySelector(`[data-domio-external-tab="${key}"]`)) {
+            return;
+        }
+
+        const link = document.createElement("a");
+        link.className = "domio-folder-tab";
+        link.textContent = label;
+        link.href = href;
+        link.dataset.domioExternalTab = key;
+        link.setAttribute("role", "tab");
+        link.setAttribute("aria-selected", "false");
+        nav.appendChild(link);
+    };
+
+    const isControllerIndexPath = (controllerName) => {
+        const path = window.location.pathname
+            .toLowerCase()
+            .replace(/\/+$/, "");
+        const controller = controllerName.toLowerCase();
+
+        return path.endsWith(`/${controller}`) ||
+            path.endsWith(`/${controller}/index`);
+    };
+
     const initPersonalFinanceTabs = () => {
         const page = document.querySelector(".finance-page");
         if (!page || page.closest(".family-finance-page")) {
@@ -188,6 +214,14 @@
             insertAfter: header,
             groupKey: "personal-finance"
         });
+
+        if (isControllerIndexPath("PersonalFinance")) {
+            appendExternalTab(
+                page.querySelector('.domio-folder-tabs[data-domio-tab-group="personal-finance"]'),
+                "Cele",
+                "/FinancialGoals?scope=Personal",
+                "financial-goals-personal");
+        }
     };
 
     const initHouseholdFinanceTabs = () => {
@@ -203,6 +237,14 @@
                 insertAfter: header,
                 groupKey: "household-finance"
             });
+
+            if (isControllerIndexPath("HouseholdFinance")) {
+                appendExternalTab(
+                    page.querySelector('.domio-folder-tabs[data-domio-tab-group="household-finance"]'),
+                    "Cele",
+                    "/FinancialGoals?scope=Household",
+                    "financial-goals-household");
+            }
         }
     };
 
@@ -275,6 +317,31 @@
             tab.setAttribute(
                 "aria-selected",
                 tab.classList.contains("is-active") ? "true" : "false");
+        }
+
+        let familyGroupId = new URL(window.location.href)
+            .searchParams.get("familyGroupId");
+
+        if (!familyGroupId) {
+            for (const tab of nav.querySelectorAll("a.family-finance-folder-tab")) {
+                try {
+                    familyGroupId = new URL(tab.href).searchParams.get("familyGroupId");
+                } catch {
+                    familyGroupId = null;
+                }
+
+                if (familyGroupId) {
+                    break;
+                }
+            }
+        }
+
+        if (familyGroupId) {
+            appendExternalTab(
+                nav,
+                "Cele",
+                `/FinancialGoals?scope=Family&familyGroupId=${encodeURIComponent(familyGroupId)}`,
+                "financial-goals-family");
         }
     };
 

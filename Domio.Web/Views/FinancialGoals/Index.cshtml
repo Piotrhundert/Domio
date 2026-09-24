@@ -1,0 +1,205 @@
+﻿@using Domio.Domain.FinancialGoals
+@model Domio.Web.Models.FinancialGoals.FinancialGoalIndexViewModel
+@{
+    ViewData["Title"] = Model.Overview.Scope.ScopeNamePl;
+    var scope = Model.Overview.Scope;
+    var activeGoals = Model.Overview.Goals.Where(x => x.IsActive).ToArray();
+    var archivedGoals = Model.Overview.Goals.Where(x => !x.IsActive).ToArray();
+}
+
+<div class="financial-goals-page">
+    <div class="financial-goal-header">
+        <div>
+            <div class="financial-goal-kicker">M04.9.1 · CELE FINANSOWE</div>
+            <h1>@scope.ScopeNamePl</h1>
+            <p>
+                Odkładaj środki na konkretny cel bez tworzenia sztucznego wydatku.
+                Rezerwa celu nie zmienia salda żadnego rachunku.
+            </p>
+        </div>
+
+        @if (scope.CanManage)
+        {
+            <a asp-action="Create"
+               asp-route-scope="@scope.ScopeCode"
+               asp-route-familyGroupId="@scope.FamilyGroupId"
+               class="btn btn-primary">
+                + Nowy cel
+            </a>
+        }
+    </div>
+
+    <nav class="domio-folder-tabs financial-goal-module-tabs" aria-label="Nawigacja modułu">
+        @if (scope.ScopeCode == FinancialGoalScopes.Personal)
+        {
+            <a asp-controller="PersonalFinance" asp-action="Index" class="domio-folder-tab">Przegląd finansów</a>
+        }
+        else if (scope.ScopeCode == FinancialGoalScopes.Household)
+        {
+            <a asp-controller="HouseholdFinance" asp-action="Index" class="domio-folder-tab">Przegląd finansów</a>
+        }
+        else
+        {
+            <a asp-controller="FamilyFinance"
+               asp-action="Index"
+               asp-route-familyGroupId="@scope.FamilyGroupId"
+               class="domio-folder-tab">
+                Przegląd finansów
+            </a>
+        }
+        <span class="domio-folder-tab is-active" role="tab" aria-selected="true">Cele</span>
+    </nav>
+
+    @if (TempData["FinancialGoalMessage"] is string message)
+    {
+        <div class="alert alert-success" role="alert">@message</div>
+    }
+
+    @if (TempData["FinancialGoalError"] is string error)
+    {
+        <div class="alert alert-danger" role="alert">@error</div>
+    }
+
+    <div class="financial-goal-scope-line">
+        <span>Zakres</span>
+        <strong>@scope.OwnerDisplayName</strong>
+    </div>
+
+    @if (scope.ScopeCode != FinancialGoalScopes.Personal && scope.CanContribute)
+    {
+        <div class="financial-goal-form-note">
+            <strong>Wspólny cel</strong>
+            <span>Każdy uprawniony domownik/członek rodziny może dopisać własną wpłatę. Historia pokazuje, kto wpłacił.</span>
+        </div>
+    }
+
+    <div class="financial-goal-summary-grid">
+        <article class="financial-goal-summary-card">
+            <span>Wartość aktywnych celów</span>
+            <strong>@Model.Overview.ActiveTargetTotal.ToString("N2") zł</strong>
+        </article>
+        <article class="financial-goal-summary-card">
+            <span>Odłożono</span>
+            <strong>@Model.Overview.ActiveSavedTotal.ToString("N2") zł</strong>
+        </article>
+        <article class="financial-goal-summary-card">
+            <span>Pozostało</span>
+            <strong>@Model.Overview.ActiveRemainingTotal.ToString("N2") zł</strong>
+        </article>
+    </div>
+
+    @if (activeGoals.Length == 0)
+    {
+        <div class="financial-goal-empty">
+            <strong>Nie ma jeszcze aktywnych celów.</strong>
+            <span>Przykład: nowy laptop, wykup auta, wakacje albo rezerwa domowa.</span>
+            @if (scope.CanManage)
+            {
+                <a asp-action="Create"
+                   asp-route-scope="@scope.ScopeCode"
+                   asp-route-familyGroupId="@scope.FamilyGroupId"
+                   class="btn btn-primary">
+                    Utwórz pierwszy cel
+                </a>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="financial-goal-grid">
+            @foreach (var goal in activeGoals)
+            {
+                var overdue = goal.TargetDateUtc.HasValue &&
+                    goal.TargetDateUtc.Value.Date < DateTime.UtcNow.Date &&
+                    !goal.IsCompleted;
+
+                <article class="financial-goal-card @(goal.IsCompleted ? "is-complete" : "")">
+                    <div class="financial-goal-card-top">
+                        <div>
+                            <span class="financial-goal-category">@goal.CategoryNamePl</span>
+                            <h2>@goal.Name</h2>
+                        </div>
+                        <span class="financial-goal-status @(goal.IsCompleted ? "complete" : overdue ? "overdue" : "active")">
+                            @(goal.IsCompleted ? "Cel osiągnięty" : overdue ? "Po terminie" : "W trakcie")
+                        </span>
+                    </div>
+
+                    <div class="financial-goal-money-row">
+                        <div>
+                            <span>Odłożono</span>
+                            <strong>@goal.SavedAmount.ToString("N2") zł</strong>
+                        </div>
+                        <div class="text-end">
+                            <span>Cel</span>
+                            <strong>@goal.TargetAmount.ToString("N2") zł</strong>
+                        </div>
+                    </div>
+
+                    <div class="financial-goal-progress" aria-label="Postęp @goal.ProgressPercent%">
+                        <span style="width:@goal.ProgressPercent.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)%"></span>
+                    </div>
+                    <div class="financial-goal-progress-meta">
+                        <strong>@goal.ProgressPercent.ToString("0.#")%</strong>
+                        <span>Pozostało @goal.RemainingAmount.ToString("N2") zł</span>
+                    </div>
+
+                    <div class="financial-goal-meta">
+                        <span>
+                            Termin:
+                            <strong>@(goal.TargetDateUtc.HasValue ? goal.TargetDateUtc.Value.ToString("dd.MM.yyyy") : "bez terminu")</strong>
+                        </span>
+                        <span>
+                            Wpłaty: <strong>@goal.ContributionsCount</strong>
+                        </span>
+                    </div>
+
+                    <div class="financial-goal-actions">
+                        @if (scope.CanManage)
+                        {
+                            <a asp-action="AddContribution"
+                               asp-route-id="@goal.GoalId"
+                               class="btn btn-sm btn-primary">
+                                + Dodaj wpłatę
+                            </a>
+                        }
+                        <a asp-action="Details"
+                           asp-route-id="@goal.GoalId"
+                           class="btn btn-sm btn-outline-primary">
+                            Szczegóły
+                        </a>
+                        @if (scope.CanManage)
+                        {
+                            <a asp-action="Edit"
+                               asp-route-id="@goal.GoalId"
+                               class="btn btn-sm btn-outline-secondary">
+                                Edytuj
+                            </a>
+                            <form asp-action="Archive"
+                                  method="post"
+                                  onsubmit="return confirm('Zarchiwizować ten cel? Historia wpłat pozostanie zachowana.');">
+                                <input type="hidden" name="id" value="@goal.GoalId" />
+                                <button type="submit" class="btn btn-sm btn-outline-secondary">Archiwizuj</button>
+                            </form>
+                        }
+                    </div>
+                </article>
+            }
+        </div>
+    }
+
+    @if (archivedGoals.Length > 0)
+    {
+        <details class="financial-goal-archive">
+            <summary>Archiwalne cele (@archivedGoals.Length)</summary>
+            <div class="financial-goal-archive-list">
+                @foreach (var goal in archivedGoals)
+                {
+                    <a asp-action="Details" asp-route-id="@goal.GoalId">
+                        <strong>@goal.Name</strong>
+                        <span>@goal.SavedAmount.ToString("N2") / @goal.TargetAmount.ToString("N2") zł</span>
+                    </a>
+                }
+            </div>
+        </details>
+    }
+</div>

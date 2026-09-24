@@ -1,0 +1,59 @@
+@model Domio.Web.Models.FinancialGoals.FinancialGoalFormViewModel
+@{
+    ViewData["Title"] = "Edytuj cel finansowy";
+}
+
+<div class="financial-goals-page">
+    <div class="financial-goal-header">
+        <div>
+            <div class="financial-goal-kicker">M04.9.1 · EDYCJA CELU</div>
+            <h1>Edytuj cel</h1>
+            <p>@Model.ScopeNamePl · @Model.OwnerDisplayName</p>
+        </div>
+        <a asp-action="Details" asp-route-id="@Model.GoalId" class="btn btn-outline-secondary">Wróć</a>
+    </div>
+
+    <form asp-action="Edit" method="post" class="financial-goal-form-card">
+        <input asp-for="GoalId" type="hidden" />
+        <input asp-for="ScopeCode" type="hidden" />
+        <input asp-for="FamilyGroupId" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+        <div class="row g-3">
+            <div class="col-md-8">
+                <label asp-for="Name" class="form-label"></label>
+                <input asp-for="Name" class="form-control" />
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+            <div class="col-md-4">
+                <label asp-for="CategoryCode" class="form-label"></label>
+                <select asp-for="CategoryCode" asp-items="Model.Categories" class="form-select"></select>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="TargetAmount" class="form-label"></label>
+                <div class="input-group">
+                    <input id="TargetAmount" name="TargetAmount" type="text" inputmode="decimal" class="form-control" value="@Model.TargetAmount.ToString("0.##")" />
+                    <span class="input-group-text">zł</span>
+                </div>
+                <span asp-validation-for="TargetAmount" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="TargetDateUtc" class="form-label"></label>
+                <input asp-for="TargetDateUtc" type="date" class="form-control" />
+            </div>
+            <div class="col-12">
+                <label asp-for="Notes" class="form-label"></label>
+                <textarea asp-for="Notes" class="form-control" rows="3"></textarea>
+            </div>
+        </div>
+
+        <div class="financial-goal-form-actions">
+            <button type="submit" class="btn btn-primary">Zapisz zmiany</button>
+            <a asp-action="Details" asp-route-id="@Model.GoalId" class="btn btn-outline-secondary">Anuluj</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

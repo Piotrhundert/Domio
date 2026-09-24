@@ -1,0 +1,61 @@
+﻿@model Domio.Web.Models.FinancialGoals.FinancialGoalContributionViewModel
+@{
+    ViewData["Title"] = "Wpłata do celu";
+}
+
+<div class="financial-goals-page">
+    <div class="financial-goal-header">
+        <div>
+            <div class="financial-goal-kicker">M04.9.1 · WPŁATA DO CELU</div>
+            <h1>@Model.GoalName</h1>
+            <p>@Model.ScopeNamePl</p>
+        </div>
+        <a asp-action="Details" asp-route-id="@Model.GoalId" class="btn btn-outline-secondary">Wróć</a>
+    </div>
+
+    <div class="financial-goal-mini-summary">
+        <div><span>Odłożono</span><strong>@Model.SavedAmount.ToString("N2") zł</strong></div>
+        <div><span>Cel</span><strong>@Model.TargetAmount.ToString("N2") zł</strong></div>
+        <div><span>Pozostało</span><strong>@Model.RemainingAmount.ToString("N2") zł</strong></div>
+    </div>
+
+    <form asp-action="AddContribution" method="post" class="financial-goal-form-card">
+        <input asp-for="GoalId" type="hidden" />
+        <input asp-for="ScopeCode" type="hidden" />
+        <input asp-for="FamilyGroupId" type="hidden" />
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label asp-for="Amount" class="form-label"></label>
+                <div class="input-group">
+                    <input id="Amount" name="Amount" type="text" inputmode="decimal" class="form-control" value="@Model.Amount.ToString("0.##")" />
+                    <span class="input-group-text">zł</span>
+                </div>
+                <span asp-validation-for="Amount" class="text-danger"></span>
+            </div>
+            <div class="col-md-6">
+                <label asp-for="ContributedAtUtc" class="form-label"></label>
+                <input asp-for="ContributedAtUtc" type="date" class="form-control" />
+            </div>
+            <div class="col-12">
+                <label asp-for="Note" class="form-label"></label>
+                <input asp-for="Note" class="form-control" placeholder="np. miesięczne odkładanie" />
+            </div>
+        </div>
+
+        <div class="financial-goal-form-note">
+            Ta operacja zwiększy tylko postęp celu. Nie pobiera pieniędzy z konta i nie tworzy wydatku.
+            Wpłata zostanie zapisana na nazwisko zalogowanego domownika, dzięki czemu w historii celu będzie widać, kto dołożył środki.
+        </div>
+
+        <div class="financial-goal-form-actions">
+            <button type="submit" class="btn btn-primary">Zapisz wpłatę</button>
+            <a asp-action="Details" asp-route-id="@Model.GoalId" class="btn btn-outline-secondary">Anuluj</a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

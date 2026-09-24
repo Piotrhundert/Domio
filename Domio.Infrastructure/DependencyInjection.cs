@@ -1,8 +1,9 @@
-using Domio.Application.Auditing;
+﻿using Domio.Application.Auditing;
 using Domio.Application.Authentication;
 using Domio.Application.Authorization;
 using Domio.Application.Diagnostics;
 using Domio.Application.FamilyFinance;
+using Domio.Application.FinancialGoals;
 using Domio.Application.HouseholdFinance;
 using Domio.Application.Maintenance;
 using Domio.Application.PersonalFinance;
@@ -13,6 +14,7 @@ using Domio.Infrastructure.Authentication;
 using Domio.Infrastructure.Authorization;
 using Domio.Infrastructure.Diagnostics;
 using Domio.Infrastructure.FamilyFinance;
+using Domio.Infrastructure.FinancialGoals;
 using Domio.Infrastructure.HouseholdFinance;
 using Domio.Infrastructure.Maintenance;
 using Domio.Infrastructure.Persistence;
@@ -73,6 +75,9 @@ public static class DependencyInjection
         services.AddScoped<
             IFamilyBudgetService,
             FamilyBudgetService>();
+        services.AddScoped<
+            IFinancialGoalService,
+            FinancialGoalService>();
         services.AddScoped<
             IHouseholdFinanceService,
             HouseholdFinanceService>();

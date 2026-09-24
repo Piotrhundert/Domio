@@ -870,3 +870,382 @@ textarea:focus {
         font-size: 0.8rem;
     }
 }
+
+/* ================================================================
+   M04.9.1 – Cele finansowe
+   ================================================================ */
+.financial-goals-page {
+    display: grid;
+    gap: 1.15rem;
+}
+
+.financial-goal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.2rem 1.35rem;
+    border: 1px solid var(--sap-border);
+    border-radius: var(--sap-radius);
+    background: linear-gradient(180deg, #ffffff 0%, #f9fbfd 100%);
+    box-shadow: var(--sap-shadow);
+}
+
+.financial-goal-header h1 {
+    margin: 0.2rem 0 0.45rem;
+    font-size: clamp(1.55rem, 3vw, 2.05rem);
+}
+
+.financial-goal-header p {
+    max-width: 52rem;
+    margin: 0;
+    color: var(--sap-text-soft);
+    font-size: 0.86rem;
+    line-height: 1.55;
+}
+
+.financial-goal-kicker {
+    color: #6d8196;
+    font-size: 0.69rem;
+    font-weight: 800;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+}
+
+.financial-goal-header-actions,
+.financial-goal-form-actions,
+.financial-goal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.financial-goal-module-tabs {
+    margin-bottom: 0.25rem;
+}
+
+.financial-goal-scope-line {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0 0.15rem;
+    color: var(--sap-text-soft);
+    font-size: 0.78rem;
+}
+
+.financial-goal-scope-line strong {
+    color: var(--sap-text);
+}
+
+.financial-goal-summary-grid,
+.financial-goal-mini-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+}
+
+.financial-goal-summary-card,
+.financial-goal-mini-summary > div {
+    display: grid;
+    gap: 0.3rem;
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--sap-border);
+    border-radius: var(--sap-radius);
+    background: var(--sap-surface);
+    box-shadow: var(--sap-shadow);
+}
+
+.financial-goal-summary-card span,
+.financial-goal-mini-summary span {
+    color: var(--sap-text-soft);
+    font-size: 0.73rem;
+}
+
+.financial-goal-summary-card strong,
+.financial-goal-mini-summary strong {
+    font-size: 1.15rem;
+}
+
+.financial-goal-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+    gap: 0.9rem;
+}
+
+.financial-goal-card,
+.financial-goal-detail-card {
+    padding: 1.05rem 1.1rem;
+    border: 1px solid var(--sap-border);
+    border-radius: var(--sap-radius);
+    background: var(--sap-surface);
+    box-shadow: var(--sap-shadow);
+}
+
+.financial-goal-card.is-complete {
+    border-color: #b8dbbf;
+}
+
+.financial-goal-card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.8rem;
+}
+
+.financial-goal-card-top h2 {
+    margin: 0.35rem 0 0;
+    font-size: 1rem;
+}
+
+.financial-goal-category,
+.financial-goal-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.67rem;
+    font-weight: 750;
+}
+
+.financial-goal-category {
+    background: #edf4fb;
+    color: var(--sap-primary-strong);
+}
+
+.financial-goal-status.active {
+    background: #eef4fb;
+    color: var(--sap-primary-strong);
+}
+
+.financial-goal-status.complete {
+    background: #eaf8ee;
+    color: #23703a;
+}
+
+.financial-goal-status.overdue {
+    background: #fff0f0;
+    color: #a52323;
+}
+
+.financial-goal-status.archived {
+    background: #f1f3f5;
+    color: #6e7b88;
+}
+
+.financial-goal-money-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.financial-goal-money-row.large {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.financial-goal-money-row > div {
+    display: grid;
+    gap: 0.15rem;
+}
+
+.financial-goal-money-row span,
+.financial-goal-meta,
+.financial-goal-progress-meta {
+    color: var(--sap-text-soft);
+    font-size: 0.72rem;
+}
+
+.financial-goal-money-row strong {
+    font-size: 1.02rem;
+}
+
+.financial-goal-progress {
+    height: 0.62rem;
+    margin-top: 0.9rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #e8edf2;
+}
+
+.financial-goal-progress > span {
+    display: block;
+    height: 100%;
+    min-width: 0;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #0a6ed1, #4aa3ed);
+}
+
+.financial-goal-card.is-complete .financial-goal-progress > span,
+.financial-goal-detail-card .financial-goal-status.complete ~ * .financial-goal-progress > span {
+    background: #2f8b49;
+}
+
+.financial-goal-progress-meta,
+.financial-goal-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 0.45rem;
+}
+
+.financial-goal-progress-meta strong,
+.financial-goal-meta strong {
+    color: var(--sap-text);
+}
+
+.financial-goal-meta {
+    padding-top: 0.75rem;
+    border-top: 1px solid #edf0f3;
+}
+
+.financial-goal-actions {
+    margin-top: 0.9rem;
+}
+
+.financial-goal-actions form {
+    display: inline;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.financial-goal-empty {
+    display: grid;
+    justify-items: center;
+    gap: 0.55rem;
+    padding: 2rem 1rem;
+    border: 1px dashed #c7d3df;
+    border-radius: var(--sap-radius);
+    background: #fbfcfd;
+    color: var(--sap-text-soft);
+    text-align: center;
+}
+
+.financial-goal-empty.compact {
+    padding: 1.15rem;
+}
+
+.financial-goal-empty strong {
+    color: var(--sap-text);
+}
+
+.financial-goal-archive {
+    border: 1px solid var(--sap-border);
+    border-radius: var(--sap-radius);
+    background: #fbfcfd;
+}
+
+.financial-goal-archive > summary {
+    padding: 0.85rem 1rem;
+    color: var(--sap-text-soft);
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.financial-goal-archive-list {
+    display: grid;
+    gap: 1px;
+    border-top: 1px solid var(--sap-border);
+    background: var(--sap-border);
+}
+
+.financial-goal-archive-list a {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.8rem 1rem;
+    background: #fff;
+    color: var(--sap-text);
+    text-decoration: none;
+}
+
+.financial-goal-archive-list a:hover {
+    background: #f7fafc;
+}
+
+.financial-goal-archive-list span {
+    color: var(--sap-text-soft);
+    font-size: 0.75rem;
+}
+
+.financial-goal-form-card {
+    width: min(54rem, 100%);
+    padding: 1.2rem;
+}
+
+.financial-goal-form-note,
+.financial-goal-notes {
+    margin-top: 1rem;
+    padding: 0.85rem 0.95rem;
+    border: 1px solid #d5e2ef;
+    border-radius: 0.65rem;
+    background: #f7fbff;
+    color: #4f657a;
+    font-size: 0.76rem;
+    line-height: 1.5;
+}
+
+.financial-goal-form-actions {
+    margin-top: 1rem;
+}
+
+.financial-goal-detail-card {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.financial-goal-history {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.financial-goal-section-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.financial-goal-section-heading span {
+    color: #7c8fa2;
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+}
+
+.financial-goal-section-heading h2 {
+    margin: 0.15rem 0 0;
+    font-size: 1rem;
+}
+
+.financial-goal-section-heading > strong {
+    color: var(--sap-text-soft);
+    font-size: 0.74rem;
+}
+
+@media (max-width: 767.98px) {
+    .financial-goal-header {
+        flex-direction: column;
+    }
+
+    .financial-goal-summary-grid,
+    .financial-goal-mini-summary,
+    .financial-goal-money-row.large {
+        grid-template-columns: 1fr;
+    }
+
+    .financial-goal-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .financial-goal-card-top,
+    .financial-goal-progress-meta,
+    .financial-goal-meta {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
