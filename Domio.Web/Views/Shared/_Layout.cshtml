@@ -1,4 +1,4 @@
-﻿@using Domio.Application.Authorization
+﻿﻿@using Domio.Application.Authorization
 @using Domio.Domain.FamilyFinance
 @using Domio.Domain.Users
 @{
@@ -39,6 +39,11 @@
         User.HasClaim(
             DomioClaimTypes.Permission,
             FamilyFinancePermissions.View);
+
+    var canViewNotifications =
+        User.HasClaim(
+            DomioClaimTypes.Permission,
+            SystemPermissions.NotificationsView);
 }
 <!DOCTYPE html>
 <html lang="pl">
@@ -72,6 +77,9 @@
           href="~/css/ui-03-tabs.css"
           asp-append-version="true" />
     <link rel="stylesheet"
+          href="~/css/notification-center.css"
+          asp-append-version="true" />
+    <link rel="stylesheet"
           href="~/Domio.Web.styles.css"
           asp-append-version="true" />
 </head>
@@ -94,6 +102,12 @@
                 <div class="ms-auto d-flex align-items-center gap-3">
                     @if (User.Identity?.IsAuthenticated == true)
                     {
+                        @if (canViewNotifications)
+                        {
+                            @await Component.InvokeAsync(
+                                "NotificationBell")
+                        }
+
                         <div class="domio-user d-none d-sm-block">
                             <div class="domio-user-name">
                                 @User.Identity.Name
@@ -245,7 +259,7 @@
     <footer class="domio-footer">
         <div class="container-fluid px-4 d-flex flex-column flex-md-row justify-content-between gap-2">
             <span>Domio · domowe centrum zarządzania</span>
-            <span>UI-03 · uproszczone zakładki modułów</span>
+            <span>M04.10.1 · centrum powiadomień</span>
         </div>
     </footer>
 

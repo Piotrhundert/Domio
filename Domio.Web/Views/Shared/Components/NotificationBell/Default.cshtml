@@ -1,0 +1,75 @@
+﻿@using Domio.Domain.Notifications
+@model Domio.Application.Notifications.NotificationHeaderSummary
+
+<details class="domio-notification-bell">
+    <summary class="domio-notification-bell-button"
+             aria-label="Powiadomienia">
+        <span class="domio-notification-bell-icon"
+              aria-hidden="true">
+            🔔
+        </span>
+
+        @if (Model.UnreadCount > 0)
+        {
+            <span class="domio-notification-badge">
+                @(Model.UnreadCount > 99
+                    ? "99+"
+                    : Model.UnreadCount.ToString())
+            </span>
+        }
+    </summary>
+
+    <div class="domio-notification-popover">
+        <div class="domio-notification-popover-header">
+            <div>
+                <strong>Powiadomienia</strong>
+                <span>
+                    @Model.UnreadCount nieprzeczytanych
+                </span>
+            </div>
+
+            <a asp-controller="Notifications"
+               asp-action="Index">
+                Wszystkie
+            </a>
+        </div>
+
+        @if (Model.RecentNotifications.Count == 0)
+        {
+            <div class="domio-notification-popover-empty">
+                Brak powiadomień.
+            </div>
+        }
+        else
+        {
+            <div class="domio-notification-popover-list">
+                @foreach (var item in Model.RecentNotifications)
+                {
+                    <a asp-controller="Notifications"
+                       asp-action="Open"
+                       asp-route-id="@item.NotificationId"
+                       class="domio-notification-popover-item @(!item.IsRead ? "is-unread" : "")">
+                        <span class="domio-notification-dot @item.SeverityCode.ToLowerInvariant()"></span>
+
+                        <span class="domio-notification-popover-copy">
+                            <strong>@item.Title</strong>
+                            <small>
+                                @item.CategoryNamePl
+                                ·
+                                @item.CreatedAtUtc.ToLocalTime().ToString("dd.MM HH:mm")
+                            </small>
+                        </span>
+                    </a>
+                }
+            </div>
+        }
+
+        <div class="domio-notification-popover-footer">
+            <a asp-controller="Notifications"
+               asp-action="Index"
+               asp-route-tab="history">
+                Historia aktywności
+            </a>
+        </div>
+    </div>
+</details>

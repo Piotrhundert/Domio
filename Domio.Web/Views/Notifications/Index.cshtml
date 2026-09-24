@@ -1,0 +1,195 @@
+﻿@using Domio.Domain.Notifications
+@model Domio.Web.Models.Notifications.NotificationCenterViewModel
+@{
+    ViewData["Title"] = "Powiadomienia";
+
+    var overview =
+        Model.Overview;
+
+    var items =
+        Model.SelectedTab == "history"
+            ? overview.ActivityHistory
+            : overview.Inbox;
+}
+
+<div class="notification-center-page">
+    <div class="notification-center-header">
+        <div>
+            <div class="notification-center-kicker">
+                M04.10.1 · CENTRUM POWIADOMIEŃ
+            </div>
+
+            <h1>Powiadomienia</h1>
+
+            <p>
+                Jedno miejsce na informacje wymagające uwagi oraz historię
+                aktywności. Kolejne moduły będą publikować tutaj zmiany statusów,
+                nowe dokumenty i zbliżające się terminy.
+            </p>
+        </div>
+
+        @if (overview.UnreadCount > 0)
+        {
+            <form asp-action="MarkAllRead"
+                  method="post">
+                <button type="submit"
+                        class="btn btn-outline-primary">
+                    Oznacz wszystkie jako przeczytane
+                </button>
+            </form>
+        }
+    </div>
+
+    @if (TempData["NotificationMessage"] is string message)
+    {
+        <div class="alert alert-success"
+             role="alert">
+            @message
+        </div>
+    }
+
+    <nav class="domio-folder-tabs notification-center-tabs"
+         aria-label="Widok powiadomień">
+        <a asp-action="Index"
+           asp-route-tab="inbox"
+           class="domio-folder-tab @(Model.SelectedTab == "inbox" ? "is-active" : "")">
+            Powiadomienia
+            @if (overview.UnreadCount > 0)
+            {
+                <span class="notification-tab-count">
+                    @overview.UnreadCount
+                </span>
+            }
+        </a>
+
+        <a asp-action="Index"
+           asp-route-tab="history"
+           class="domio-folder-tab @(Model.SelectedTab == "history" ? "is-active" : "")">
+            Historia aktywności
+        </a>
+    </nav>
+
+    <div class="notification-center-summary">
+        <article>
+            <span>Nieprzeczytane</span>
+            <strong>@overview.UnreadCount</strong>
+        </article>
+
+        <article>
+            <span>Ważne</span>
+            <strong>@overview.ImportantUnreadCount</strong>
+        </article>
+
+        <article class="@(overview.WarningUnreadCount > 0 ? "has-warning" : "")">
+            <span>Ostrzeżenia</span>
+            <strong>@overview.WarningUnreadCount</strong>
+        </article>
+    </div>
+
+    @if (items.Count == 0)
+    {
+        <div class="notification-center-empty">
+            <strong>
+                @(Model.SelectedTab == "history"
+                    ? "Historia aktywności jest jeszcze pusta."
+                    : "Nie ma powiadomień wymagających uwagi.")
+            </strong>
+            <span>
+                Nowe zdarzenia pojawią się tutaj automatycznie.
+            </span>
+        </div>
+    }
+    else
+    {
+        <div class="notification-center-list">
+            @foreach (var item in items)
+            {
+                <article class="notification-center-item @(!item.IsRead && item.ShowInInbox ? "is-unread" : "")">
+                    <div class="notification-center-severity @item.SeverityCode.ToLowerInvariant()">
+                        <span></span>
+                        @item.SeverityNamePl
+                    </div>
+
+                    <div class="notification-center-copy">
+                        <div class="notification-center-title-row">
+                            <div>
+                                <span class="notification-center-category">
+                                    @item.CategoryNamePl
+                                </span>
+                                <h2>@item.Title</h2>
+                            </div>
+
+                            <time datetime="@item.CreatedAtUtc.ToString("O")">
+                                @item.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                            </time>
+                        </div>
+
+                        <p>@item.Message</p>
+
+                        @if (!string.IsNullOrWhiteSpace(item.SourceType))
+                        {
+                            <div class="notification-center-source">
+                                Źródło:
+                                <strong>@item.SourceType</strong>
+                                @if (!string.IsNullOrWhiteSpace(item.SourceId))
+                                {
+                                    <span>· @item.SourceId</span>
+                                }
+                            </div>
+                        }
+
+                        <div class="notification-center-actions">
+                            @if (!string.IsNullOrWhiteSpace(item.LinkUrl))
+                            {
+                                <a asp-action="Open"
+                                   asp-route-id="@item.NotificationId"
+                                   class="btn btn-sm btn-primary">
+                                    Otwórz
+                                </a>
+                            }
+
+                            @if (!item.IsRead && item.ShowInInbox)
+                            {
+                                <form asp-action="MarkRead"
+                                      method="post">
+                                    <input type="hidden"
+                                           name="id"
+                                           value="@item.NotificationId" />
+                                    <input type="hidden"
+                                           name="tab"
+                                           value="@Model.SelectedTab" />
+
+                                    <button type="submit"
+                                            class="btn btn-sm btn-outline-secondary">
+                                        Oznacz jako przeczytane
+                                    </button>
+                                </form>
+                            }
+                            else if (item.IsRead)
+                            {
+                                <span class="notification-center-read-state">
+                                    ✓ Przeczytane
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="notification-center-read-state">
+                                    Historia
+                                </span>
+                            }
+                        </div>
+                    </div>
+                </article>
+            }
+        </div>
+    }
+
+    <div class="notification-center-note">
+        <strong>M04.10.1 – fundament.</strong>
+        <span>
+            Centrum i historia są gotowe. W następnych paczkach zdarzenia
+            ze składek, faktur, terminów, finansów rodzinnych i celów
+            będą automatycznie publikowane przez wspólny serwis powiadomień.
+        </span>
+    </div>
+</div>
