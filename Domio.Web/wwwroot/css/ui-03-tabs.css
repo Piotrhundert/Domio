@@ -1,0 +1,154 @@
+﻿/* ================================================================
+   UI-03 – uproszczone zakładki modułów
+   ================================================================ */
+
+.domio-primary-tabs {
+    gap: 0.2rem;
+    margin-bottom: 1rem;
+}
+
+.domio-primary-tabs .domio-folder-tab,
+.family-finance-folder-tabs.domio-primary-tabs .family-finance-folder-tab {
+    min-height: 2.55rem;
+    padding: 0.58rem 0.85rem 0.64rem;
+    font-size: 0.8rem;
+}
+
+.domio-primary-tab-hidden {
+    display: none !important;
+}
+
+.domio-tab-group-panel[hidden],
+.domio-subtab-panel[hidden] {
+    display: none !important;
+}
+
+.domio-tab-group-panel {
+    display: grid;
+    gap: 0.9rem;
+    width: 100%;
+    animation: domio-ui03-panel-in 0.14s ease-out;
+}
+
+.domio-tab-group-panel > .finance-section,
+.domio-tab-group-panel > .household-finance-section,
+.domio-tab-group-panel > .users-panel,
+.domio-tab-group-panel > .profile-card,
+.domio-tab-group-panel > .permission-module-group {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+}
+
+.domio-subtabs {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 0 0.8rem;
+    padding: 0.28rem;
+    overflow-x: auto;
+    border: 1px solid #d7e0e9;
+    border-radius: 0.7rem;
+    background: #f4f7fa;
+    box-shadow: none;
+    scrollbar-width: thin;
+}
+
+.domio-subtab {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    min-height: 2.1rem;
+    padding: 0.42rem 0.72rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: var(--sap-text-soft);
+    font: inherit;
+    font-size: 0.74rem;
+    font-weight: 700;
+    line-height: 1.1;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.domio-subtab:hover {
+    background: #e7eff8;
+    color: var(--sap-primary-strong);
+    text-decoration: none;
+}
+
+.domio-subtab.is-active,
+.domio-subtab[aria-selected="true"] {
+    background: #fff;
+    color: var(--sap-primary-strong);
+    box-shadow:
+        inset 0 0 0 1px #bfd2e6,
+        0 0.08rem 0.24rem rgba(27, 40, 56, 0.08);
+}
+
+.family-finance-subtabs {
+    margin-top: -0.65rem;
+    margin-bottom: 1rem;
+}
+
+.domio-tabs-ui03 .finance-privacy-note,
+.domio-tabs-ui03 .household-finance-foundation-note {
+    margin-bottom: 0.9rem;
+}
+
+.profile-page.domio-tabs-ui03 .profile-section-grid {
+    display: block;
+}
+
+.profile-page.domio-tabs-ui03 .domio-tab-group-panel {
+    width: 100%;
+}
+
+.roles-single-page.domio-tabs-ui03 .role-permission-body > .domio-folder-tabs {
+    margin-bottom: 0.7rem;
+}
+
+.roles-single-page.domio-tabs-ui03 .domio-tab-group-panel {
+    gap: 0.7rem;
+}
+
+.financial-goal-module-tabs,
+.family-area-module-tabs {
+    gap: 0.2rem;
+}
+
+@keyframes domio-ui03-panel-in {
+    from {
+        opacity: 0.62;
+        transform: translateY(2px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 767.98px) {
+    .domio-primary-tabs .domio-folder-tab,
+    .family-finance-folder-tabs.domio-primary-tabs .family-finance-folder-tab {
+        min-height: 2.4rem;
+        padding: 0.54rem 0.72rem 0.58rem;
+        font-size: 0.76rem;
+    }
+
+    .domio-subtabs {
+        width: 100%;
+        margin-bottom: 0.65rem;
+    }
+
+    .domio-subtab {
+        min-height: 2rem;
+        padding: 0.4rem 0.65rem;
+        font-size: 0.72rem;
+    }
+}

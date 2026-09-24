@@ -1,5 +1,5 @@
-﻿// Domio – wspólne zachowania interfejsu.
-// UI-02: prawdziwe zakładki/foldery dla ekranów wielosekcyjnych.
+﻿﻿// Domio – wspólne zachowania interfejsu.
+// UI-03: uproszczone zakładki główne + zakładki wewnętrzne dla rozbudowanych ekranów.
 
 (() => {
     "use strict";
@@ -27,7 +27,14 @@
         ["Wpłaty do akceptacji i historia", "Wpłaty"],
         ["Konta użytkowników", "Konta"],
         ["Osoby bez konta logowania", "Osoby bez konta"],
-        ["Role w Domio", "Role"]
+        ["Role w Domio", "Role"],
+        ["Dane osobowe", "Dane osobowe"],
+        ["Kontakt", "Kontakt"],
+        ["Dokument tożsamości", "Dokument"],
+        ["Adres korespondencyjny", "Adres"],
+        ["Osoba kontaktowa", "Osoba kontaktowa"],
+        ["Konto i bezpieczeństwo", "Bezpieczeństwo"],
+        ["Notatki i historia profilu", "Historia"]
     ]);
 
     const normalizeLabel = (heading) => {
@@ -66,17 +73,48 @@
         try {
             window.sessionStorage.setItem(key, value);
         } catch {
-            // Brak dostępu do sessionStorage nie powinien blokować interfejsu.
+            // Brak sessionStorage nie powinien blokować interfejsu.
         }
     };
 
-    const buildTabs = ({
+    const appendExternalTab = (nav, label, href, key, before = null) => {
+        if (!nav || nav.querySelector(`[data-domio-external-tab="${key}"]`)) {
+            return;
+        }
+
+        const link = document.createElement("a");
+        link.className = "domio-folder-tab";
+        link.textContent = label;
+        link.href = href;
+        link.dataset.domioExternalTab = key;
+        link.setAttribute("role", "tab");
+        link.setAttribute("aria-selected", "false");
+
+        if (before && before.parentNode === nav) {
+            nav.insertBefore(link, before);
+        } else {
+            nav.appendChild(link);
+        }
+    };
+
+    const isControllerIndexPath = (controllerName) => {
+        const path = window.location.pathname
+            .toLowerCase()
+            .replace(/\/+$/, "");
+        const controller = controllerName.toLowerCase();
+
+        return path.endsWith(`/${controller}`) ||
+            path.endsWith(`/${controller}/index`);
+    };
+
+    const buildGroupedTabs = ({
         page,
         panels,
         insertBefore = null,
         insertAfter = null,
         groupKey,
-        headingSelector = "h2"
+        headingSelector = "h2",
+        groups = []
     }) => {
         const panelList = Array.from(panels)
             .filter(panel => panel instanceof HTMLElement);
@@ -85,46 +123,175 @@
             return;
         }
 
-        // Nie budujemy drugiego zestawu dla tego samego ekranu.
         if (page.querySelector(`.domio-folder-tabs[data-domio-tab-group="${groupKey}"]`)) {
             return;
         }
 
-        const items = panelList.map((panel, index) => {
+        const panelItems = panelList.map((panel, index) => {
             const heading = panel.querySelector(headingSelector);
             const label = normalizeLabel(heading);
-            const baseKey = slugify(label);
-            const key = `${baseKey}-${index + 1}`;
 
-            panel.classList.add("domio-tab-panel");
-            panel.dataset.domioTabPanel = key;
-            panel.setAttribute("role", "tabpanel");
-
-            return { panel, label, key };
+            return {
+                panel,
+                label,
+                index
+            };
         });
 
-        const storageKey = `domio.tabs.${window.location.pathname}.${groupKey}`;
+        const assigned = new Set();
+        const groupedItems = [];
+
+        for (const definition of groups) {
+            const matches = panelItems.filter(item =>
+                !assigned.has(item.index) &&
+                definition.labels.includes(item.label));
+
+            if (matches.length === 0) {
+                continue;
+            }
+
+            matches.forEach(item => assigned.add(item.index));
+            groupedItems.push({
+                label: definition.label,
+                items: matches
+            });
+        }
+
+        for (const item of panelItems) {
+            if (assigned.has(item.index)) {
+                continue;
+            }
+
+            groupedItems.push({
+                label: item.label,
+                items: [item]
+            });
+        }
+
+        if (groupedItems.length < 2) {
+            return;
+        }
+
+        const commonParent = panelList[0].parentNode;
+        if (!commonParent) {
+            return;
+        }
+
+        const groupViews = groupedItems.map((group, groupIndex) => {
+            const groupKeyValue = `${slugify(group.label)}-${groupIndex + 1}`;
+            const wrapper = document.createElement("div");
+            wrapper.className = "domio-tab-group-panel";
+            wrapper.dataset.domioTabGroupPanel = groupKeyValue;
+            wrapper.setAttribute("role", "tabpanel");
+
+            const firstPanel = group.items[0].panel;
+            commonParent.insertBefore(wrapper, firstPanel);
+
+            let subnav = null;
+            let subItems = [];
+
+            if (group.items.length > 1) {
+                subnav = document.createElement("nav");
+                subnav.className = "domio-subtabs";
+                subnav.setAttribute("role", "tablist");
+                subnav.setAttribute("aria-label", `${group.label} – szczegóły`);
+                wrapper.appendChild(subnav);
+            }
+
+            group.items.forEach((item, itemIndex) => {
+                const subKey = `${slugify(item.label)}-${itemIndex + 1}`;
+                item.panel.classList.add("domio-subtab-panel");
+                item.panel.dataset.domioSubtabPanel = subKey;
+                item.panel.removeAttribute("hidden");
+                wrapper.appendChild(item.panel);
+
+                if (subnav) {
+                    const button = document.createElement("button");
+                    button.type = "button";
+                    button.className = "domio-subtab";
+                    button.textContent = item.label;
+                    button.dataset.domioSubtabTarget = subKey;
+                    button.setAttribute("role", "tab");
+                    button.setAttribute("aria-selected", "false");
+                    subnav.appendChild(button);
+
+                    subItems.push({
+                        key: subKey,
+                        panel: item.panel,
+                        button
+                    });
+                }
+            });
+
+            if (subnav && subItems.length > 0) {
+                const subStorageKey =
+                    `domio.subtabs.${window.location.pathname}.${groupKey}.${groupKeyValue}`;
+                const storedSub = safeSessionGet(subStorageKey);
+                const initialSub =
+                    subItems.find(x => x.key === storedSub) ?? subItems[0];
+
+                const activateSub = (key) => {
+                    for (const subItem of subItems) {
+                        const active = subItem.key === key;
+                        subItem.panel.hidden = !active;
+                        subItem.button.classList.toggle("is-active", active);
+                        subItem.button.setAttribute(
+                            "aria-selected",
+                            active ? "true" : "false");
+                    }
+
+                    safeSessionSet(subStorageKey, key);
+                };
+
+                for (const subItem of subItems) {
+                    subItem.button.addEventListener(
+                        "click",
+                        () => activateSub(subItem.key));
+                }
+
+                activateSub(initialSub.key);
+            }
+
+            return {
+                label: group.label,
+                key: groupKeyValue,
+                wrapper
+            };
+        });
+
+        const storageKey =
+            `domio.tabs.${window.location.pathname}.${groupKey}`;
         const savedKey = safeSessionGet(storageKey);
-        const selectedItem = items.find(x => x.key === savedKey) ?? items[0];
+        const selected =
+            groupViews.find(x => x.key === savedKey) ?? groupViews[0];
 
         const nav = document.createElement("nav");
-        nav.className = "domio-folder-tabs";
+        nav.className = "domio-folder-tabs domio-primary-tabs";
         nav.dataset.domioTabGroup = groupKey;
         nav.setAttribute("role", "tablist");
         nav.setAttribute("aria-label", "Zakładki modułu");
 
         const activate = (key, focus = false) => {
-            for (const item of items) {
+            for (const item of groupViews) {
                 const active = item.key === key;
-                item.panel.hidden = !active;
-                item.panel.classList.toggle("is-active", active);
-                item.panel.setAttribute("aria-hidden", active ? "false" : "true");
+                item.wrapper.hidden = !active;
+                item.wrapper.classList.toggle("is-active", active);
+                item.wrapper.setAttribute(
+                    "aria-hidden",
+                    active ? "false" : "true");
             }
 
             for (const button of nav.querySelectorAll(".domio-folder-tab")) {
-                const active = button.dataset.domioTabTarget === key;
+                if (!(button instanceof HTMLButtonElement)) {
+                    continue;
+                }
+
+                const active =
+                    button.dataset.domioTabTarget === key;
                 button.classList.toggle("is-active", active);
-                button.setAttribute("aria-selected", active ? "true" : "false");
+                button.setAttribute(
+                    "aria-selected",
+                    active ? "true" : "false");
                 button.tabIndex = active ? 0 : -1;
 
                 if (active && focus) {
@@ -135,7 +302,7 @@
             safeSessionSet(storageKey, key);
         };
 
-        items.forEach((item, index) => {
+        groupViews.forEach((item, index) => {
             const button = document.createElement("button");
             button.type = "button";
             button.className = "domio-folder-tab";
@@ -145,17 +312,24 @@
             button.setAttribute("aria-selected", "false");
             button.tabIndex = -1;
 
-            button.addEventListener("click", () => activate(item.key));
+            button.addEventListener(
+                "click",
+                () => activate(item.key));
 
             button.addEventListener("keydown", (event) => {
-                if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+                if (event.key !== "ArrowLeft" &&
+                    event.key !== "ArrowRight") {
                     return;
                 }
 
                 event.preventDefault();
-                const delta = event.key === "ArrowRight" ? 1 : -1;
-                const nextIndex = (index + delta + items.length) % items.length;
-                activate(items[nextIndex].key, true);
+                const delta =
+                    event.key === "ArrowRight" ? 1 : -1;
+                const nextIndex =
+                    (index + delta + groupViews.length) %
+                    groupViews.length;
+
+                activate(groupViews[nextIndex].key, true);
             });
 
             nav.appendChild(button);
@@ -169,35 +343,15 @@
             page.prepend(nav);
         }
 
-        page.classList.add("domio-tabs-enhanced");
-        activate(selectedItem.key);
+        page.classList.add("domio-tabs-enhanced", "domio-tabs-ui03");
+        activate(selected.key);
     };
 
-
-    const appendExternalTab = (nav, label, href, key) => {
-        if (!nav || nav.querySelector(`[data-domio-external-tab="${key}"]`)) {
-            return;
-        }
-
-        const link = document.createElement("a");
-        link.className = "domio-folder-tab";
-        link.textContent = label;
-        link.href = href;
-        link.dataset.domioExternalTab = key;
-        link.setAttribute("role", "tab");
-        link.setAttribute("aria-selected", "false");
-        nav.appendChild(link);
-    };
-
-    const isControllerIndexPath = (controllerName) => {
-        const path = window.location.pathname
-            .toLowerCase()
-            .replace(/\/+$/, "");
-        const controller = controllerName.toLowerCase();
-
-        return path.endsWith(`/${controller}`) ||
-            path.endsWith(`/${controller}/index`);
-    };
+    const getPanelLabels = (panels, headingSelector = "h2") =>
+        Array.from(panels)
+            .map(panel =>
+                normalizeLabel(
+                    panel.querySelector(headingSelector)));
 
     const initPersonalFinanceTabs = () => {
         const page = document.querySelector(".finance-page");
@@ -205,19 +359,36 @@
             return;
         }
 
-        const panels = page.querySelectorAll(":scope > section.finance-section");
-        const header = page.querySelector(":scope > .finance-page-header");
+        const panels =
+            page.querySelectorAll(":scope > section.finance-section");
+        const header =
+            page.querySelector(":scope > .finance-page-header");
 
-        buildTabs({
+        buildGroupedTabs({
             page,
             panels,
             insertAfter: header,
-            groupKey: "personal-finance"
+            groupKey: "personal-finance",
+            groups: [
+                {
+                    label: "Przegląd",
+                    labels: ["Składka do domu", "Konta"]
+                },
+                {
+                    label: "Plan",
+                    labels: ["Cykliczne", "Plan"]
+                },
+                {
+                    label: "Historia",
+                    labels: ["Operacje"]
+                }
+            ]
         });
 
         if (isControllerIndexPath("PersonalFinance")) {
             appendExternalTab(
-                page.querySelector('.domio-folder-tabs[data-domio-tab-group="personal-finance"]'),
+                page.querySelector(
+                    '.domio-folder-tabs[data-domio-tab-group="personal-finance"]'),
                 "Cele",
                 "/FinancialGoals?scope=Personal",
                 "financial-goals-personal");
@@ -225,22 +396,81 @@
     };
 
     const initHouseholdFinanceTabs = () => {
-        const pages = document.querySelectorAll(".household-finance-page");
+        const pages =
+            document.querySelectorAll(".household-finance-page");
 
         for (const page of pages) {
-            const panels = page.querySelectorAll(":scope > section.household-finance-section");
-            const header = page.querySelector(":scope > .household-finance-header");
+            const panels =
+                page.querySelectorAll(
+                    ":scope > section.household-finance-section");
+            const header =
+                page.querySelector(
+                    ":scope > .household-finance-header");
 
-            buildTabs({
+            if (panels.length < 2) {
+                continue;
+            }
+
+            const labels = getPanelLabels(panels);
+            let groups = [];
+
+            if (labels.includes("Terminy") &&
+                labels.includes("Reguły")) {
+                groups = [
+                    {
+                        label: "Przegląd",
+                        labels: ["Terminy"]
+                    },
+                    {
+                        label: "Ustawienia",
+                        labels: ["Role", "Domownicy", "Reguły"]
+                    },
+                    {
+                        label: "Rozliczenia",
+                        labels: ["Zobowiązania", "Wpłaty"]
+                    }
+                ];
+            } else if (labels.includes("Kategorie") &&
+                       labels.includes("Faktury")) {
+                groups = [
+                    {
+                        label: "Faktury",
+                        labels: ["Faktury", "Historia płatności"]
+                    },
+                    {
+                        label: "Kategorie",
+                        labels: ["Kategorie"]
+                    }
+                ];
+            } else if (isControllerIndexPath("HouseholdFinance") &&
+                       labels.includes("Konta")) {
+                groups = [
+                    {
+                        label: "Przegląd",
+                        labels: ["Konta"]
+                    },
+                    {
+                        label: "Historia",
+                        labels: ["Księgowania"]
+                    }
+                ];
+            }
+
+            buildGroupedTabs({
                 page,
                 panels,
                 insertAfter: header,
-                groupKey: "household-finance"
+                groupKey:
+                    isControllerIndexPath("HouseholdFinance")
+                        ? "household-finance"
+                        : `household-finance-${slugify(document.title)}`,
+                groups
             });
 
             if (isControllerIndexPath("HouseholdFinance")) {
                 appendExternalTab(
-                    page.querySelector('.domio-folder-tabs[data-domio-tab-group="household-finance"]'),
+                    page.querySelector(
+                        '.domio-folder-tabs[data-domio-tab-group="household-finance"]'),
                     "Cele",
                     "/FinancialGoals?scope=Household",
                     "financial-goals-household");
@@ -249,15 +479,20 @@
     };
 
     const initUsersTabs = () => {
-        const page = document.querySelector(".users-page:not(.roles-single-page):not(.profile-page)");
+        const page =
+            document.querySelector(
+                ".users-page:not(.roles-single-page):not(.profile-page)");
+
         if (!page) {
             return;
         }
 
-        const panels = page.querySelectorAll(":scope > section.users-panel");
-        const header = page.querySelector(":scope > .users-page-header");
+        const panels =
+            page.querySelectorAll(":scope > section.users-panel");
+        const header =
+            page.querySelector(":scope > .users-page-header");
 
-        buildTabs({
+        buildGroupedTabs({
             page,
             panels,
             insertAfter: header,
@@ -275,12 +510,37 @@
         const hero = page.querySelector(":scope > .profile-hero-card");
         const grid = page.querySelector(":scope > .profile-section-grid");
 
-        buildTabs({
+        buildGroupedTabs({
             page,
             panels,
-            insertAfter: hero ?? page.querySelector(":scope > .users-page-header"),
+            insertAfter:
+                hero ??
+                page.querySelector(":scope > .users-page-header"),
             insertBefore: hero ? null : grid,
-            groupKey: "profile"
+            groupKey: "profile",
+            groups: [
+                {
+                    label: "Dane",
+                    labels: [
+                        "Dane osobowe",
+                        "Kontakt",
+                        "Dokument",
+                        "Adres"
+                    ]
+                },
+                {
+                    label: "Bliscy",
+                    labels: ["Osoba kontaktowa"]
+                },
+                {
+                    label: "Bezpieczeństwo",
+                    labels: ["Bezpieczeństwo"]
+                },
+                {
+                    label: "Historia",
+                    labels: ["Historia"]
+                }
+            ]
         });
     };
 
@@ -291,10 +551,13 @@
         }
 
         const body = page.querySelector(".role-permission-body");
-        const panels = body?.querySelectorAll(":scope > .permission-module-group") ?? [];
-        const firstPanel = panels.length > 0 ? panels[0] : null;
+        const panels =
+            body?.querySelectorAll(
+                ":scope > .permission-module-group") ?? [];
+        const firstPanel =
+            panels.length > 0 ? panels[0] : null;
 
-        buildTabs({
+        buildGroupedTabs({
             page,
             panels,
             insertBefore: firstPanel,
@@ -303,37 +566,114 @@
         });
     };
 
+    const queryValueFromHref = (element, name) => {
+        if (!(element instanceof HTMLAnchorElement)) {
+            return null;
+        }
+
+        try {
+            return new URL(element.href).searchParams.get(name);
+        } catch {
+            return null;
+        }
+    };
+
     const enhanceExistingFamilyTabs = () => {
-        const nav = document.querySelector(".family-finance-folder-tabs");
+        const nav =
+            document.querySelector(".family-finance-folder-tabs");
+
         if (!nav) {
             return;
         }
 
+        nav.classList.add("domio-primary-tabs");
         nav.setAttribute("role", "tablist");
-        nav.setAttribute("aria-label", "Zakładki finansów rodzinnych");
+        nav.setAttribute(
+            "aria-label",
+            "Główne zakładki finansów rodzinnych");
 
-        for (const tab of nav.querySelectorAll(".family-finance-folder-tab")) {
-            tab.setAttribute("role", "tab");
-            tab.setAttribute(
-                "aria-selected",
-                tab.classList.contains("is-active") ? "true" : "false");
+        const links =
+            Array.from(
+                nav.querySelectorAll(
+                    "a.family-finance-folder-tab"));
+
+        const byTab = new Map();
+        let familyGroupId = null;
+
+        for (const link of links) {
+            link.setAttribute("role", "tab");
+
+            const tab = queryValueFromHref(link, "tab");
+            if (tab) {
+                byTab.set(tab, link);
+            }
+
+            if (!familyGroupId) {
+                familyGroupId =
+                    queryValueFromHref(link, "familyGroupId");
+            }
         }
 
-        let familyGroupId = new URL(window.location.href)
-            .searchParams.get("familyGroupId");
+        const currentTab =
+            new URL(window.location.href)
+                .searchParams.get("tab") ?? "overview";
 
-        if (!familyGroupId) {
-            for (const tab of nav.querySelectorAll("a.family-finance-folder-tab")) {
-                try {
-                    familyGroupId = new URL(tab.href).searchParams.get("familyGroupId");
-                } catch {
-                    familyGroupId = null;
-                }
+        const familyTabs =
+            ["members", "children", "child-contributions"];
 
-                if (familyGroupId) {
-                    break;
-                }
+        const members = byTab.get("members");
+        const children = byTab.get("children");
+        const childContributions =
+            byTab.get("child-contributions");
+        const expenses = byTab.get("expenses");
+        const shared = byTab.get("shared");
+
+        if (members) {
+            members.textContent = "Rodzina";
+        }
+
+        if (expenses) {
+            expenses.textContent = "Budżet";
+        }
+
+        if (shared) {
+            shared.textContent = "Konto";
+        }
+
+        for (const hiddenLink of [children, childContributions]) {
+            if (hiddenLink) {
+                hiddenLink.classList.add("domio-primary-tab-hidden");
+                hiddenLink.setAttribute("aria-hidden", "true");
+                hiddenLink.tabIndex = -1;
             }
+        }
+
+        if (familyTabs.includes(currentTab) && members) {
+            for (const link of links) {
+                link.classList.remove("is-active");
+                link.setAttribute("aria-selected", "false");
+            }
+
+            members.classList.add("is-active");
+            members.setAttribute("aria-selected", "true");
+        } else {
+            for (const link of links) {
+                link.setAttribute(
+                    "aria-selected",
+                    link.classList.contains("is-active")
+                        ? "true"
+                        : "false");
+            }
+        }
+
+        const areaLink =
+            links.find(link =>
+                link.href.includes("/FamilyAreas"));
+
+        if (expenses && areaLink &&
+            expenses.parentNode === nav &&
+            areaLink.parentNode === nav) {
+            nav.insertBefore(expenses, areaLink);
         }
 
         if (familyGroupId) {
@@ -341,12 +681,103 @@
                 nav,
                 "Cele",
                 `/FinancialGoals?scope=Family&familyGroupId=${encodeURIComponent(familyGroupId)}`,
-                "financial-goals-family");
+                "financial-goals-family",
+                shared);
+        }
+
+        if (familyTabs.includes(currentTab) &&
+            members &&
+            (children || childContributions) &&
+            !document.querySelector(".family-finance-subtabs")) {
+            const subnav = document.createElement("nav");
+            subnav.className =
+                "domio-subtabs family-finance-subtabs";
+            subnav.setAttribute("role", "tablist");
+            subnav.setAttribute(
+                "aria-label",
+                "Rodzina – szczegóły");
+
+            const subEntries = [
+                [members, "Członkowie", "members"],
+                [children, "Przychody dzieci", "children"],
+                [childContributions, "Składki dzieci", "child-contributions"]
+            ];
+
+            for (const [source, label, tab] of subEntries) {
+                if (!(source instanceof HTMLAnchorElement)) {
+                    continue;
+                }
+
+                const link = source.cloneNode(false);
+                link.className =
+                    `domio-subtab ${currentTab === tab ? "is-active" : ""}`;
+                link.textContent = label;
+                link.removeAttribute("aria-hidden");
+                link.removeAttribute("tabindex");
+                link.setAttribute("role", "tab");
+                link.setAttribute(
+                    "aria-selected",
+                    currentTab === tab ? "true" : "false");
+                subnav.appendChild(link);
+            }
+
+            nav.insertAdjacentElement("afterend", subnav);
+        }
+    };
+
+    const enhanceGoalModuleTabs = () => {
+        const nav =
+            document.querySelector(".financial-goal-module-tabs");
+
+        if (!nav) {
+            return;
+        }
+
+        const firstLink =
+            nav.querySelector("a.domio-folder-tab");
+
+        if (firstLink) {
+            firstLink.textContent = "Przegląd";
+        }
+
+        const url = new URL(window.location.href);
+        const scope = url.searchParams.get("scope");
+        const familyGroupId =
+            url.searchParams.get("familyGroupId");
+
+        const hasFamilyAreasTab =
+            Array.from(nav.querySelectorAll("a.domio-folder-tab"))
+                .some(link => {
+                    try {
+                        return new URL(link.href)
+                            .pathname
+                            .toLowerCase()
+                            .includes("/familyareas");
+                    } catch {
+                        return false;
+                    }
+                });
+
+        if (scope === "Family" &&
+            familyGroupId &&
+            !hasFamilyAreasTab &&
+            !nav.querySelector(
+                '[data-domio-external-tab="family-areas"]')) {
+            const activeGoal =
+                nav.querySelector(".domio-folder-tab.is-active");
+
+            appendExternalTab(
+                nav,
+                "Obszary",
+                `/FamilyAreas?familyGroupId=${encodeURIComponent(familyGroupId)}`,
+                "family-areas",
+                activeGoal);
         }
     };
 
     document.addEventListener("DOMContentLoaded", () => {
         enhanceExistingFamilyTabs();
+        enhanceGoalModuleTabs();
         initPersonalFinanceTabs();
         initHouseholdFinanceTabs();
         initUsersTabs();
