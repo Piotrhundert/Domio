@@ -1,0 +1,154 @@
+@using Domio.Application.Authorization
+@using Domio.Domain.FamilyFinance
+@model Domio.Application.FamilyFinance.FamilyAreaOverview
+@{
+    ViewData["Title"] = "Obszary rodzinne";
+    var currentPeriod = new DateTime(Model.Year, Model.Month, 1);
+    var previousPeriod = currentPeriod.AddMonths(-1);
+    var nextPeriod = currentPeriod.AddMonths(1);
+}
+
+<div class="family-area-page">
+    <div class="family-area-header">
+        <div>
+            <div class="family-finance-kicker">M04.9.2 · OBSZARY RODZINNE</div>
+            <h1>Obszary rodzinne</h1>
+            <p>
+                Kafelki porządkują koszty rodziny. Pozycje dodane w obszarach są tymi samymi
+                kosztami, które trafiają do budżetu rodzinnego — Domio nie liczy ich drugi raz.
+            </p>
+        </div>
+
+        @if (Model.CanManage)
+        {
+            <a asp-action="Create"
+               asp-route-familyGroupId="@Model.FamilyGroupId"
+               class="btn btn-primary">
+                + Nowy obszar
+            </a>
+        }
+    </div>
+
+    <nav class="domio-folder-tabs family-area-module-tabs"
+         aria-label="Nawigacja finansów rodzinnych">
+        <a asp-controller="FamilyFinance"
+           asp-action="Index"
+           asp-route-familyGroupId="@Model.FamilyGroupId"
+           asp-route-year="@Model.Year"
+           asp-route-month="@Model.Month"
+           class="domio-folder-tab">
+            Przegląd
+        </a>
+        <span class="domio-folder-tab is-active"
+              role="tab"
+              aria-selected="true">
+            Obszary
+        </span>
+        <a asp-controller="FinancialGoals"
+           asp-action="Index"
+           asp-route-scope="Family"
+           asp-route-familyGroupId="@Model.FamilyGroupId"
+           class="domio-folder-tab">
+            Cele
+        </a>
+    </nav>
+
+    @if (TempData["FamilyAreaMessage"] is string message)
+    {
+        <div class="alert alert-success" role="alert">@message</div>
+    }
+
+    @if (TempData["FamilyAreaError"] is string error)
+    {
+        <div class="alert alert-danger" role="alert">@error</div>
+    }
+
+    <div class="family-area-scope-line">
+        <span>Rodzina</span>
+        <strong>@Model.FamilyGroupName</strong>
+    </div>
+
+    <div class="family-finance-period-bar">
+        <a asp-action="Index"
+           asp-route-familyGroupId="@Model.FamilyGroupId"
+           asp-route-year="@previousPeriod.Year"
+           asp-route-month="@previousPeriod.Month"
+           class="btn btn-sm btn-outline-secondary">
+            ← Poprzedni
+        </a>
+
+        <strong>@currentPeriod.ToString("MMMM yyyy")</strong>
+
+        <a asp-action="Index"
+           asp-route-familyGroupId="@Model.FamilyGroupId"
+           asp-route-year="@nextPeriod.Year"
+           asp-route-month="@nextPeriod.Month"
+           class="btn btn-sm btn-outline-secondary">
+            Następny →
+        </a>
+    </div>
+
+    <div class="family-area-grid">
+        @foreach (var area in Model.Areas)
+        {
+            var remaining = Math.Max(0m, area.PlannedAmount - area.ActualAmount);
+
+            <article class="family-area-card @(area.SystemCode == FamilyAreaSystemCodes.HouseholdContributions ? "is-household" : "")">
+                <div class="family-area-card-top">
+                    <span class="family-area-badge">@area.Badge</span>
+                    @if (area.IsSystem)
+                    {
+                        <span class="family-area-system">systemowy</span>
+                    }
+                    else
+                    {
+                        <span class="family-area-system custom">własny</span>
+                    }
+                </div>
+
+                <h2>@area.Name</h2>
+                <p>@area.Description</p>
+
+                <div class="family-area-money">
+                    <div>
+                        <span>Plan miesiąca</span>
+                        <strong>@area.PlannedAmount.ToString("N2") zł</strong>
+                    </div>
+                    <div>
+                        <span>Wykonanie</span>
+                        <strong>@area.ActualAmount.ToString("N2") zł</strong>
+                    </div>
+                </div>
+
+                <div class="family-area-meta">
+                    <span>
+                        @(area.SystemCode == FamilyAreaSystemCodes.HouseholdContributions
+                            ? "Składki w miesiącu"
+                            : "Aktywne pozycje")
+                        <strong>@area.ItemsCount</strong>
+                    </span>
+                    <span>
+                        Pozostało
+                        <strong>@remaining.ToString("N2") zł</strong>
+                    </span>
+                </div>
+
+                <a asp-action="Details"
+                   asp-route-id="@area.AreaId"
+                   asp-route-year="@Model.Year"
+                   asp-route-month="@Model.Month"
+                   class="family-area-open">
+                    Otwórz obszar →
+                </a>
+            </article>
+        }
+    </div>
+
+    <div class="family-area-note">
+        <strong>Jak działa obszar?</strong>
+        <span>
+            „Przedszkole” i „Auto” mogą zawierać ręcznie dodawane koszty jednorazowe lub cykliczne.
+            „Składki do domu” są pobierane automatycznie z istniejącego modułu składek, więc nie powstaje drugie zobowiązanie.
+        </span>
+    </div>
+</div>

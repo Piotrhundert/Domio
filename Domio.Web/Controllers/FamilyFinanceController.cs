@@ -1,4 +1,4 @@
-using System.Security.Claims;
+﻿using System.Security.Claims;
 using Domio.Application.FamilyFinance;
 using Domio.Domain.FamilyFinance;
 using Domio.Domain.PersonalFinance;
@@ -13,7 +13,8 @@ namespace Domio.Web.Controllers;
 [Authorize]
 public sealed class FamilyFinanceController(
     IFamilyFinanceService familyFinanceService,
-    IFamilyBudgetService familyBudgetService) : Controller
+    IFamilyBudgetService familyBudgetService,
+    IFamilyAreaService familyAreaService) : Controller
 {
     [HttpGet]
     [Authorize(Policy = FamilyFinancePermissions.View)]
@@ -42,6 +43,21 @@ public sealed class FamilyFinanceController(
 
             if (overview.SelectedFamilyGroupId.HasValue)
             {
+                budget = await familyBudgetService.GetOverviewAsync(
+                    overview.SelectedFamilyGroupId.Value,
+                    GetCurrentUserId(),
+                    selectedYear,
+                    selectedMonth,
+                    cancellationToken);
+
+                await familyAreaService.NormalizeScheduledOccurrencesAsync(
+                    overview.SelectedFamilyGroupId.Value,
+                    GetCurrentUserId(),
+                    selectedYear,
+                    selectedMonth,
+                    cancellationToken);
+
+                // Ponowne odczytanie odświeża datę terminu w modelu budżetu.
                 budget = await familyBudgetService.GetOverviewAsync(
                     overview.SelectedFamilyGroupId.Value,
                     GetCurrentUserId(),

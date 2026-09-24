@@ -151,7 +151,7 @@ public sealed class M04_8_4_ChildIncomeTests
 
             Assert.Equal(FamilyRoles.Child, child.FamilyRoleCode);
             Assert.Equal(4401.84m, child.PlannedIncome!.Value);
-            Assert.Null(child.ActualIncome);
+            Assert.Equal(0m, child.ActualIncome!.Value);
             Assert.Equal(4401.84m, familyOverview.PlannedIncomeTotal);
             Assert.Equal(3, familyOverview.ChildIncomeRules.Count);
             Assert.All(

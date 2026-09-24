@@ -1,4 +1,4 @@
-using Domio.Application.Authentication;
+﻿using Domio.Application.Authentication;
 using Domio.Application.FamilyFinance;
 using Domio.Application.HouseholdFinance;
 using Domio.Application.Users;
@@ -107,6 +107,15 @@ public sealed class M04_8_6_FamilySharedAccountTests
                 .Where(x => x.Id == coOwnerUserId)
                 .Select(x => x.PersonId)
                 .SingleAsync();
+
+            // Współwłaściciel wspólnego konta rodzinnego musi być również
+            // aktywnym domownikiem gospodarstwa, bo operacje rodzinne korzystają
+            // z kontekstu rodzina + gospodarstwo.
+            await householdService.AddHouseholdMemberAsync(
+                new AddHouseholdMemberRequest(
+                    coOwnerPersonId),
+                administrator.UserId,
+                Guid.NewGuid().ToString("N"));
 
             await familyService.AddMemberAsync(
                 new AddFamilyMemberRequest(
@@ -254,7 +263,7 @@ public sealed class M04_8_6_FamilySharedAccountTests
                 familyOverview.Members.Where(x => x.PersonId == adminPersonId));
 
             Assert.Equal(800m, childRow.ActualIncome!.Value);
-            Assert.Equal(0m, adminRow.ActualIncome!.Value);
+            Assert.Null(adminRow.ActualIncome);
             Assert.Equal(800m, familyOverview.ActualIncomeTotal);
         }
         finally

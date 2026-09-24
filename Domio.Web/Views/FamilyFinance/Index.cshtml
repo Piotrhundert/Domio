@@ -1,4 +1,4 @@
-@using Domio.Application.Authorization
+﻿@using Domio.Application.Authorization
 @using Domio.Domain.FamilyFinance
 @model Domio.Web.Models.FamilyFinance.FamilyFinanceIndexViewModel
 @{
@@ -25,7 +25,7 @@
 <div class="family-finance-page">
     <div class="family-finance-header family-finance-header-clean">
         <div>
-            <div class="family-finance-kicker">M04.8.7 · FINANSE RODZINNE</div>
+            <div class="family-finance-kicker">M04.9.2 · FINANSE RODZINNE</div>
             <h1>Finanse rodzinne</h1>
             <p>
                 Wspólny plan i wykonanie rodziny, przychody dzieci, składki dla domu
@@ -73,6 +73,14 @@
                     Składki dzieci
                 </a>
             }
+            <a asp-controller="FamilyAreas"
+               asp-action="Index"
+               asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
+               asp-route-year="@overview.Year"
+               asp-route-month="@overview.Month"
+               class="family-finance-folder-tab">
+                Obszary
+            </a>
             <a asp-action="Index"
                asp-route-familyGroupId="@overview.SelectedFamilyGroupId"
                asp-route-year="@overview.Year"
@@ -827,7 +835,17 @@
                                     <td><strong>@rule.Name</strong></td>
                                     <td>@rule.CategoryNamePl</td>
                                     <td><strong>@rule.PlannedAmount.ToString("N2") zł</strong></td>
-                                    <td>@rule.FrequencyNamePl · dzień @rule.DueDay</td>
+                                    <td>
+                                        @rule.FrequencyNamePl
+                                        @if (rule.PlannedDateUtc.HasValue)
+                                        {
+                                            <span> · termin @rule.PlannedDateUtc.Value.ToString("dd.MM")</span>
+                                        }
+                                        else
+                                        {
+                                            <span> · dzień @rule.DueDay</span>
+                                        }
+                                    </td>
                                     <td>@(rule.BeneficiaryDisplayName ?? "Koszt wspólny")</td>
                                     <td>
                                         @if (rule.OccurrenceId.HasValue)

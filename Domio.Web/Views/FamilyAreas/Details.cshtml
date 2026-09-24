@@ -1,0 +1,274 @@
+﻿@using Domio.Domain.FamilyFinance
+@model Domio.Application.FamilyFinance.FamilyAreaDetails
+@{
+    ViewData["Title"] = Model.Area.Name;
+    var currentPeriod = new DateTime(Model.Year, Model.Month, 1);
+    var previousPeriod = currentPeriod.AddMonths(-1);
+    var nextPeriod = currentPeriod.AddMonths(1);
+    var isContributionArea =
+        Model.Area.SystemCode == FamilyAreaSystemCodes.HouseholdContributions;
+}
+
+<div class="family-area-page">
+    <div class="family-area-header">
+        <div>
+            <div class="family-finance-kicker">@Model.Area.Badge · OBSZAR RODZINNY</div>
+            <h1>@Model.Area.Name</h1>
+            <p>@Model.Area.Description</p>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2">
+            @if (Model.CanManage && !isContributionArea)
+            {
+                <a asp-action="CreateItem"
+                   asp-route-areaId="@Model.Area.AreaId"
+                   class="btn btn-primary">
+                    + Dodaj pozycję
+                </a>
+            }
+            <a asp-action="Index"
+               asp-route-familyGroupId="@Model.FamilyGroupId"
+               asp-route-year="@Model.Year"
+               asp-route-month="@Model.Month"
+               class="btn btn-outline-secondary">
+                Wszystkie obszary
+            </a>
+        </div>
+    </div>
+
+    <nav class="domio-folder-tabs family-area-module-tabs"
+         aria-label="Nawigacja finansów rodzinnych">
+        <a asp-controller="FamilyFinance"
+           asp-action="Index"
+           asp-route-familyGroupId="@Model.FamilyGroupId"
+           asp-route-year="@Model.Year"
+           asp-route-month="@Model.Month"
+           class="domio-folder-tab">
+            Przegląd
+        </a>
+        <a asp-action="Index"
+           asp-route-familyGroupId="@Model.FamilyGroupId"
+           asp-route-year="@Model.Year"
+           asp-route-month="@Model.Month"
+           class="domio-folder-tab is-active">
+            Obszary
+        </a>
+        <a asp-controller="FinancialGoals"
+           asp-action="Index"
+           asp-route-scope="Family"
+           asp-route-familyGroupId="@Model.FamilyGroupId"
+           class="domio-folder-tab">
+            Cele
+        </a>
+    </nav>
+
+    @if (TempData["FamilyAreaMessage"] is string message)
+    {
+        <div class="alert alert-success" role="alert">@message</div>
+    }
+
+    @if (TempData["FamilyAreaError"] is string error)
+    {
+        <div class="alert alert-danger" role="alert">@error</div>
+    }
+
+    <div class="family-finance-period-bar">
+        <a asp-action="Details"
+           asp-route-id="@Model.Area.AreaId"
+           asp-route-year="@previousPeriod.Year"
+           asp-route-month="@previousPeriod.Month"
+           class="btn btn-sm btn-outline-secondary">
+            ← Poprzedni
+        </a>
+
+        <strong>@currentPeriod.ToString("MMMM yyyy")</strong>
+
+        <a asp-action="Details"
+           asp-route-id="@Model.Area.AreaId"
+           asp-route-year="@nextPeriod.Year"
+           asp-route-month="@nextPeriod.Month"
+           class="btn btn-sm btn-outline-secondary">
+            Następny →
+        </a>
+    </div>
+
+    <div class="family-area-summary-grid">
+        <article>
+            <span>Plan miesiąca</span>
+            <strong>@Model.Area.PlannedAmount.ToString("N2") zł</strong>
+        </article>
+        <article>
+            <span>Wykonanie</span>
+            <strong>@Model.Area.ActualAmount.ToString("N2") zł</strong>
+        </article>
+        <article>
+            <span>Pozostało</span>
+            <strong>@Math.Max(0m, Model.Area.PlannedAmount - Model.Area.ActualAmount).ToString("N2") zł</strong>
+        </article>
+    </div>
+
+    @if (isContributionArea)
+    {
+        <section class="family-area-section">
+            <div class="family-area-section-heading">
+                <div>
+                    <span>SKŁADKI</span>
+                    <h2>Składki rodziny dla domu</h2>
+                    <p>
+                        Ten kafelek jest tylko widokiem istniejących zobowiązań z modułu domu.
+                        Nie tworzymy tu drugiej składki.
+                    </p>
+                </div>
+
+                @if (Model.CanManage)
+                {
+                    <a asp-controller="HouseholdContributionAdmin"
+                       asp-action="Index"
+                       class="family-finance-section-link">
+                        Zarządzaj regułami składek
+                    </a>
+                }
+            </div>
+
+            @if (Model.Contributions.Count == 0)
+            {
+                <div class="family-area-empty">
+                    W wybranym miesiącu nie ma składek członków tej rodziny.
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive family-finance-table-wrap">
+                    <table class="table family-finance-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Osoba</th>
+                                <th>Rola</th>
+                                <th>Termin</th>
+                                <th>Status</th>
+                                <th class="text-end">Składka</th>
+                                <th class="text-end">Wpłacono</th>
+                                <th class="text-end">Pozostało</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var contribution in Model.Contributions)
+                        {
+                            <tr>
+                                <td><strong>@contribution.PersonDisplayName</strong></td>
+                                <td>@contribution.FamilyRoleNamePl</td>
+                                <td>@contribution.DueDateUtc.ToString("dd.MM.yyyy")</td>
+                                <td>
+                                    <span class="family-finance-sharing-pill @(contribution.RemainingAmount <= 0m ? "on" : "neutral")">
+                                        @contribution.StatusNamePl
+                                    </span>
+                                </td>
+                                <td class="text-end">@contribution.Amount.ToString("N2") zł</td>
+                                <td class="text-end">@contribution.PaidAmount.ToString("N2") zł</td>
+                                <td class="text-end"><strong>@contribution.RemainingAmount.ToString("N2") zł</strong></td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+    else
+    {
+        <section class="family-area-section">
+            <div class="family-area-section-heading">
+                <div>
+                    <span>POZYCJE</span>
+                    <h2>Koszty w obszarze</h2>
+                    <p>
+                        Każda pozycja jest zwykłą regułą kosztu rodzinnego. Będzie również widoczna
+                        w zakładce Koszty i w podsumowaniu budżetu.
+                    </p>
+                </div>
+
+                @if (Model.CanManage)
+                {
+                    <a asp-action="CreateItem"
+                       asp-route-areaId="@Model.Area.AreaId"
+                       class="family-finance-section-link">
+                        + Dodaj pozycję
+                    </a>
+                }
+            </div>
+
+            @if (Model.Items.Count == 0)
+            {
+                <div class="family-area-empty">
+                    <strong>Brak pozycji w tym obszarze.</strong>
+                    <span>
+                        Możesz dodać np. czesne, wyżywienie, zajęcia sportowe, ubezpieczenie auta albo serwis.
+                    </span>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive family-finance-table-wrap">
+                    <table class="table family-finance-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Nazwa</th>
+                                <th>Kategoria</th>
+                                <th>Częstotliwość</th>
+                                <th>Beneficjent</th>
+                                <th>Status miesiąca</th>
+                                <th class="text-end">Plan</th>
+                                <th class="text-end">Zapłacono</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var item in Model.Items)
+                        {
+                            <tr>
+                                <td>
+                                    <strong>@item.Name</strong>
+                                    @if (!item.IsActive)
+                                    {
+                                        <small class="d-block text-muted">reguła zakończona</small>
+                                    }
+                                </td>
+                                <td>@item.CategoryNamePl</td>
+                                <td>@item.FrequencyNamePl · @item.DueDateDescription</td>
+                                <td>@(item.BeneficiaryDisplayName ?? "Koszt wspólny")</td>
+                                <td>
+                                    <span class="family-finance-sharing-pill @(item.OccurrenceStatusCode == FamilyRecurringOccurrenceStatuses.Paid ? "on" : "neutral")">
+                                        @item.OccurrenceStatusNamePl
+                                    </span>
+                                    @if (item.PlannedDateUtc.HasValue)
+                                    {
+                                        <small class="d-block text-muted mt-1">
+                                            @item.PlannedDateUtc.Value.ToString("dd.MM.yyyy")
+                                        </small>
+                                    }
+                                </td>
+                                <td class="text-end"><strong>@item.PlannedAmount.ToString("N2") zł</strong></td>
+                                <td class="text-end">@item.ActualPaidAmount.ToString("N2") zł</td>
+                                <td class="text-end">
+                                    @if (item.CanPay && item.OccurrenceId.HasValue)
+                                    {
+                                        <a asp-controller="FamilyFinance"
+                                           asp-action="PayExpense"
+                                           asp-route-familyGroupId="@Model.FamilyGroupId"
+                                           asp-route-occurrenceId="@item.OccurrenceId.Value"
+                                           asp-route-year="@Model.Year"
+                                           asp-route-month="@Model.Month"
+                                           class="btn btn-sm btn-primary">
+                                            Opłać
+                                        </a>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </section>
+    }
+</div>

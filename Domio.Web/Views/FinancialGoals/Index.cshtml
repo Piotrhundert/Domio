@@ -46,6 +46,12 @@
                class="domio-folder-tab">
                 Przegląd finansów
             </a>
+            <a asp-controller="FamilyAreas"
+               asp-action="Index"
+               asp-route-familyGroupId="@scope.FamilyGroupId"
+               class="domio-folder-tab">
+                Obszary
+            </a>
         }
         <span class="domio-folder-tab is-active" role="tab" aria-selected="true">Cele</span>
     </nav>
@@ -64,14 +70,6 @@
         <span>Zakres</span>
         <strong>@scope.OwnerDisplayName</strong>
     </div>
-
-    @if (scope.ScopeCode != FinancialGoalScopes.Personal && scope.CanContribute)
-    {
-        <div class="financial-goal-form-note">
-            <strong>Wspólny cel</strong>
-            <span>Każdy uprawniony domownik/członek rodziny może dopisać własną wpłatę. Historia pokazuje, kto wpłacił.</span>
-        </div>
-    }
 
     <div class="financial-goal-summary-grid">
         <article class="financial-goal-summary-card">

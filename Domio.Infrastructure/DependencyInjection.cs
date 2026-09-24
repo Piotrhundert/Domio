@@ -76,6 +76,9 @@ public static class DependencyInjection
             IFamilyBudgetService,
             FamilyBudgetService>();
         services.AddScoped<
+            IFamilyAreaService,
+            FamilyAreaService>();
+        services.AddScoped<
             IFinancialGoalService,
             FinancialGoalService>();
         services.AddScoped<

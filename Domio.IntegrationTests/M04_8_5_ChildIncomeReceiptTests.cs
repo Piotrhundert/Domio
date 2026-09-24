@@ -190,7 +190,7 @@ public sealed class M04_8_5_ChildIncomeReceiptTests
             var childRow = Assert.Single(
                 afterPersonal.Members.Where(x => x.PersonId == childPersonId));
 
-            Assert.Equal(0m, administratorRow.ActualIncome!.Value);
+            Assert.Null(administratorRow.ActualIncome);
             Assert.Equal(215.84m, childRow.ActualIncome!.Value);
             Assert.Equal(215.84m, afterPersonal.ActualIncomeTotal);
 
@@ -245,7 +245,7 @@ public sealed class M04_8_5_ChildIncomeReceiptTests
                 finalOverview.Members.Where(x => x.PersonId == finalOverview.CurrentPersonId));
 
             Assert.Equal(1015.84m, finalChild.ActualIncome!.Value);
-            Assert.Equal(0m, finalAdmin.ActualIncome!.Value);
+            Assert.Null(finalAdmin.ActualIncome);
             Assert.Equal(1015.84m, finalOverview.ActualIncomeTotal);
             Assert.Equal(
                 2,

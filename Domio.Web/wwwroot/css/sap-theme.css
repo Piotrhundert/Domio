@@ -1,4 +1,4 @@
-:root {
+﻿:root {
     --sap-shell-bg: #f5f6f7;
     --sap-surface: #ffffff;
     --sap-surface-soft: #fafbfc;
@@ -1245,6 +1245,292 @@ textarea:focus {
     .financial-goal-card-top,
     .financial-goal-progress-meta,
     .financial-goal-meta {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+
+/* M04.9.2 – obszary finansów rodzinnych */
+.family-area-page {
+    display: grid;
+    gap: 1.25rem;
+}
+
+.family-area-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid var(--sap-border);
+    border-radius: var(--sap-radius);
+    background: linear-gradient(180deg, #ffffff 0%, #f9fbfd 100%);
+    box-shadow: var(--sap-shadow);
+}
+
+.family-area-header h1 {
+    margin: 0.2rem 0 0.45rem;
+    font-size: clamp(1.55rem, 3vw, 2.1rem);
+}
+
+.family-area-header p {
+    max-width: 52rem;
+    margin: 0;
+    color: var(--sap-text-soft);
+    font-size: 0.84rem;
+    line-height: 1.55;
+}
+
+.family-area-module-tabs {
+    margin: 0;
+}
+
+.family-area-scope-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 0.95rem;
+    border: 1px solid var(--sap-border);
+    border-radius: 0.7rem;
+    background: #fff;
+    box-shadow: var(--sap-shadow);
+}
+
+.family-area-scope-line span {
+    color: var(--sap-text-soft);
+    font-size: 0.72rem;
+}
+
+.family-area-scope-line strong {
+    font-size: 0.82rem;
+}
+
+.family-area-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+    gap: 1rem;
+}
+
+.family-area-card {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem 1.05rem;
+    border: 1px solid var(--sap-border);
+    border-radius: var(--sap-radius);
+    background: #fff;
+    box-shadow: var(--sap-shadow);
+}
+
+.family-area-card.is-household {
+    background: linear-gradient(180deg, #ffffff 0%, #f8fbfe 100%);
+    border-color: #c8dae9;
+}
+
+.family-area-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.family-area-badge,
+.family-area-system {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    font-size: 0.64rem;
+    font-weight: 800;
+}
+
+.family-area-badge {
+    padding: 0.3rem 0.55rem;
+    background: var(--sap-primary-soft);
+    color: var(--sap-primary-strong);
+    letter-spacing: 0.06em;
+}
+
+.family-area-system {
+    padding: 0.25rem 0.5rem;
+    background: #f0f2f4;
+    color: #6d7884;
+}
+
+.family-area-system.custom {
+    background: #fff6df;
+    color: #7c631d;
+}
+
+.family-area-card h2 {
+    margin: 0;
+    font-size: 1.05rem;
+}
+
+.family-area-card > p {
+    min-height: 3.7rem;
+    margin: 0;
+    color: var(--sap-text-soft);
+    font-size: 0.74rem;
+    line-height: 1.5;
+}
+
+.family-area-money,
+.family-area-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem;
+}
+
+.family-area-money > div,
+.family-area-summary-grid > article {
+    display: grid;
+    gap: 0.2rem;
+    padding: 0.75rem 0.8rem;
+    border: 1px solid #e0e6ec;
+    border-radius: 0.65rem;
+    background: #f8fafc;
+}
+
+.family-area-money span,
+.family-area-summary-grid span {
+    color: var(--sap-text-soft);
+    font-size: 0.67rem;
+}
+
+.family-area-money strong,
+.family-area-summary-grid strong {
+    font-size: 0.92rem;
+}
+
+.family-area-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding-top: 0.65rem;
+    border-top: 1px solid #edf0f3;
+    color: var(--sap-text-soft);
+    font-size: 0.69rem;
+}
+
+.family-area-meta strong {
+    color: var(--sap-text);
+    margin-left: 0.25rem;
+}
+
+.family-area-open {
+    display: inline-flex;
+    justify-content: flex-end;
+    color: var(--sap-primary-strong);
+    font-size: 0.75rem;
+    font-weight: 750;
+    text-decoration: none;
+}
+
+.family-area-open:hover {
+    text-decoration: underline;
+}
+
+.family-area-note {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem 1rem;
+    padding: 0.85rem 0.95rem;
+    border: 1px solid #d3e1ee;
+    border-radius: 0.7rem;
+    background: #f8fbfe;
+    color: #4f657a;
+    font-size: 0.74rem;
+    line-height: 1.5;
+}
+
+.family-area-note strong {
+    color: var(--sap-text);
+}
+
+.family-area-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.family-area-section {
+    display: grid;
+    gap: 0.85rem;
+}
+
+.family-area-section-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.05rem;
+    border: 1px solid var(--sap-border);
+    border-radius: var(--sap-radius);
+    background: #fff;
+    box-shadow: var(--sap-shadow);
+}
+
+.family-area-section-heading > div {
+    display: grid;
+    gap: 0.15rem;
+}
+
+.family-area-section-heading span {
+    color: #7c8fa2;
+    font-size: 0.64rem;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+}
+
+.family-area-section-heading h2 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.family-area-section-heading p {
+    max-width: 52rem;
+    margin: 0.2rem 0 0;
+    color: var(--sap-text-soft);
+    font-size: 0.73rem;
+    line-height: 1.5;
+}
+
+.family-area-empty {
+    display: grid;
+    gap: 0.3rem;
+    padding: 1.15rem;
+    border: 1px dashed #c8d3de;
+    border-radius: 0.75rem;
+    background: #fbfcfd;
+    color: var(--sap-text-soft);
+    font-size: 0.75rem;
+}
+
+.family-area-form-card {
+    width: min(58rem, 100%);
+    padding: 1.2rem;
+}
+
+@media (max-width: 767.98px) {
+    .family-area-header {
+        flex-direction: column;
+    }
+
+    .family-area-grid,
+    .family-area-summary-grid,
+    .family-area-money {
+        grid-template-columns: 1fr;
+    }
+
+    .family-area-card > p {
+        min-height: 0;
+    }
+
+    .family-area-scope-line,
+    .family-area-meta {
         align-items: flex-start;
         flex-direction: column;
     }

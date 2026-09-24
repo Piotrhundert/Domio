@@ -1,0 +1,54 @@
+@model Domio.Web.Models.FamilyFinance.CreateFamilyAreaViewModel
+@{
+    ViewData["Title"] = "Nowy obszar rodzinny";
+}
+
+<div class="family-area-page">
+    <div class="family-area-header">
+        <div>
+            <div class="family-finance-kicker">M04.9.2 · NOWY OBSZAR</div>
+            <h1>Dodaj obszar rodzinny</h1>
+            <p>
+                Własny obszar to folder na koszty rodziny, np. Wakacje, Zdrowie,
+                Szkoła, Sport albo Remont. Nie tworzy osobnego salda.
+            </p>
+        </div>
+    </div>
+
+    <form asp-action="Create"
+          method="post"
+          class="family-area-form-card">
+        <input type="hidden"
+               asp-for="FamilyGroupId" />
+
+        <div asp-validation-summary="ModelOnly"
+             class="text-danger mb-3"></div>
+
+        <div class="mb-3">
+            <label asp-for="Name"
+                   class="form-label"></label>
+            <input asp-for="Name"
+                   class="form-control"
+                   placeholder="np. Wakacje" />
+            <span asp-validation-for="Name"
+                  class="text-danger"></span>
+        </div>
+
+        <div class="family-area-note">
+            <strong>Rodzina</strong>
+            <span>@Model.FamilyGroupName</span>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 mt-4">
+            <button type="submit"
+                    class="btn btn-primary">
+                Dodaj obszar
+            </button>
+            <a asp-action="Index"
+               asp-route-familyGroupId="@Model.FamilyGroupId"
+               class="btn btn-outline-secondary">
+                Anuluj
+            </a>
+        </div>
+    </form>
+</div>
