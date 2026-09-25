@@ -9,7 +9,8 @@ namespace Domio.Web.Controllers;
 [Authorize]
 public sealed class NotificationsController(
     INotificationService notificationService,
-    IFamilyAndGoalNotificationScanService familyAndGoalNotificationScanService)
+    IFamilyAndGoalNotificationScanService familyAndGoalNotificationScanService,
+    INotificationDeliveryOrchestratorService notificationDeliveryOrchestratorService)
     : Controller
 {
     [HttpGet]
@@ -23,6 +24,16 @@ public sealed class NotificationsController(
                 GetCurrentUserId();
 
             await familyAndGoalNotificationScanService.ScanAsync(
+                userId,
+                cancellationToken);
+
+            // Uruchom skan zdarzeń domu przed zastosowaniem ustawień kanałów.
+            await notificationService.GetHeaderAsync(
+                userId,
+                1,
+                cancellationToken);
+
+            await notificationDeliveryOrchestratorService.ProcessUserAsync(
                 userId,
                 cancellationToken);
 

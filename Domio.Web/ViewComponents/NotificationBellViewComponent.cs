@@ -8,7 +8,8 @@ namespace Domio.Web.ViewComponents;
 
 public sealed class NotificationBellViewComponent(
     INotificationService notificationService,
-    IFamilyAndGoalNotificationScanService familyAndGoalNotificationScanService)
+    IFamilyAndGoalNotificationScanService familyAndGoalNotificationScanService,
+    INotificationDeliveryOrchestratorService notificationDeliveryOrchestratorService)
     : ViewComponent
 {
     public async Task<IViewComponentResult> InvokeAsync()
@@ -40,6 +41,16 @@ public sealed class NotificationBellViewComponent(
         try
         {
             await familyAndGoalNotificationScanService.ScanAsync(
+                userId,
+                ViewContext.HttpContext.RequestAborted);
+
+            // Pierwszy odczyt uruchamia skan zdarzeń domu, składek i faktur.
+            await notificationService.GetHeaderAsync(
+                userId,
+                1,
+                ViewContext.HttpContext.RequestAborted);
+
+            await notificationDeliveryOrchestratorService.ProcessUserAsync(
                 userId,
                 ViewContext.HttpContext.RequestAborted);
 

@@ -1,0 +1,482 @@
+﻿@using Domio.Application.Notifications
+@model Domio.Web.Models.Notifications.NotificationSettingsPageViewModel
+@{
+    ViewData["Title"] = "Ustawienia powiadomień";
+    var user = Model.UserSettings;
+    var mail = Model.EmailConfiguration;
+}
+
+<div class="notification-settings-page">
+    <div class="notification-settings-header">
+        <div>
+            <div class="notification-settings-kicker">
+                M04.10.5 · USTAWIENIA POWIADOMIEŃ I E-MAIL
+            </div>
+            <h1>Ustawienia powiadomień</h1>
+            <p>
+                Ustaw, które zdarzenia mają pojawiać się w Domio i które
+                mogą być wysyłane pocztą. Historia aktywności pozostaje
+                zachowana również po wyłączeniu alertów.
+            </p>
+        </div>
+
+        <a asp-controller="Notifications"
+           asp-action="Index"
+           class="btn btn-outline-secondary">
+            ← Powiadomienia
+        </a>
+    </div>
+
+    @if (TempData["NotificationSettingsMessage"] is string message)
+    {
+        <div class="alert alert-success" role="alert">@message</div>
+    }
+
+    @if (TempData["NotificationSettingsError"] is string error)
+    {
+        <div class="alert alert-danger" role="alert">@error</div>
+    }
+
+    <form asp-action="SaveUser"
+          method="post"
+          class="notification-settings-card">
+        <div class="notification-settings-card-heading">
+            <div>
+                <h2>Moje powiadomienia</h2>
+                <p>
+                    Te ustawienia dotyczą wyłącznie zalogowanego użytkownika.
+                </p>
+            </div>
+        </div>
+
+        <div class="notification-settings-grid two-columns">
+            <section>
+                <h3>Kanały</h3>
+
+                <label class="notification-switch">
+                    <span>
+                        <strong>Powiadomienia w aplikacji</strong>
+                        <small>Dzwonek i centrum powiadomień.</small>
+                    </span>
+                    <span>
+                        <input type="checkbox"
+                               name="InAppEnabled"
+                               value="true"
+                               @(user.InAppEnabled ? "checked" : null) />
+                        <input type="hidden"
+                               name="InAppEnabled"
+                               value="false" />
+                    </span>
+                </label>
+
+                <label class="notification-switch">
+                    <span>
+                        <strong>Powiadomienia e-mail</strong>
+                        <small>
+                            Wiadomości będą wysyłane tylko wtedy, gdy administrator
+                            włączy i poprawnie skonfiguruje SMTP.
+                        </small>
+                    </span>
+                    <span>
+                        <input type="checkbox"
+                               name="EmailEnabled"
+                               value="true"
+                               @(user.EmailEnabled ? "checked" : null) />
+                        <input type="hidden"
+                               name="EmailEnabled"
+                               value="false" />
+                    </span>
+                </label>
+
+                <div class="mb-3">
+                    <label for="EmailAddress"
+                           class="form-label">
+                        Adres e-mail do powiadomień
+                    </label>
+                    <input id="EmailAddress"
+                           name="EmailAddress"
+                           type="email"
+                           maxlength="320"
+                           value="@user.EmailAddress"
+                           class="form-control"
+                           placeholder="Pozostaw puste, aby użyć adresu konta Domio" />
+                    <div class="form-text">
+                        Adres konta:
+                        <strong>@(string.IsNullOrWhiteSpace(Model.AccountEmail) ? "brak" : Model.AccountEmail)</strong>
+                    </div>
+                </div>
+            </section>
+
+            <section>
+                <h3>Przypomnienia o terminach</h3>
+
+                <div class="notification-check-grid">
+                    <label>
+                        <input type="checkbox"
+                               name="Reminder7Days"
+                               value="true"
+                               @(user.Reminder7Days ? "checked" : null) />
+                        <input type="hidden" name="Reminder7Days" value="false" />
+                        7 dni przed
+                    </label>
+
+                    <label>
+                        <input type="checkbox"
+                               name="Reminder3Days"
+                               value="true"
+                               @(user.Reminder3Days ? "checked" : null) />
+                        <input type="hidden" name="Reminder3Days" value="false" />
+                        3 dni przed
+                    </label>
+
+                    <label>
+                        <input type="checkbox"
+                               name="Reminder1Day"
+                               value="true"
+                               @(user.Reminder1Day ? "checked" : null) />
+                        <input type="hidden" name="Reminder1Day" value="false" />
+                        1 dzień przed
+                    </label>
+
+                    <label>
+                        <input type="checkbox"
+                               name="ReminderDueDay"
+                               value="true"
+                               @(user.ReminderDueDay ? "checked" : null) />
+                        <input type="hidden" name="ReminderDueDay" value="false" />
+                        W dniu terminu
+                    </label>
+
+                    <label>
+                        <input type="checkbox"
+                               name="ReminderOverdue"
+                               value="true"
+                               @(user.ReminderOverdue ? "checked" : null) />
+                        <input type="hidden" name="ReminderOverdue" value="false" />
+                        Po przekroczeniu terminu
+                    </label>
+                </div>
+
+                <div class="notification-settings-hint">
+                    Domio sprawdza terminy również w tle, gdy aplikacja jest uruchomiona.
+                    Jeżeli aplikacja była wyłączona, najbliższe brakujące przypomnienie
+                    zostanie utworzone po kolejnym uruchomieniu.
+                </div>
+            </section>
+        </div>
+
+        <section class="notification-settings-categories">
+            <h3>Kategorie</h3>
+            <div class="notification-check-grid categories">
+                <label>
+                    <input type="checkbox" name="NotifyContributions" value="true"
+                           @(user.NotifyContributions ? "checked" : null) />
+                    <input type="hidden" name="NotifyContributions" value="false" />
+                    Składki
+                </label>
+                <label>
+                    <input type="checkbox" name="NotifyInvoices" value="true"
+                           @(user.NotifyInvoices ? "checked" : null) />
+                    <input type="hidden" name="NotifyInvoices" value="false" />
+                    Faktury
+                </label>
+                <label>
+                    <input type="checkbox" name="NotifyFamily" value="true"
+                           @(user.NotifyFamily ? "checked" : null) />
+                    <input type="hidden" name="NotifyFamily" value="false" />
+                    Rodzina i dzieci
+                </label>
+                <label>
+                    <input type="checkbox" name="NotifyGoals" value="true"
+                           @(user.NotifyGoals ? "checked" : null) />
+                    <input type="hidden" name="NotifyGoals" value="false" />
+                    Cele finansowe
+                </label>
+                <label>
+                    <input type="checkbox" name="NotifyHousehold" value="true"
+                           @(user.NotifyHousehold ? "checked" : null) />
+                    <input type="hidden" name="NotifyHousehold" value="false" />
+                    Finanse domu
+                </label>
+                <label>
+                    <input type="checkbox" name="NotifyPersonalFinance" value="true"
+                           @(user.NotifyPersonalFinance ? "checked" : null) />
+                    <input type="hidden" name="NotifyPersonalFinance" value="false" />
+                    Finanse osobiste
+                </label>
+                <label>
+                    <input type="checkbox" name="NotifySystem" value="true"
+                           @(user.NotifySystem ? "checked" : null) />
+                    <input type="hidden" name="NotifySystem" value="false" />
+                    System
+                </label>
+                <label>
+                    <input type="checkbox" name="NotifyUsers" value="true"
+                           @(user.NotifyUsers ? "checked" : null) />
+                    <input type="hidden" name="NotifyUsers" value="false" />
+                    Użytkownicy i role
+                </label>
+            </div>
+        </section>
+
+        <div class="notification-settings-actions">
+            <button type="submit" class="btn btn-primary">
+                Zapisz moje ustawienia
+            </button>
+        </div>
+    </form>
+
+    @if (Model.CanManageEmail && mail is not null)
+    {
+        <form asp-action="SaveEmail"
+              method="post"
+              class="notification-settings-card">
+            <div class="notification-settings-card-heading">
+                <div>
+                    <div class="notification-settings-path">
+                        Ustawienia → System → Powiadomienia → E-mail
+                    </div>
+                    <h2>Poczta wychodząca SMTP</h2>
+                    <p>
+                        Konfiguracja wspólnego konta nadawczego używanego przez Domio.
+                        Hasło jest przechowywane zaszyfrowane lokalnym kluczem aplikacji,
+                        a sam klucz nie trafia do GitHuba.
+                    </p>
+                </div>
+
+                <span class="notification-config-state @(mail.IsEnabled ? "enabled" : "disabled")">
+                    @(mail.IsEnabled ? "Kanał aktywny" : "Kanał wyłączony")
+                </span>
+            </div>
+
+            <label class="notification-switch smtp-enabled">
+                <span>
+                    <strong>Aktywuj wysyłkę e-mail</strong>
+                    <small>
+                        Wyłączenie zatrzymuje automatyczne wysyłanie, ale nie usuwa konfiguracji.
+                    </small>
+                </span>
+                <span>
+                    <input type="checkbox"
+                           name="IsEnabled"
+                           value="true"
+                           @(mail.IsEnabled ? "checked" : null) />
+                    <input type="hidden" name="IsEnabled" value="false" />
+                </span>
+            </label>
+
+            <div class="notification-settings-grid two-columns">
+                <section>
+                    <h3>Nadawca</h3>
+
+                    <div class="mb-3">
+                        <label for="SenderName" class="form-label">Nazwa nadawcy</label>
+                        <input id="SenderName"
+                               name="SenderName"
+                               value="@mail.SenderName"
+                               maxlength="160"
+                               class="form-control"
+                               required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="SenderEmail" class="form-label">Adres nadawcy</label>
+                        <input id="SenderEmail"
+                               name="SenderEmail"
+                               type="email"
+                               value="@mail.SenderEmail"
+                               maxlength="320"
+                               class="form-control"
+                               required />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="ApplicationBaseUrl" class="form-label">
+                            Adres aplikacji
+                        </label>
+                        <input id="ApplicationBaseUrl"
+                               name="ApplicationBaseUrl"
+                               type="url"
+                               value="@mail.ApplicationBaseUrl"
+                               maxlength="500"
+                               class="form-control"
+                               placeholder="https://domio.home" />
+                        <div class="form-text">
+                            Jeśli podasz adres, e-mail będzie zawierał pełny link do zdarzenia.
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h3>Serwer SMTP</h3>
+
+                    <div class="row g-3">
+                        <div class="col-md-8">
+                            <label for="SmtpHost" class="form-label">Serwer SMTP</label>
+                            <input id="SmtpHost"
+                                   name="SmtpHost"
+                                   value="@mail.SmtpHost"
+                                   maxlength="255"
+                                   class="form-control"
+                                   placeholder="smtp.gmail.com"
+                                   required />
+                        </div>
+                        <div class="col-md-4">
+                            <label for="SmtpPort" class="form-label">Port</label>
+                            <input id="SmtpPort"
+                                   name="SmtpPort"
+                                   type="number"
+                                   min="1"
+                                   max="65535"
+                                   value="@mail.SmtpPort"
+                                   class="form-control"
+                                   required />
+                        </div>
+                    </div>
+
+                    <div class="mb-3 mt-3">
+                        <label for="SmtpUsername" class="form-label">
+                            Użytkownik SMTP
+                        </label>
+                        <input id="SmtpUsername"
+                               name="SmtpUsername"
+                               value="@mail.SmtpUsername"
+                               maxlength="255"
+                               class="form-control" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="SmtpPassword" class="form-label">
+                            Hasło / hasło aplikacji
+                        </label>
+                        <input id="SmtpPassword"
+                               name="SmtpPassword"
+                               type="password"
+                               class="form-control"
+                               autocomplete="new-password"
+                               placeholder="@(mail.HasPassword ? "Hasło zapisane — pozostaw puste, aby go nie zmieniać" : "Wprowadź hasło")" />
+                    </div>
+
+                    <label class="notification-switch compact">
+                        <span>
+                            <strong>SSL / TLS</strong>
+                            <small>Zalecane dla współczesnych serwerów SMTP.</small>
+                        </span>
+                        <span>
+                            <input type="checkbox"
+                                   name="UseSsl"
+                                   value="true"
+                                   @(mail.UseSsl ? "checked" : null) />
+                            <input type="hidden" name="UseSsl" value="false" />
+                        </span>
+                    </label>
+                </section>
+            </div>
+
+            <input type="hidden"
+                   name="HasPassword"
+                   value="@mail.HasPassword.ToString().ToLowerInvariant()" />
+
+            <div class="notification-settings-actions">
+                <button type="submit" class="btn btn-primary">
+                    Zapisz konfigurację SMTP
+                </button>
+                @if (mail.UpdatedAtUtc.HasValue)
+                {
+                    <span>
+                        Ostatnia zmiana:
+                        @mail.UpdatedAtUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                    </span>
+                }
+            </div>
+        </form>
+
+        <div class="notification-settings-card">
+            <div class="notification-settings-card-heading">
+                <div>
+                    <h2>Test wysyłki</h2>
+                    <p>
+                        Test wysyłany jest od razu i trafia do historii prób poniżej.
+                    </p>
+                </div>
+            </div>
+
+            <form asp-action="SendTest"
+                  method="post"
+                  class="notification-test-form">
+                <div>
+                    <label for="testRecipientEmail" class="form-label">
+                        Odbiorca testu
+                    </label>
+                    <input id="testRecipientEmail"
+                           name="testRecipientEmail"
+                           type="email"
+                           value="@mail.TestRecipientEmail"
+                           class="form-control"
+                           required />
+                </div>
+
+                <button type="submit"
+                        class="btn btn-outline-primary">
+                    Wyślij wiadomość testową
+                </button>
+            </form>
+        </div>
+
+        <div class="notification-settings-card">
+            <div class="notification-settings-card-heading">
+                <div>
+                    <h2>Historia wysyłki e-mail</h2>
+                    <p>Ostatnie próby automatyczne i testowe.</p>
+                </div>
+            </div>
+
+            @if (Model.EmailHistory.Count == 0)
+            {
+                <div class="notification-settings-empty">
+                    Brak prób wysyłki.
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table notification-email-history">
+                        <thead>
+                            <tr>
+                                <th>Data</th>
+                                <th>Odbiorca</th>
+                                <th>Temat</th>
+                                <th>Status</th>
+                                <th>Próby</th>
+                                <th>Typ</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var delivery in Model.EmailHistory)
+                            {
+                                <tr>
+                                    <td>@delivery.CreatedAtUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</td>
+                                    <td>@delivery.RecipientEmail</td>
+                                    <td>@delivery.Subject</td>
+                                    <td>
+                                        <span class="notification-email-status @delivery.StatusCode.ToLowerInvariant()">
+                                            @NotificationEmailDeliveryStatuses.GetNamePl(delivery.StatusCode)
+                                        </span>
+                                        @if (!string.IsNullOrWhiteSpace(delivery.LastError))
+                                        {
+                                            <div class="notification-email-error">
+                                                @delivery.LastError
+                                            </div>
+                                        }
+                                    </td>
+                                    <td>@delivery.AttemptCount</td>
+                                    <td>@(delivery.IsTest ? "Test" : "Automatyczne")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+</div>

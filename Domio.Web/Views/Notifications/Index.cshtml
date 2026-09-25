@@ -16,7 +16,7 @@
     <div class="notification-center-header">
         <div>
             <div class="notification-center-kicker">
-                M04.10.1 · CENTRUM POWIADOMIEŃ
+                M04.10.5 · CENTRUM POWIADOMIEŃ
             </div>
 
             <h1>Powiadomienia</h1>
@@ -28,16 +28,24 @@
             </p>
         </div>
 
-        @if (overview.UnreadCount > 0)
-        {
-            <form asp-action="MarkAllRead"
-                  method="post">
-                <button type="submit"
-                        class="btn btn-outline-primary">
-                    Oznacz wszystkie jako przeczytane
-                </button>
-            </form>
-        }
+        <div class="d-flex flex-wrap gap-2">
+            <a asp-controller="NotificationSettings"
+               asp-action="Index"
+               class="btn btn-outline-secondary">
+                Ustawienia
+            </a>
+
+            @if (overview.UnreadCount > 0)
+            {
+                <form asp-action="MarkAllRead"
+                      method="post">
+                    <button type="submit"
+                            class="btn btn-outline-primary">
+                        Oznacz wszystkie jako przeczytane
+                    </button>
+                </form>
+            }
+        </div>
     </div>
 
     @if (TempData["NotificationMessage"] is string message)

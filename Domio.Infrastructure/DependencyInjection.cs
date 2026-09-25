@@ -89,9 +89,35 @@ public static class DependencyInjection
         services.AddScoped<
             IHouseholdContributionAdminService,
             HouseholdContributionAdminService>();
+        services.AddSingleton(
+            new NotificationSecretProtector(
+                contentRootPath));
+        services.AddScoped<
+            NotificationSettingsService>();
+        services.AddScoped<
+            INotificationSettingsService>(
+                serviceProvider =>
+                    serviceProvider.GetRequiredService<
+                        NotificationSettingsService>());
         services.AddScoped<
             INotificationService,
             NotificationService>();
+        services.AddScoped<
+            INotificationDeliveryOrchestratorService,
+            NotificationDeliveryOrchestratorService>();
+        services.AddScoped<
+            INotificationEmailDispatcher,
+            NotificationEmailDispatcher>();
+
+        if (!string.Equals(
+                environmentName,
+                "Test",
+                StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddHostedService<
+                NotificationBackgroundWorker>();
+        }
+
         services.AddScoped<
             IFamilyAndGoalNotificationScanService,
             FamilyAndGoalNotificationScanService>();

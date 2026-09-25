@@ -80,6 +80,9 @@
           href="~/css/notification-center.css"
           asp-append-version="true" />
     <link rel="stylesheet"
+          href="~/css/notification-settings.css"
+          asp-append-version="true" />
+    <link rel="stylesheet"
           href="~/Domio.Web.styles.css"
           asp-append-version="true" />
 </head>
@@ -236,6 +239,25 @@
                         </span>
                     }
 
+                    @if (canViewNotifications)
+                    {
+                        <div class="domio-side-section">Powiadomienia</div>
+
+                        <a asp-controller="Notifications"
+                           asp-action="Index"
+                           class="domio-side-link">
+                            <span class="domio-side-icon">P</span>
+                            <span>Centrum powiadomień</span>
+                        </a>
+
+                        <a asp-controller="NotificationSettings"
+                           asp-action="Index"
+                           class="domio-side-link">
+                            <span class="domio-side-icon">U</span>
+                            <span>Ustawienia powiadomień</span>
+                        </a>
+                    }
+
                     <span class="domio-side-link is-disabled">
                         <span class="domio-side-icon">N</span>
                         <span>Najem i media</span>
@@ -259,7 +281,7 @@
     <footer class="domio-footer">
         <div class="container-fluid px-4 d-flex flex-column flex-md-row justify-content-between gap-2">
             <span>Domio · domowe centrum zarządzania</span>
-            <span>M04.10.1 · centrum powiadomień</span>
+            <span>M04.10.5 · powiadomienia i e-mail</span>
         </div>
     </footer>
 
