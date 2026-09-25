@@ -25,4 +25,19 @@ public interface INotificationSettingsService
             Guid actorUserId,
             int take = 30,
             CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<NotificationMessageTemplate>>
+        GetMessageTemplatesAsync(
+            Guid actorUserId,
+            CancellationToken cancellationToken = default);
+
+    Task SaveMessageTemplateAsync(
+        Guid actorUserId,
+        UpdateNotificationMessageTemplateRequest request,
+        CancellationToken cancellationToken = default);
+
+    Task ResetMessageTemplateAsync(
+        Guid actorUserId,
+        string categoryCode,
+        CancellationToken cancellationToken = default);
 }

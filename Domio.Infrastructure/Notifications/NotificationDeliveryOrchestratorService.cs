@@ -192,22 +192,44 @@ public sealed class NotificationDeliveryOrchestratorService(
                 continue;
             }
 
-            var body =
-                item.Message;
+            var template =
+                await settingsService
+                    .GetMessageTemplateForDeliveryAsync(
+                        item.CategoryCode,
+                        cancellationToken);
 
-            if (!string.IsNullOrWhiteSpace(
-                    item.LinkUrl) &&
-                !string.IsNullOrWhiteSpace(
-                    emailConfiguration.ApplicationBaseUrl))
-            {
-                body +=
-                    Environment.NewLine +
-                    Environment.NewLine +
-                    "Otwórz w Domio: " +
-                    emailConfiguration.ApplicationBaseUrl
-                        .TrimEnd('/') +
-                    item.LinkUrl;
-            }
+            var link =
+                BuildNotificationLink(
+                    item.LinkUrl,
+                    emailConfiguration.ApplicationBaseUrl);
+
+            var renderedSubject =
+                RenderTemplate(
+                    template.SubjectTemplate,
+                    item,
+                    link);
+
+            var renderedBody =
+                RenderTemplate(
+                    template.BodyTemplate,
+                    item,
+                    link);
+
+            var subject =
+                ClampText(
+                    string.IsNullOrWhiteSpace(
+                        renderedSubject)
+                        ? $"Domio · {item.Title}"
+                        : renderedSubject.Trim(),
+                    300);
+
+            var body =
+                ClampText(
+                    string.IsNullOrWhiteSpace(
+                        renderedBody)
+                        ? item.Message
+                        : renderedBody.Trim(),
+                    4000);
 
             await ExecuteAsync(
                 """
@@ -229,7 +251,7 @@ public sealed class NotificationDeliveryOrchestratorService(
                     P("$notificationId", item.NotificationId),
                     P("$recipientUserId", userId),
                     P("$recipientEmail", recipientEmail.Trim()),
-                    P("$subject", $"Domio · {item.Title}"),
+                    P("$subject", subject),
                     P("$body", body),
                     P("$createdAtUtc", DateTime.UtcNow)
                 ],
@@ -817,6 +839,102 @@ public sealed class NotificationDeliveryOrchestratorService(
 
         return result;
     }
+
+    private static string RenderTemplate(
+        string template,
+        EmailCandidate item,
+        string link)
+    {
+        var result =
+            template
+                .Replace(
+                    "{Title}",
+                    item.Title,
+                    StringComparison.Ordinal)
+                .Replace(
+                    "{Message}",
+                    item.Message,
+                    StringComparison.Ordinal)
+                .Replace(
+                    "{Category}",
+                    NotificationCategoryCodes.GetNamePl(
+                        item.CategoryCode),
+                    StringComparison.Ordinal)
+                .Replace(
+                    "{Link}",
+                    link,
+                    StringComparison.Ordinal)
+                .Replace(
+                    "{EventCode}",
+                    item.EventCode,
+                    StringComparison.Ordinal)
+                .Replace(
+                    "{Date}",
+                    DateTime.Now.ToString(
+                        "dd.MM.yyyy HH:mm"),
+                    StringComparison.Ordinal);
+
+        return NormalizeBlankLines(
+            result);
+    }
+
+    private static string BuildNotificationLink(
+        string? linkUrl,
+        string? applicationBaseUrl)
+    {
+        if (string.IsNullOrWhiteSpace(
+                linkUrl))
+        {
+            return string.Empty;
+        }
+
+        if (!string.IsNullOrWhiteSpace(
+                applicationBaseUrl))
+        {
+            return "Otwórz w Domio: " +
+                applicationBaseUrl
+                    .TrimEnd('/') +
+                linkUrl;
+        }
+
+        return "Otwórz w Domio: " +
+            linkUrl;
+    }
+
+    private static string NormalizeBlankLines(
+        string value)
+    {
+        var normalized =
+            value.Replace(
+                "\r\n",
+                "\n",
+                StringComparison.Ordinal);
+
+        while (normalized.Contains(
+            "\n\n\n",
+            StringComparison.Ordinal))
+        {
+            normalized =
+                normalized.Replace(
+                    "\n\n\n",
+                    "\n\n",
+                    StringComparison.Ordinal);
+        }
+
+        return normalized
+            .Replace(
+                "\n",
+                Environment.NewLine,
+                StringComparison.Ordinal)
+            .Trim();
+    }
+
+    private static string ClampText(
+        string value,
+        int maxLength) =>
+        value.Length <= maxLength
+            ? value
+            : value[..maxLength];
 
     private static int? ResolveReminderThreshold(
         NotificationUserSettings settings,

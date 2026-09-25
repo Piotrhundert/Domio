@@ -51,6 +51,10 @@ public sealed class NotificationSettingsController(
             emailHistory =
                 [];
 
+        IReadOnlyList<NotificationMessageTemplateFormViewModel>
+            messageTemplates =
+                [];
+
         if (canManageEmail)
         {
             var configuration =
@@ -69,6 +73,14 @@ public sealed class NotificationSettingsController(
                         userId,
                         30,
                         cancellationToken);
+
+            messageTemplates =
+                (await settingsService
+                    .GetMessageTemplatesAsync(
+                        userId,
+                        cancellationToken))
+                .Select(BuildTemplateModel)
+                .ToArray();
         }
 
         return View(
@@ -81,6 +93,8 @@ public sealed class NotificationSettingsController(
                     emailConfiguration,
                 EmailHistory =
                     emailHistory,
+                MessageTemplates =
+                    messageTemplates,
                 CanManageEmail =
                     canManageEmail,
                 AccountEmail =
@@ -172,7 +186,8 @@ public sealed class NotificationSettingsController(
                     model.SmtpUsername,
                     model.SmtpPassword,
                     model.UseSsl,
-                    model.ApplicationBaseUrl),
+                    model.ApplicationBaseUrl,
+                    model.PollIntervalMinutes),
                 cancellationToken);
 
             TempData["NotificationSettingsMessage"] =
@@ -184,6 +199,80 @@ public sealed class NotificationSettingsController(
                 exception.Message;
         }
         catch (InvalidOperationException exception)
+        {
+            TempData["NotificationSettingsError"] =
+                exception.Message;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        return RedirectToAction(
+            nameof(Index));
+    }
+
+    [Authorize(Policy = SystemPermissions.NotificationsManage)]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveTemplate(
+        NotificationMessageTemplateFormViewModel model,
+        CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+        {
+            TempData["NotificationSettingsError"] =
+                "Sprawdź temat i treść szablonu powiadomienia.";
+
+            return RedirectToAction(
+                nameof(Index));
+        }
+
+        try
+        {
+            await settingsService.SaveMessageTemplateAsync(
+                GetCurrentUserId(),
+                new UpdateNotificationMessageTemplateRequest(
+                    model.CategoryCode,
+                    model.SubjectTemplate,
+                    model.BodyTemplate),
+                cancellationToken);
+
+            TempData["NotificationSettingsMessage"] =
+                $"Szablon kategorii „{model.CategoryNamePl}” został zapisany.";
+        }
+        catch (ArgumentException exception)
+        {
+            TempData["NotificationSettingsError"] =
+                exception.Message;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Forbid();
+        }
+
+        return RedirectToAction(
+            nameof(Index));
+    }
+
+    [Authorize(Policy = SystemPermissions.NotificationsManage)]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ResetTemplate(
+        string categoryCode,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await settingsService.ResetMessageTemplateAsync(
+                GetCurrentUserId(),
+                categoryCode,
+                cancellationToken);
+
+            TempData["NotificationSettingsMessage"] =
+                "Przywrócono domyślną treść dla wybranej kategorii.";
+        }
+        catch (ArgumentException exception)
         {
             TempData["NotificationSettingsError"] =
                 exception.Message;
@@ -296,6 +385,25 @@ public sealed class NotificationSettingsController(
                 settings.NotifyUsers
         };
 
+    private static NotificationMessageTemplateFormViewModel
+        BuildTemplateModel(
+            NotificationMessageTemplate template) =>
+        new()
+        {
+            CategoryCode =
+                template.CategoryCode,
+            CategoryNamePl =
+                template.CategoryNamePl,
+            SubjectTemplate =
+                template.SubjectTemplate,
+            BodyTemplate =
+                template.BodyTemplate,
+            IsCustomized =
+                template.IsCustomized,
+            UpdatedAtUtc =
+                template.UpdatedAtUtc
+        };
+
     private static NotificationEmailConfigurationFormViewModel
         BuildEmailModel(
             NotificationEmailConfiguration configuration,
@@ -324,6 +432,8 @@ public sealed class NotificationSettingsController(
                 configuration.UseSsl,
             ApplicationBaseUrl =
                 configuration.ApplicationBaseUrl,
+            PollIntervalMinutes =
+                configuration.PollIntervalMinutes,
             UpdatedAtUtc =
                 configuration.UpdatedAtUtc,
             TestRecipientEmail =

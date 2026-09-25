@@ -16,15 +16,19 @@ public sealed class NotificationBackgroundWorker(
         CancellationToken stoppingToken)
     {
         await DelaySafeAsync(
-            TimeSpan.FromSeconds(20),
+            TimeSpan.FromSeconds(5),
             stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            var pollIntervalMinutes =
+                1;
+
             try
             {
-                await ProcessCycleAsync(
-                    stoppingToken);
+                pollIntervalMinutes =
+                    await ProcessCycleAsync(
+                        stoppingToken);
             }
             catch (OperationCanceledException)
                 when (stoppingToken.IsCancellationRequested)
@@ -39,12 +43,16 @@ public sealed class NotificationBackgroundWorker(
             }
 
             await DelaySafeAsync(
-                TimeSpan.FromHours(1),
+                TimeSpan.FromMinutes(
+                    Math.Clamp(
+                        pollIntervalMinutes,
+                        1,
+                        60)),
                 stoppingToken);
         }
     }
 
-    private async Task ProcessCycleAsync(
+    private async Task<int> ProcessCycleAsync(
         CancellationToken cancellationToken)
     {
         using var scope =
@@ -69,6 +77,10 @@ public sealed class NotificationBackgroundWorker(
         var emailDispatcher =
             scope.ServiceProvider
                 .GetRequiredService<INotificationEmailDispatcher>();
+
+        var settingsService =
+            scope.ServiceProvider
+                .GetRequiredService<NotificationSettingsService>();
 
         var userIds =
             await dbContext.UserAccounts
@@ -114,6 +126,16 @@ public sealed class NotificationBackgroundWorker(
         await emailDispatcher.DispatchPendingAsync(
             100,
             cancellationToken);
+
+        var configuration =
+            await settingsService
+                .GetEmailConfigurationForDeliveryAsync(
+                    cancellationToken);
+
+        return Math.Clamp(
+            configuration.PollIntervalMinutes,
+            1,
+            60);
     }
 
     private static async Task DelaySafeAsync(

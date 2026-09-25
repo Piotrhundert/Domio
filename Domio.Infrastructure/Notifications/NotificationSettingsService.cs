@@ -2,6 +2,7 @@
 using System.Data.Common;
 using System.Net.Mail;
 using Domio.Application.Notifications;
+using Domio.Domain.Notifications;
 using Domio.Domain.Users;
 using Domio.Infrastructure.Authorization;
 using Domio.Infrastructure.Persistence;
@@ -196,6 +197,14 @@ public sealed class NotificationSettingsService(
             NormalizeApplicationBaseUrl(
                 request.ApplicationBaseUrl);
 
+        if (request.PollIntervalMinutes < 1 ||
+            request.PollIntervalMinutes > 60)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(request.PollIntervalMinutes),
+                "Częstotliwość sprawdzania musi mieścić się w zakresie 1-60 minut.");
+        }
+
         string? existingProtectedPassword =
             null;
 
@@ -251,12 +260,12 @@ public sealed class NotificationSettingsService(
             INSERT INTO NotificationEmailSettings
                 (Id, IsEnabled, SenderName, SenderEmail,
                  SmtpHost, SmtpPort, SmtpUsername, ProtectedPassword,
-                 UseSsl, ApplicationBaseUrl,
+                 UseSsl, ApplicationBaseUrl, PollIntervalMinutes,
                  UpdatedByUserId, UpdatedAtUtc)
             VALUES
                 (1, $isEnabled, $senderName, $senderEmail,
                  $smtpHost, $smtpPort, $smtpUsername, $protectedPassword,
-                 $useSsl, $applicationBaseUrl,
+                 $useSsl, $applicationBaseUrl, $pollIntervalMinutes,
                  $updatedByUserId, $updatedAtUtc)
             ON CONFLICT(Id) DO UPDATE SET
                 IsEnabled = excluded.IsEnabled,
@@ -268,6 +277,7 @@ public sealed class NotificationSettingsService(
                 ProtectedPassword = excluded.ProtectedPassword,
                 UseSsl = excluded.UseSsl,
                 ApplicationBaseUrl = excluded.ApplicationBaseUrl,
+                PollIntervalMinutes = excluded.PollIntervalMinutes,
                 UpdatedByUserId = excluded.UpdatedByUserId,
                 UpdatedAtUtc = excluded.UpdatedAtUtc;
             """,
@@ -281,6 +291,7 @@ public sealed class NotificationSettingsService(
                 P("$protectedPassword", protectedPassword),
                 P("$useSsl", request.UseSsl ? 1 : 0),
                 P("$applicationBaseUrl", baseUrl),
+                P("$pollIntervalMinutes", request.PollIntervalMinutes),
                 P("$updatedByUserId", actorUserId),
                 P("$updatedAtUtc", now)
             ],
@@ -372,6 +383,272 @@ public sealed class NotificationSettingsService(
         return result;
     }
 
+    public async Task<IReadOnlyList<NotificationMessageTemplate>>
+        GetMessageTemplatesAsync(
+            Guid actorUserId,
+            CancellationToken cancellationToken = default)
+    {
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.NotificationsManage,
+            cancellationToken);
+
+        var customTemplates =
+            await ReadCustomMessageTemplatesAsync(
+                cancellationToken);
+
+        return NotificationCategoryCodes.All
+            .Select(category =>
+                customTemplates.TryGetValue(
+                    category.Code,
+                    out var custom)
+                    ? new NotificationMessageTemplate(
+                        category.Code,
+                        category.NamePl,
+                        custom.SubjectTemplate,
+                        custom.BodyTemplate,
+                        IsCustomized: true,
+                        custom.UpdatedAtUtc)
+                    : BuildDefaultMessageTemplate(
+                        category.Code,
+                        category.NamePl))
+            .ToArray();
+    }
+
+    public async Task SaveMessageTemplateAsync(
+        Guid actorUserId,
+        UpdateNotificationMessageTemplateRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(
+            request);
+
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.NotificationsManage,
+            cancellationToken);
+
+        var categoryCode =
+            NormalizeRequired(
+                request.CategoryCode,
+                "Kategoria powiadomienia",
+                50);
+
+        if (!NotificationCategoryCodes.IsValid(
+                categoryCode))
+        {
+            throw new ArgumentException(
+                "Wybrano nieprawidłową kategorię powiadomienia.");
+        }
+
+        var subjectTemplate =
+            NormalizeRequired(
+                request.SubjectTemplate,
+                "Szablon tematu",
+                500);
+
+        var bodyTemplate =
+            NormalizeRequired(
+                request.BodyTemplate,
+                "Szablon treści",
+                4000);
+
+        var now =
+            DateTime.UtcNow;
+
+        await ExecuteAsync(
+            """
+            INSERT INTO NotificationMessageTemplates
+                (CategoryCode, SubjectTemplate, BodyTemplate,
+                 UpdatedByUserId, UpdatedAtUtc)
+            VALUES
+                ($categoryCode, $subjectTemplate, $bodyTemplate,
+                 $updatedByUserId, $updatedAtUtc)
+            ON CONFLICT(CategoryCode) DO UPDATE SET
+                SubjectTemplate = excluded.SubjectTemplate,
+                BodyTemplate = excluded.BodyTemplate,
+                UpdatedByUserId = excluded.UpdatedByUserId,
+                UpdatedAtUtc = excluded.UpdatedAtUtc;
+            """,
+            [
+                P("$categoryCode", categoryCode),
+                P("$subjectTemplate", subjectTemplate),
+                P("$bodyTemplate", bodyTemplate),
+                P("$updatedByUserId", actorUserId),
+                P("$updatedAtUtc", now)
+            ],
+            cancellationToken);
+    }
+
+    public async Task ResetMessageTemplateAsync(
+        Guid actorUserId,
+        string categoryCode,
+        CancellationToken cancellationToken = default)
+    {
+        await PermissionEnforcement.EnsureUserHasAsync(
+            dbContext,
+            actorUserId,
+            SystemPermissions.NotificationsManage,
+            cancellationToken);
+
+        var normalizedCategory =
+            NormalizeRequired(
+                categoryCode,
+                "Kategoria powiadomienia",
+                50);
+
+        if (!NotificationCategoryCodes.IsValid(
+                normalizedCategory))
+        {
+            throw new ArgumentException(
+                "Wybrano nieprawidłową kategorię powiadomienia.");
+        }
+
+        await ExecuteAsync(
+            """
+            DELETE FROM NotificationMessageTemplates
+            WHERE CategoryCode = $categoryCode;
+            """,
+            [P("$categoryCode", normalizedCategory)],
+            cancellationToken);
+    }
+
+    internal async Task<NotificationMessageTemplate>
+        GetMessageTemplateForDeliveryAsync(
+            string categoryCode,
+            CancellationToken cancellationToken = default)
+    {
+        var normalizedCategory =
+            NotificationCategoryCodes.IsValid(
+                categoryCode)
+                ? categoryCode
+                : NotificationCategoryCodes.System;
+
+        var custom =
+            await GetCustomMessageTemplateAsync(
+                normalizedCategory,
+                cancellationToken);
+
+        return custom is not null
+            ? new NotificationMessageTemplate(
+                normalizedCategory,
+                NotificationCategoryCodes.GetNamePl(
+                    normalizedCategory),
+                custom.SubjectTemplate,
+                custom.BodyTemplate,
+                IsCustomized: true,
+                custom.UpdatedAtUtc)
+            : BuildDefaultMessageTemplate(
+                normalizedCategory,
+                NotificationCategoryCodes.GetNamePl(
+                    normalizedCategory));
+    }
+
+    private async Task<Dictionary<string, MessageTemplateRow>>
+        ReadCustomMessageTemplatesAsync(
+            CancellationToken cancellationToken)
+    {
+        var result =
+            new Dictionary<string, MessageTemplateRow>(
+                StringComparer.Ordinal);
+
+        await WithConnectionAsync(
+            async connection =>
+            {
+                await using var command =
+                    connection.CreateCommand();
+
+                command.CommandText =
+                    """
+                    SELECT CategoryCode, SubjectTemplate,
+                           BodyTemplate, UpdatedAtUtc
+                    FROM NotificationMessageTemplates;
+                    """;
+
+                await using var reader =
+                    await command.ExecuteReaderAsync(
+                        cancellationToken);
+
+                while (await reader.ReadAsync(
+                    cancellationToken))
+                {
+                    var row =
+                        new MessageTemplateRow(
+                            reader.GetString(0),
+                            reader.GetString(1),
+                            reader.GetString(2),
+                            ReadDateTime(reader, 3));
+
+                    result[row.CategoryCode] =
+                        row;
+                }
+            },
+            cancellationToken);
+
+        return result;
+    }
+
+    private async Task<MessageTemplateRow?>
+        GetCustomMessageTemplateAsync(
+            string categoryCode,
+            CancellationToken cancellationToken)
+    {
+        MessageTemplateRow? result =
+            null;
+
+        await WithConnectionAsync(
+            async connection =>
+            {
+                await using var command =
+                    connection.CreateCommand();
+
+                command.CommandText =
+                    """
+                    SELECT CategoryCode, SubjectTemplate,
+                           BodyTemplate, UpdatedAtUtc
+                    FROM NotificationMessageTemplates
+                    WHERE CategoryCode = $categoryCode;
+                    """;
+
+                AddParameter(
+                    command,
+                    "$categoryCode",
+                    categoryCode);
+
+                await using var reader =
+                    await command.ExecuteReaderAsync(
+                        cancellationToken);
+
+                if (await reader.ReadAsync(
+                    cancellationToken))
+                {
+                    result =
+                        new MessageTemplateRow(
+                            reader.GetString(0),
+                            reader.GetString(1),
+                            reader.GetString(2),
+                            ReadDateTime(reader, 3));
+                }
+            },
+            cancellationToken);
+
+        return result;
+    }
+
+    private static NotificationMessageTemplate
+        BuildDefaultMessageTemplate(
+            string categoryCode,
+            string categoryNamePl) =>
+        new(
+            categoryCode,
+            categoryNamePl,
+            NotificationMessageTemplateDefaults.SubjectTemplate,
+            NotificationMessageTemplateDefaults.BodyTemplate,
+            IsCustomized: false,
+            UpdatedAtUtc: null);
+
     internal async Task<NotificationUserSettings>
         GetUserSettingsForDeliveryAsync(
             Guid userId,
@@ -399,7 +676,8 @@ public sealed class NotificationSettingsService(
                     """
                     SELECT IsEnabled, SenderName, SenderEmail,
                            SmtpHost, SmtpPort, SmtpUsername,
-                           ProtectedPassword, UseSsl, ApplicationBaseUrl
+                           ProtectedPassword, UseSsl, ApplicationBaseUrl,
+                           PollIntervalMinutes
                     FROM NotificationEmailSettings
                     WHERE Id = 1;
                     """;
@@ -432,7 +710,10 @@ public sealed class NotificationSettingsService(
                             ReadBoolean(reader, 7),
                             reader.IsDBNull(8)
                                 ? null
-                                : reader.GetString(8));
+                                : reader.GetString(8),
+                            reader.IsDBNull(9)
+                                ? 1
+                                : reader.GetInt32(9));
                 }
             },
             cancellationToken);
@@ -447,7 +728,8 @@ public sealed class NotificationSettingsService(
                 string.Empty,
                 string.Empty,
                 true,
-                null);
+                null,
+                1);
     }
 
     private async Task<NotificationUserSettings?>
@@ -539,7 +821,8 @@ public sealed class NotificationSettingsService(
                     SELECT IsEnabled, SenderName, SenderEmail,
                            SmtpHost, SmtpPort, SmtpUsername,
                            ProtectedPassword, UseSsl,
-                           ApplicationBaseUrl, UpdatedAtUtc
+                           ApplicationBaseUrl, PollIntervalMinutes,
+                           UpdatedAtUtc
                     FROM NotificationEmailSettings
                     WHERE Id = 1;
                     """;
@@ -583,10 +866,14 @@ public sealed class NotificationSettingsService(
                                 reader.IsDBNull(8)
                                     ? null
                                     : reader.GetString(8),
+                            PollIntervalMinutes:
+                                reader.IsDBNull(9)
+                                    ? 1
+                                    : reader.GetInt32(9),
                             UpdatedAtUtc:
                                 ReadDateTime(
                                     reader,
-                                    9));
+                                    10));
                 }
             },
             cancellationToken);
@@ -603,6 +890,7 @@ public sealed class NotificationSettingsService(
                 HasPassword: false,
                 UseSsl: true,
                 ApplicationBaseUrl: null,
+                PollIntervalMinutes: 1,
                 UpdatedAtUtc: null);
     }
 
@@ -827,6 +1115,12 @@ public sealed class NotificationSettingsService(
         return normalized;
     }
 
+    private sealed record MessageTemplateRow(
+        string CategoryCode,
+        string SubjectTemplate,
+        string BodyTemplate,
+        DateTime UpdatedAtUtc);
+
     private sealed record ParameterValue(
         string Name,
         object? Value);
@@ -840,5 +1134,6 @@ public sealed class NotificationSettingsService(
         string SmtpUsername,
         string SmtpPassword,
         bool UseSsl,
-        string? ApplicationBaseUrl);
+        string? ApplicationBaseUrl,
+        int PollIntervalMinutes);
 }

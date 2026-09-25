@@ -24,6 +24,13 @@ public sealed class NotificationSettingsPageViewModel
         init;
     } = [];
 
+    public IReadOnlyList<NotificationMessageTemplateFormViewModel>
+        MessageTemplates
+    {
+        get;
+        init;
+    } = [];
+
     public bool CanManageEmail
     {
         get;
@@ -110,9 +117,36 @@ public sealed class NotificationEmailConfigurationFormViewModel
     [StringLength(500)]
     public string? ApplicationBaseUrl { get; set; }
 
+    [Range(1, 60)]
+    public int PollIntervalMinutes { get; set; } = 1;
+
     public DateTime? UpdatedAtUtc { get; set; }
 
     [EmailAddress]
     [StringLength(320)]
     public string? TestRecipientEmail { get; set; }
 }
+
+public sealed class NotificationMessageTemplateFormViewModel
+{
+    [Required]
+    [StringLength(50)]
+    public string CategoryCode { get; set; } = string.Empty;
+
+    public string CategoryNamePl { get; set; } = string.Empty;
+
+    [Required]
+    [StringLength(500)]
+    public string SubjectTemplate { get; set; } =
+        NotificationMessageTemplateDefaults.SubjectTemplate;
+
+    [Required]
+    [StringLength(4000)]
+    public string BodyTemplate { get; set; } =
+        NotificationMessageTemplateDefaults.BodyTemplate;
+
+    public bool IsCustomized { get; set; }
+
+    public DateTime? UpdatedAtUtc { get; set; }
+}
+

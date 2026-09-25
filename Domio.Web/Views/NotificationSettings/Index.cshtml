@@ -370,6 +370,27 @@
                             <input type="hidden" name="UseSsl" value="false" />
                         </span>
                     </label>
+
+                    <div class="mb-3 mt-3">
+                        <label for="PollIntervalMinutes" class="form-label">
+                            Sprawdzaj powiadomienia co
+                        </label>
+                        <div class="input-group">
+                            <input id="PollIntervalMinutes"
+                                   name="PollIntervalMinutes"
+                                   type="number"
+                                   min="1"
+                                   max="60"
+                                   value="@mail.PollIntervalMinutes"
+                                   class="form-control"
+                                   required />
+                            <span class="input-group-text">min</span>
+                        </div>
+                        <div class="form-text">
+                            Zakres 1–60 minut. Domyślnie 1 minuta.
+                            Zmiana zacznie obowiązywać po zapisaniu konfiguracji.
+                        </div>
+                    </div>
                 </section>
             </div>
 
@@ -390,6 +411,117 @@
                 }
             </div>
         </form>
+
+        <div class="notification-settings-card" id="message-templates">
+            <div class="notification-settings-card-heading">
+                <div>
+                    <h2>Treść wiadomości według kategorii</h2>
+                    <p>
+                        Każda kategoria może mieć własny temat i treść e-maila.
+                        Zmiana dotyczy nowych wiadomości tworzonych po zapisaniu szablonu.
+                    </p>
+                </div>
+            </div>
+
+            <div class="alert alert-info py-2">
+                <strong>Dostępne pola:</strong>
+                @foreach (var token in NotificationMessageTemplateDefaults.AvailableTokens)
+                {
+                    <code class="me-2">@token</code>
+                }
+                <div class="mt-1 small">
+                    <code>{Title}</code> – tytuł zdarzenia,
+                    <code>{Message}</code> – właściwa treść,
+                    <code>{Category}</code> – nazwa kategorii,
+                    <code>{Link}</code> – link do Domio,
+                    <code>{EventCode}</code> – kod zdarzenia,
+                    <code>{Date}</code> – data i godzina wygenerowania wiadomości.
+                </div>
+            </div>
+
+            @foreach (var template in Model.MessageTemplates)
+            {
+                <details class="border rounded mb-3 bg-white"
+                         id="template-@template.CategoryCode">
+                    <summary class="d-flex align-items-center justify-content-between gap-3 p-3 fw-semibold"
+                             style="cursor:pointer">
+                        <span>@template.CategoryNamePl</span>
+                        <span class="badge @(template.IsCustomized ? "text-bg-primary" : "text-bg-secondary")">
+                            @(template.IsCustomized ? "Własny szablon" : "Domyślny")
+                        </span>
+                    </summary>
+
+                    <div class="border-top p-3">
+                        <form asp-action="SaveTemplate"
+                              method="post">
+                            <input type="hidden"
+                                   name="CategoryCode"
+                                   value="@template.CategoryCode" />
+                            <input type="hidden"
+                                   name="CategoryNamePl"
+                                   value="@template.CategoryNamePl" />
+
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    Temat wiadomości
+                                </label>
+                                <input type="text"
+                                       name="SubjectTemplate"
+                                       maxlength="500"
+                                       value="@template.SubjectTemplate"
+                                       class="form-control"
+                                       required />
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    Treść wiadomości
+                                </label>
+                                <textarea name="BodyTemplate"
+                                          maxlength="4000"
+                                          rows="7"
+                                          class="form-control"
+                                          required>@template.BodyTemplate</textarea>
+                                <div class="form-text">
+                                    Zachowaj <code>{Message}</code>, jeżeli w wiadomości ma pozostać
+                                    szczegół generowany przez konkretny moduł Domio.
+                                </div>
+                            </div>
+
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                <button type="submit"
+                                        class="btn btn-primary btn-sm">
+                                    Zapisz treść
+                                </button>
+
+                                @if (template.UpdatedAtUtc.HasValue)
+                                {
+                                    <span class="text-muted small">
+                                        Ostatnia zmiana:
+                                        @template.UpdatedAtUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                                    </span>
+                                }
+                            </div>
+                        </form>
+
+                        @if (template.IsCustomized)
+                        {
+                            <form asp-action="ResetTemplate"
+                                  method="post"
+                                  class="mt-2">
+                                <input type="hidden"
+                                       name="categoryCode"
+                                       value="@template.CategoryCode" />
+                                <button type="submit"
+                                        class="btn btn-outline-secondary btn-sm">
+                                    Przywróć domyślną treść
+                                </button>
+                            </form>
+                        }
+                    </div>
+                </details>
+            }
+        </div>
 
         <div class="notification-settings-card">
             <div class="notification-settings-card-heading">

@@ -74,6 +74,7 @@ public sealed record NotificationEmailConfiguration(
     bool HasPassword,
     bool UseSsl,
     string? ApplicationBaseUrl,
+    int PollIntervalMinutes,
     DateTime? UpdatedAtUtc);
 
 public sealed record UpdateNotificationEmailConfigurationRequest(
@@ -85,7 +86,8 @@ public sealed record UpdateNotificationEmailConfigurationRequest(
     string SmtpUsername,
     string? SmtpPassword,
     bool UseSsl,
-    string? ApplicationBaseUrl);
+    string? ApplicationBaseUrl,
+    int PollIntervalMinutes);
 
 public sealed record NotificationEmailDeliverySummary(
     Guid DeliveryId,
@@ -116,3 +118,34 @@ public static class NotificationEmailDeliveryStatuses
             _ => code
         };
 }
+
+public sealed record NotificationMessageTemplate(
+    string CategoryCode,
+    string CategoryNamePl,
+    string SubjectTemplate,
+    string BodyTemplate,
+    bool IsCustomized,
+    DateTime? UpdatedAtUtc);
+
+public sealed record UpdateNotificationMessageTemplateRequest(
+    string CategoryCode,
+    string SubjectTemplate,
+    string BodyTemplate);
+
+public static class NotificationMessageTemplateDefaults
+{
+    public const string SubjectTemplate = "Domio · {Title}";
+
+    public const string BodyTemplate = "{Message}\n\n{Link}";
+
+    public static readonly IReadOnlyList<string> AvailableTokens =
+    [
+        "{Title}",
+        "{Message}",
+        "{Category}",
+        "{Link}",
+        "{EventCode}",
+        "{Date}"
+    ];
+}
+

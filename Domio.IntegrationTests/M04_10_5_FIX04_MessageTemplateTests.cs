@@ -1,4 +1,5 @@
-﻿using Domio.Application.Authentication;
+﻿using System.Data;
+using Domio.Application.Authentication;
 using Domio.Application.Notifications;
 using Domio.Domain.Notifications;
 using Domio.Infrastructure.Auditing;
@@ -9,15 +10,15 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Domio.IntegrationTests;
 
-public sealed class M04_10_5_NotificationSettingsAndEmailTests
+public sealed class M04_10_5_FIX04_MessageTemplateTests
 {
     [Fact]
-    public async Task Settings_should_keep_activity_hide_in_app_and_queue_email()
+    public async Task Category_template_should_render_subject_and_body_and_support_reset()
     {
         var root =
             Path.Combine(
                 Path.GetTempPath(),
-                $"domio-m04-10-5-{Guid.NewGuid():N}");
+                $"domio-m04-10-5-fix04-{Guid.NewGuid():N}");
 
         Directory.CreateDirectory(
             root);
@@ -50,7 +51,7 @@ public sealed class M04_10_5_NotificationSettingsAndEmailTests
 
             Assert.InRange(
                 schemaVersion,
-                27,
+                29,
                 int.MaxValue);
 
             var auditService =
@@ -72,19 +73,16 @@ public sealed class M04_10_5_NotificationSettingsAndEmailTests
                             "DomioTest123"),
                         Guid.NewGuid().ToString("N"));
 
-            var secretProtector =
-                new NotificationSecretProtector(
-                    root);
-
             var settingsService =
                 new NotificationSettingsService(
                     dbContext,
-                    secretProtector);
+                    new NotificationSecretProtector(
+                        root));
 
             await settingsService.SaveUserSettingsAsync(
                 administrator.UserId,
                 new UpdateNotificationUserSettingsRequest(
-                    InAppEnabled: false,
+                    InAppEnabled: true,
                     EmailEnabled: true,
                     EmailAddress: "jan@example.com",
                     Reminder7Days: true,
@@ -115,13 +113,25 @@ public sealed class M04_10_5_NotificationSettingsAndEmailTests
                     ApplicationBaseUrl: "https://domio.home",
                     PollIntervalMinutes: 1));
 
-            var emailConfiguration =
-                await settingsService.GetEmailConfigurationAsync(
+            await settingsService.SaveMessageTemplateAsync(
+                administrator.UserId,
+                new UpdateNotificationMessageTemplateRequest(
+                    NotificationCategoryCodes.Invoice,
+                    "FV · {Title} · {Category}",
+                    "Wiadomość: {Message}\n{Link}\nKod: {EventCode}"));
+
+            var templates =
+                await settingsService.GetMessageTemplatesAsync(
                     administrator.UserId);
 
-            Assert.Equal(
-                1,
-                emailConfiguration.PollIntervalMinutes);
+            var invoiceTemplate =
+                Assert.Single(
+                    templates.Where(x =>
+                        x.CategoryCode ==
+                        NotificationCategoryCodes.Invoice));
+
+            Assert.True(
+                invoiceTemplate.IsCustomized);
 
             var notificationService =
                 new NotificationService(
@@ -130,16 +140,16 @@ public sealed class M04_10_5_NotificationSettingsAndEmailTests
             await notificationService.PublishAsync(
                 new PublishNotificationRequest(
                     [administrator.UserId],
-                    "M04.10.5.TestInvoice",
+                    "M04.10.5.FIX04.InvoiceTemplateTest",
                     NotificationCategoryCodes.Invoice,
                     NotificationSeverityCodes.Important,
-                    "Test ustawień",
-                    "To zdarzenie ma zostać w historii i trafić do kolejki e-mail.",
+                    "Faktura testowa",
+                    "Do zapłaty 10,00 zł.",
                     true,
                     "/HouseholdFinance/Invoices",
-                    "TestInvoice",
+                    "HouseholdInvoice",
                     Guid.NewGuid().ToString(),
-                    $"m04.10.5:test:{Guid.NewGuid():N}"));
+                    $"m04.10.5:fix04:{Guid.NewGuid():N}"));
 
             var orchestrator =
                 new NotificationDeliveryOrchestratorService(
@@ -150,38 +160,105 @@ public sealed class M04_10_5_NotificationSettingsAndEmailTests
             await orchestrator.ProcessUserAsync(
                 administrator.UserId);
 
-            var overview =
-                await notificationService.GetOverviewAsync(
+            var deliveries =
+                await settingsService.GetRecentEmailDeliveriesAsync(
+                    administrator.UserId,
+                    20);
+
+            var delivery =
+                Assert.Single(
+                    deliveries.Where(x =>
+                        x.Subject.Contains(
+                            "Faktura testowa",
+                            StringComparison.Ordinal)));
+
+            Assert.Equal(
+                "FV · Faktura testowa · Faktury",
+                delivery.Subject);
+
+            string? body = null;
+
+            var connection =
+                dbContext.Database.GetDbConnection();
+
+            var shouldClose =
+                connection.State !=
+                ConnectionState.Open;
+
+            if (shouldClose)
+            {
+                await connection.OpenAsync();
+            }
+
+            try
+            {
+                await using var command =
+                    connection.CreateCommand();
+
+                command.CommandText =
+                    """
+                    SELECT Body
+                    FROM NotificationEmailDeliveries
+                    WHERE Id = $id;
+                    """;
+
+                var parameter =
+                    command.CreateParameter();
+
+                parameter.ParameterName =
+                    "$id";
+
+                parameter.Value =
+                    delivery.DeliveryId;
+
+                command.Parameters.Add(
+                    parameter);
+
+                body =
+                    Convert.ToString(
+                        await command.ExecuteScalarAsync());
+            }
+            finally
+            {
+                if (shouldClose)
+                {
+                    await connection.CloseAsync();
+                }
+            }
+
+            Assert.NotNull(
+                body);
+
+            Assert.True(
+                body!.Contains(
+                    "Wiadomość: Do zapłaty 10,00 zł.",
+                    StringComparison.Ordinal));
+
+            Assert.True(
+                body.Contains(
+                    "https://domio.home/HouseholdFinance/Invoices",
+                    StringComparison.Ordinal));
+
+            await settingsService.ResetMessageTemplateAsync(
+                administrator.UserId,
+                NotificationCategoryCodes.Invoice);
+
+            templates =
+                await settingsService.GetMessageTemplatesAsync(
                     administrator.UserId);
 
-            Assert.DoesNotContain(
-                overview.Inbox,
-                x =>
-                    x.EventCode ==
-                    "M04.10.5.TestInvoice");
+            invoiceTemplate =
+                Assert.Single(
+                    templates.Where(x =>
+                        x.CategoryCode ==
+                        NotificationCategoryCodes.Invoice));
 
-            Assert.Contains(
-                overview.ActivityHistory,
-                x =>
-                    x.EventCode ==
-                    "M04.10.5.TestInvoice");
+            Assert.False(
+                invoiceTemplate.IsCustomized);
 
-            var deliveries =
-                await settingsService
-                    .GetRecentEmailDeliveriesAsync(
-                        administrator.UserId,
-                        20);
-
-            Assert.Contains(
-                deliveries,
-                x =>
-                    x.RecipientEmail ==
-                    "jan@example.com" &&
-                    x.Subject.Contains(
-                        "Test ustawień",
-                        StringComparison.Ordinal) &&
-                    x.StatusCode ==
-                    NotificationEmailDeliveryStatuses.Pending);
+            Assert.Equal(
+                NotificationMessageTemplateDefaults.SubjectTemplate,
+                invoiceTemplate.SubjectTemplate);
         }
         finally
         {
