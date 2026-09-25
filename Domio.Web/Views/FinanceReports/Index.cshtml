@@ -1,0 +1,533 @@
+@using System.Text.Json
+@using Domio.Application.Reporting
+@model Domio.Web.Models.Reporting.FinanceReportPageViewModel
+@{
+    ViewData["Title"] = "Raporty i symulacje finansowe";
+    var d = Model.Dashboard;
+    var k = d.Kpis;
+    var monthlyJson = JsonSerializer.Serialize(
+        d.Monthly.Select(x => new
+        {
+            x.Label,
+            x.Income,
+            x.Expense,
+            x.Net,
+            x.PlannedExpense,
+            x.ActualExpense
+        }));
+    var familyFilterStyle = d.ScopeCode == FinanceReportScopes.Family
+        ? string.Empty
+        : "display:none";
+    var simulationJson = Model.SimulationResult is null
+        ? "null"
+        : JsonSerializer.Serialize(
+            Model.SimulationResult.Months.Select(x => new
+            {
+                x.Label,
+                x.BaselineBalance,
+                x.ScenarioBalance
+            }));
+}
+
+<div class="finance-report-page">
+    <header class="finance-report-header">
+        <div>
+            <div class="finance-report-kicker">M11.1 · RAPORTY I SYMULACJE</div>
+            <h1>Raporty finansowe</h1>
+            <p>
+                Analiza finansów osobistych, domu i rodziny. Raporty są tylko do odczytu,
+                a symulacje nie zmieniają sald, planów ani historii operacji.
+            </p>
+        </div>
+        <div class="finance-report-header-badge">@d.ScopeNamePl</div>
+    </header>
+
+    @if (TempData["FinanceReportError"] is string error)
+    {
+        <div class="alert alert-danger" role="alert">@error</div>
+    }
+
+    <form asp-action="Index" method="get" class="finance-report-filter-card">
+        <div class="finance-report-filter-grid">
+            <div>
+                <label class="form-label" for="scope">Zakres</label>
+                <select class="form-select" id="scope" name="scope">
+                    @foreach (var option in d.ScopeOptions.Where(x => x.IsAvailable))
+                    {
+                        if (option.ScopeCode == d.ScopeCode)
+                        {
+                            <option value="@option.ScopeCode" selected>@option.NamePl</option>
+                        }
+                        else
+                        {
+                            <option value="@option.ScopeCode">@option.NamePl</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <div id="family-filter" style="@familyFilterStyle">
+                <label class="form-label" for="familyGroupId">Rodzina</label>
+                <select class="form-select" id="familyGroupId" name="familyGroupId">
+                    @foreach (var family in d.FamilyOptions)
+                    {
+                        if (family.FamilyGroupId == d.FamilyGroupId)
+                        {
+                            <option value="@family.FamilyGroupId" selected>@family.Name</option>
+                        }
+                        else
+                        {
+                            <option value="@family.FamilyGroupId">@family.Name</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label" for="months">Okres</label>
+                <select class="form-select" id="months" name="months">
+                    @foreach (var value in new[] { 3, 6, 12, 18, 24, 36 })
+                    {
+                        if (value == d.Months)
+                        {
+                            <option value="@value" selected>Ostatnie @value mies.</option>
+                        }
+                        else
+                        {
+                            <option value="@value">Ostatnie @value mies.</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <div>
+                <label class="form-label" for="currency">Waluta</label>
+                <select class="form-select" id="currency" name="currency">
+                    @foreach (var currency in d.AvailableCurrencies)
+                    {
+                        if (currency == d.CurrencyCode)
+                        {
+                            <option value="@currency" selected>@currency</option>
+                        }
+                        else
+                        {
+                            <option value="@currency">@currency</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <div class="finance-report-filter-submit">
+                <button type="submit" class="btn btn-primary">Pokaż raport</button>
+            </div>
+        </div>
+    </form>
+
+    <section class="finance-report-kpi-grid">
+        <article class="finance-report-kpi">
+            <span>Aktualne saldo</span>
+            <strong>@k.CurrentBalance.ToString("N2") @d.CurrencyCode</strong>
+            <small>@(d.ScopeCode == FinanceReportScopes.Family ? "wspólne konta dostępne użytkownikowi" : "suma kont w zakresie")</small>
+        </article>
+        <article class="finance-report-kpi">
+            <span>Przychody w okresie</span>
+            <strong>@k.Income.ToString("N2") @d.CurrencyCode</strong>
+            <small>średnio @k.AverageMonthlyIncome.ToString("N2") / mies.</small>
+        </article>
+        <article class="finance-report-kpi">
+            <span>Wydatki w okresie</span>
+            <strong>@k.Expense.ToString("N2") @d.CurrencyCode</strong>
+            <small>średnio @k.AverageMonthlyExpense.ToString("N2") / mies.</small>
+        </article>
+        <article class="finance-report-kpi @(k.Net < 0m ? "is-warning" : "")">
+            <span>Bilans okresu</span>
+            <strong>@(k.Net >= 0m ? "+" : "")@k.Net.ToString("N2") @d.CurrencyCode</strong>
+            <small>stopa oszczędzania @k.SavingsRatePercent.ToString("N1")%</small>
+        </article>
+        <article class="finance-report-kpi">
+            <span>Poduszka wg wydatków</span>
+            <strong>@(k.RunwayMonths.HasValue ? $"{k.RunwayMonths.Value:N1} mies." : "—")</strong>
+            <small>saldo ÷ średni miesięczny wydatek</small>
+        </article>
+        <article class="finance-report-kpi">
+            <span>Największy wydatek</span>
+            <strong>@k.LargestExpense.ToString("N2") @d.CurrencyCode</strong>
+            <small>@(k.LargestExpenseLabel ?? "Brak wydatków w okresie")</small>
+        </article>
+    </section>
+
+    <section class="finance-report-grid-two">
+        <article class="finance-report-panel">
+            <div class="finance-report-panel-heading">
+                <div>
+                    <span>PRZEPŁYWY</span>
+                    <h2>Przychody, wydatki i wynik miesiąca</h2>
+                </div>
+            </div>
+            <div class="finance-report-chart-wrap">
+                <canvas id="finance-flow-chart" height="260"></canvas>
+            </div>
+            <div class="finance-report-legend">
+                <span><i class="legend-income"></i> Przychody</span>
+                <span><i class="legend-expense"></i> Wydatki</span>
+                <span><i class="legend-net"></i> Bilans</span>
+            </div>
+            <details class="finance-simulation-table-details mt-3">
+                <summary>Pokaż dane miesięczne</summary>
+                <div class="table-responsive mt-3">
+                    <table class="table finance-report-table align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>Miesiąc</th>
+                                <th class="text-end">Przychody</th>
+                                <th class="text-end">Wydatki</th>
+                                <th class="text-end">Bilans</th>
+                                <th class="text-end">Plan wydatków</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var month in d.Monthly)
+                            {
+                                <tr>
+                                    <td>@month.Label</td>
+                                    <td class="text-end">@month.Income.ToString("N2")</td>
+                                    <td class="text-end">@month.Expense.ToString("N2")</td>
+                                    <td class="text-end"><strong>@month.Net.ToString("N2")</strong></td>
+                                    <td class="text-end">@month.PlannedExpense.ToString("N2")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </details>
+        </article>
+
+        <article class="finance-report-panel">
+            <div class="finance-report-panel-heading">
+                <div>
+                    <span>PLAN / WYKONANIE</span>
+                    <h2>Planowane a rzeczywiste wydatki</h2>
+                </div>
+            </div>
+            <div class="finance-report-chart-wrap">
+                <canvas id="finance-plan-chart" height="260"></canvas>
+            </div>
+            <p class="finance-report-help">
+                Dla finansów osobistych plan pochodzi z wystąpień reguł cyklicznych,
+                dla domu z faktur, a dla rodziny z planowanych kosztów rodzinnych.
+            </p>
+        </article>
+    </section>
+
+    <section class="finance-report-grid-two">
+        <article class="finance-report-panel">
+            <div class="finance-report-panel-heading">
+                <div>
+                    <span>STRUKTURA</span>
+                    <h2>Na co wydajesz</h2>
+                </div>
+            </div>
+            @if (d.Categories.Count == 0)
+            {
+                <div class="finance-report-empty">Brak wydatków do podziału na kategorie.</div>
+            }
+            else
+            {
+                <div class="finance-report-category-list">
+                    @foreach (var category in d.Categories.Take(12))
+                    {
+                        <div class="finance-report-category-row">
+                            <div class="finance-report-category-label">
+                                <strong>@category.CategoryNamePl</strong>
+                                <span>@category.Amount.ToString("N2") @d.CurrencyCode · @category.Percent.ToString("N1")%</span>
+                            </div>
+                            <div class="finance-report-bar-track">
+                                <span style="width:@Math.Min(100m, category.Percent).ToString(System.Globalization.CultureInfo.InvariantCulture)%"></span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </article>
+
+        <article class="finance-report-panel">
+            <div class="finance-report-panel-heading">
+                <div>
+                    <span>KONTA</span>
+                    <h2>Salda kont</h2>
+                </div>
+            </div>
+            @if (d.Accounts.Count == 0)
+            {
+                <div class="finance-report-empty">Brak kont w wybranym zakresie i walucie.</div>
+            }
+            else
+            {
+                <div class="finance-report-account-list">
+                    @foreach (var account in d.Accounts)
+                    {
+                        <div class="finance-report-account-row">
+                            <div>
+                                <strong>@account.Name</strong>
+                                <span>@account.AccountTypeNamePl · @(account.IsActive ? "aktywne" : "zamknięte")</span>
+                            </div>
+                            <strong>@account.Balance.ToString("N2") @account.CurrencyCode</strong>
+                        </div>
+                    }
+                </div>
+            }
+        </article>
+    </section>
+
+    @if (d.Areas.Count > 0)
+    {
+        <section class="finance-report-panel">
+            <div class="finance-report-panel-heading">
+                <div>
+                    <span>OBSZARY RODZINNE</span>
+                    <h2>Plan i wykonanie według obszaru</h2>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table finance-report-table align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Obszar</th>
+                            <th class="text-end">Pozycje</th>
+                            <th class="text-end">Plan</th>
+                            <th class="text-end">Wykonanie</th>
+                            <th class="text-end">Pozostało</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var area in d.Areas)
+                        {
+                            <tr>
+                                <td><strong>@area.Name</strong></td>
+                                <td class="text-end">@area.ItemsCount</td>
+                                <td class="text-end">@area.PlannedAmount.ToString("N2") @d.CurrencyCode</td>
+                                <td class="text-end">@area.ActualAmount.ToString("N2") @d.CurrencyCode</td>
+                                <td class="text-end"><strong>@area.RemainingAmount.ToString("N2") @d.CurrencyCode</strong></td>
+                                <td class="text-end">
+                                    <a asp-controller="FamilyAreas"
+                                       asp-action="Details"
+                                       asp-route-id="@area.AreaId"
+                                       class="btn btn-sm btn-outline-secondary">Otwórz</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+
+    <section class="finance-report-grid-two">
+        <article class="finance-report-panel">
+            <div class="finance-report-panel-heading">
+                <div>
+                    <span>NAJWIĘKSZE WYDATKI</span>
+                    <h2>Top wydatków w okresie</h2>
+                </div>
+            </div>
+            @if (d.TopExpenses.Count == 0)
+            {
+                <div class="finance-report-empty">Brak wydatków w wybranym okresie.</div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table finance-report-table align-middle mb-0">
+                        <thead><tr><th>Data</th><th>Wydatek</th><th>Kategoria</th><th class="text-end">Kwota</th></tr></thead>
+                        <tbody>
+                            @foreach (var item in d.TopExpenses)
+                            {
+                                <tr>
+                                    <td>@item.DateUtc.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                                    <td><strong>@item.Label</strong></td>
+                                    <td>@item.CategoryNamePl</td>
+                                    <td class="text-end"><strong>@item.Amount.ToString("N2") @d.CurrencyCode</strong></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </article>
+
+        <article class="finance-report-panel">
+            <div class="finance-report-panel-heading">
+                <div>
+                    <span>ZOBOWIĄZANIA</span>
+                    <h2>Terminy i kwoty do opłacenia</h2>
+                </div>
+            </div>
+            @if (d.Obligations.Count == 0)
+            {
+                <div class="finance-report-empty">Brak zobowiązań w wybranym okresie.</div>
+            }
+            else
+            {
+                <div class="finance-report-obligation-list">
+                    @foreach (var item in d.Obligations.Take(12))
+                    {
+                        <div class="finance-report-obligation-row">
+                            <div>
+                                <strong>@item.Label</strong>
+                                <span>@(item.ContextLabel ?? item.SourceKind) · termin @item.DueDateUtc.ToLocalTime().ToString("dd.MM.yyyy")</span>
+                            </div>
+                            <div class="finance-report-obligation-amount">
+                                <strong>@item.RemainingAmount.ToString("N2") @d.CurrencyCode</strong>
+                                <span>@item.StatusNamePl</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </article>
+    </section>
+
+    <section class="finance-report-panel finance-simulation-panel" id="symulacja">
+        <div class="finance-report-panel-heading">
+            <div>
+                <span>SYMULATOR „CO JEŚLI?”</span>
+                <h2>Prognoza przepływów i salda</h2>
+                <p>
+                    Punktem wyjścia jest aktualne saldo i średnie miesięczne z wybranego okresu raportowego.
+                    Wynik jest scenariuszem analitycznym i nie zapisuje żadnych operacji.
+                </p>
+            </div>
+        </div>
+
+        <form asp-action="Simulate" method="post" class="finance-simulation-form">
+            <input type="hidden" name="ScopeCode" value="@Model.Simulation.ScopeCode" />
+            <input type="hidden" name="FamilyGroupId" value="@Model.Simulation.FamilyGroupId" />
+            <input type="hidden" name="CurrencyCode" value="@Model.Simulation.CurrencyCode" />
+            <input type="hidden" name="HistoryMonths" value="@Model.Simulation.HistoryMonths" />
+
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+
+            <div class="finance-simulation-presets">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-sim-preset="oszczedny">Oszczędny</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-sim-preset="drozej">Wydatki +10%</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-sim-preset="dochod">Przychody +10%</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-sim-preset="reset">Wyzeruj zmiany</button>
+            </div>
+
+            <div class="finance-simulation-grid">
+                <div>
+                    <label class="form-label" for="HorizonMonths">Horyzont symulacji (miesiące)</label>
+                    <input id="HorizonMonths" name="HorizonMonths" value="@Model.Simulation.HorizonMonths" class="form-control" min="3" max="60" type="number" />
+                    @Html.ValidationMessage("HorizonMonths", null, new { @class = "text-danger" })
+                </div>
+                <div>
+                    <label class="form-label" for="TargetReserve">Cel rezerwy finansowej</label>
+                    <input id="TargetReserve" name="TargetReserve" value="@Model.Simulation.TargetReserve" class="form-control" inputmode="decimal" />
+                </div>
+                <div>
+                    <label class="form-label" for="IncomeChangePercent">Zmiana miesięcznych przychodów (%)</label>
+                    <input id="IncomeChangePercent" name="IncomeChangePercent" value="@Model.Simulation.IncomeChangePercent" class="form-control" inputmode="decimal" />
+                </div>
+                <div>
+                    <label class="form-label" for="ExpenseChangePercent">Zmiana miesięcznych wydatków (%)</label>
+                    <input id="ExpenseChangePercent" name="ExpenseChangePercent" value="@Model.Simulation.ExpenseChangePercent" class="form-control" inputmode="decimal" />
+                </div>
+                <div>
+                    <label class="form-label" for="ExtraMonthlyIncome">Dodatkowy przychód co miesiąc</label>
+                    <input id="ExtraMonthlyIncome" name="ExtraMonthlyIncome" value="@Model.Simulation.ExtraMonthlyIncome" class="form-control" inputmode="decimal" />
+                </div>
+                <div>
+                    <label class="form-label" for="ExtraMonthlyExpense">Dodatkowy wydatek co miesiąc</label>
+                    <input id="ExtraMonthlyExpense" name="ExtraMonthlyExpense" value="@Model.Simulation.ExtraMonthlyExpense" class="form-control" inputmode="decimal" />
+                </div>
+                <div>
+                    <label class="form-label" for="OneTimeIncome">Jednorazowy przychód</label>
+                    <input id="OneTimeIncome" name="OneTimeIncome" value="@Model.Simulation.OneTimeIncome" class="form-control" inputmode="decimal" />
+                </div>
+                <div>
+                    <label class="form-label" for="OneTimeExpense">Jednorazowy wydatek</label>
+                    <input id="OneTimeExpense" name="OneTimeExpense" value="@Model.Simulation.OneTimeExpense" class="form-control" inputmode="decimal" />
+                </div>
+                <div>
+                    <label class="form-label" for="OneTimeMonth">Miesiąc zdarzenia jednorazowego</label>
+                    <input id="OneTimeMonth" name="OneTimeMonth" value="@Model.Simulation.OneTimeMonth" class="form-control" min="1" max="60" type="number" />
+                    @Html.ValidationMessage("OneTimeMonth", null, new { @class = "text-danger" })
+                </div>
+                <div>
+                    <label class="form-label" for="AnnualIncomeGrowthPercent">Roczny wzrost przychodów (%)</label>
+                    <input id="AnnualIncomeGrowthPercent" name="AnnualIncomeGrowthPercent" value="@Model.Simulation.AnnualIncomeGrowthPercent" class="form-control" inputmode="decimal" />
+                </div>
+                <div>
+                    <label class="form-label" for="AnnualExpenseInflationPercent">Roczny wzrost wydatków / inflacja (%)</label>
+                    <input id="AnnualExpenseInflationPercent" name="AnnualExpenseInflationPercent" value="@Model.Simulation.AnnualExpenseInflationPercent" class="form-control" inputmode="decimal" />
+                </div>
+                <div class="finance-simulation-submit">
+                    <button type="submit" class="btn btn-primary">Uruchom symulację</button>
+                </div>
+            </div>
+        </form>
+
+        @if (Model.SimulationResult is not null)
+        {
+            var s = Model.SimulationResult;
+            <div class="finance-simulation-result">
+                <div class="finance-report-kpi-grid finance-simulation-kpis">
+                    <article class="finance-report-kpi"><span>Saldo startowe</span><strong>@s.StartingBalance.ToString("N2") @d.CurrencyCode</strong></article>
+                    <article class="finance-report-kpi"><span>Saldo bazowe na końcu</span><strong>@s.BaselineEndBalance.ToString("N2") @d.CurrencyCode</strong></article>
+                    <article class="finance-report-kpi"><span>Saldo scenariusza na końcu</span><strong>@s.ScenarioEndBalance.ToString("N2") @d.CurrencyCode</strong></article>
+                    <article class="finance-report-kpi @(s.Difference < 0m ? "is-warning" : "")"><span>Różnica vs baza</span><strong>@(s.Difference >= 0m ? "+" : "")@s.Difference.ToString("N2") @d.CurrencyCode</strong></article>
+                    <article class="finance-report-kpi @(s.LowestScenarioBalance < 0m ? "is-warning" : "")"><span>Najniższe saldo</span><strong>@s.LowestScenarioBalance.ToString("N2") @d.CurrencyCode</strong></article>
+                    <article class="finance-report-kpi"><span>Cel rezerwy</span><strong>@(s.TargetReserveReachedMonth.HasValue ? $"miesiąc {s.TargetReserveReachedMonth}" : "nieosiągnięty")</strong></article>
+                </div>
+
+                @if (s.FirstNegativeMonth.HasValue)
+                {
+                    <div class="alert alert-warning">
+                        W scenariuszu saldo spada poniżej zera w miesiącu nr <strong>@s.FirstNegativeMonth</strong>.
+                    </div>
+                }
+
+                <div class="finance-report-chart-wrap finance-simulation-chart-wrap">
+                    <canvas id="finance-simulation-chart" height="300"></canvas>
+                </div>
+
+                <details class="finance-simulation-table-details">
+                    <summary>Pokaż tabelę miesięcy symulacji</summary>
+                    <div class="table-responsive mt-3">
+                        <table class="table finance-report-table align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Miesiąc</th>
+                                    <th class="text-end">Przychód scenariusza</th>
+                                    <th class="text-end">Wydatek scenariusza</th>
+                                    <th class="text-end">Saldo bazowe</th>
+                                    <th class="text-end">Saldo scenariusza</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var month in s.Months)
+                                {
+                                    <tr>
+                                        <td>@month.Label</td>
+                                        <td class="text-end">@month.ScenarioIncome.ToString("N2")</td>
+                                        <td class="text-end">@month.ScenarioExpense.ToString("N2")</td>
+                                        <td class="text-end">@month.BaselineBalance.ToString("N2")</td>
+                                        <td class="text-end"><strong>@month.ScenarioBalance.ToString("N2")</strong></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </details>
+            </div>
+        }
+    </section>
+</div>
+
+<script type="application/json" id="finance-report-monthly-data">@Html.Raw(monthlyJson)</script>
+<script type="application/json" id="finance-report-simulation-data">@Html.Raw(simulationJson)</script>
+
+@section Scripts {
+    <script src="~/js/finance-reports.js" asp-append-version="true"></script>
+}

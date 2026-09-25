@@ -9,6 +9,7 @@ using Domio.Application.Maintenance;
 using Domio.Application.Notifications;
 using Domio.Application.PersonalFinance;
 using Domio.Application.Profiles;
+using Domio.Application.Reporting;
 using Domio.Application.Users;
 using Domio.Infrastructure.Auditing;
 using Domio.Infrastructure.Authentication;
@@ -22,6 +23,7 @@ using Domio.Infrastructure.Notifications;
 using Domio.Infrastructure.Persistence;
 using Domio.Infrastructure.PersonalFinance;
 using Domio.Infrastructure.Profiles;
+using Domio.Infrastructure.Reporting;
 using Domio.Infrastructure.Users;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -127,6 +129,9 @@ public static class DependencyInjection
         services.AddScoped<
             IPersonalFinanceService,
             PersonalFinanceService>();
+        services.AddScoped<
+            IFinanceReportingService,
+            FinanceReportingService>();
         services.AddScoped<
             IUserDirectoryService,
             UserDirectoryService>();

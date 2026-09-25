@@ -44,6 +44,11 @@
         User.HasClaim(
             DomioClaimTypes.Permission,
             SystemPermissions.NotificationsView);
+
+    var canViewFinanceReports =
+        canViewPersonalFinance ||
+        canViewHouseholdFinance ||
+        canViewFamilyFinance;
 }
 <!DOCTYPE html>
 <html lang="pl">
@@ -81,6 +86,9 @@
           asp-append-version="true" />
     <link rel="stylesheet"
           href="~/css/notification-settings.css"
+          asp-append-version="true" />
+    <link rel="stylesheet"
+          href="~/css/finance-reports.css"
           asp-append-version="true" />
     <link rel="stylesheet"
           href="~/Domio.Web.styles.css"
@@ -239,6 +247,16 @@
                         </span>
                     }
 
+                    @if (canViewFinanceReports)
+                    {
+                        <a asp-controller="FinanceReports"
+                           asp-action="Index"
+                           class="domio-side-link finance-report-side-link">
+                            <span class="domio-side-icon">W</span>
+                            <span>Raporty i symulacje</span>
+                        </a>
+                    }
+
                     @if (canViewNotifications)
                     {
                         <div class="domio-side-section">Powiadomienia</div>
@@ -294,7 +312,7 @@
     <footer class="domio-footer">
         <div class="container-fluid px-4 d-flex flex-column flex-md-row justify-content-between gap-2">
             <span>Domio · domowe centrum zarządzania</span>
-            <span>M04.10.5 · powiadomienia i e-mail</span>
+            <span>M11.1 · raporty i symulacje finansowe</span>
         </div>
     </footer>
 
