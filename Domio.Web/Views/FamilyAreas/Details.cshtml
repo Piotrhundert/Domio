@@ -1,4 +1,4 @@
-﻿@using Domio.Domain.FamilyFinance
+@using Domio.Domain.FamilyFinance
 @model Domio.Application.FamilyFinance.FamilyAreaDetails
 @{
     ViewData["Title"] = Model.Area.Name;
@@ -219,7 +219,7 @@
                                 <th>Status miesiąca</th>
                                 <th class="text-end">Plan</th>
                                 <th class="text-end">Zapłacono</th>
-                                <th></th>
+                                <th class="text-end">Akcje</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -250,18 +250,47 @@
                                 <td class="text-end"><strong>@item.PlannedAmount.ToString("N2") zł</strong></td>
                                 <td class="text-end">@item.ActualPaidAmount.ToString("N2") zł</td>
                                 <td class="text-end">
-                                    @if (item.CanPay && item.OccurrenceId.HasValue)
-                                    {
-                                        <a asp-controller="FamilyFinance"
-                                           asp-action="PayExpense"
-                                           asp-route-familyGroupId="@Model.FamilyGroupId"
-                                           asp-route-occurrenceId="@item.OccurrenceId.Value"
-                                           asp-route-year="@Model.Year"
-                                           asp-route-month="@Model.Month"
-                                           class="btn btn-sm btn-primary">
-                                            Opłać
-                                        </a>
-                                    }
+                                    <div class="d-flex flex-wrap gap-1 justify-content-end">
+                                        @if (item.CanPay && item.OccurrenceId.HasValue)
+                                        {
+                                            <a asp-controller="FamilyFinance"
+                                               asp-action="PayExpense"
+                                               asp-route-familyGroupId="@Model.FamilyGroupId"
+                                               asp-route-occurrenceId="@item.OccurrenceId.Value"
+                                               asp-route-year="@Model.Year"
+                                               asp-route-month="@Model.Month"
+                                               class="btn btn-sm btn-primary">
+                                                Opłać
+                                            </a>
+                                        }
+
+                                        @if (Model.CanManage && item.IsActive)
+                                        {
+                                            <a asp-controller="FamilyAreaItems"
+                                               asp-action="Edit"
+                                               asp-route-ruleId="@item.RuleId"
+                                               asp-route-year="@Model.Year"
+                                               asp-route-month="@Model.Month"
+                                               class="btn btn-sm btn-outline-secondary">
+                                                Edytuj
+                                            </a>
+
+                                            <form asp-controller="FamilyAreaItems"
+                                                  asp-action="End"
+                                                  method="post"
+                                                  class="d-inline"
+                                                  onsubmit="return confirm('Zakończyć tę pozycję? Historia i wcześniejsze płatności pozostaną zachowane.');">
+                                                <input type="hidden" name="ruleId" value="@item.RuleId" />
+                                                <input type="hidden" name="areaId" value="@Model.Area.AreaId" />
+                                                <input type="hidden" name="year" value="@Model.Year" />
+                                                <input type="hidden" name="month" value="@Model.Month" />
+                                                <button type="submit"
+                                                        class="btn btn-sm btn-outline-danger">
+                                                    Zakończ
+                                                </button>
+                                            </form>
+                                        }
+                                    </div>
                                 </td>
                             </tr>
                         }

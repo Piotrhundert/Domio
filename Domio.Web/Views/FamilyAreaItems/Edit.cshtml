@@ -1,0 +1,155 @@
+@model Domio.Web.Models.FamilyFinance.EditFamilyAreaItemViewModel
+@{
+    ViewData["Title"] = $"Edytuj pozycję · {Model.AreaName}";
+}
+
+<div class="family-area-page">
+    <div class="family-area-header">
+        <div>
+            <div class="family-finance-kicker">M04.9.2 FIX05 · @Model.AreaName</div>
+            <h1>Edytuj pozycję</h1>
+            <p>
+                Zmiany dotyczą reguły kosztu i kolejnych nieopłaconych wystąpień.
+                Wcześniejsze opłacone wystąpienia pozostają w historii.
+            </p>
+        </div>
+    </div>
+
+    <form asp-action="Edit"
+          method="post"
+          class="family-area-form-card">
+        <input type="hidden" asp-for="FamilyGroupId" />
+        <input type="hidden" asp-for="AreaId" />
+        <input type="hidden" asp-for="RuleId" />
+        <input type="hidden" asp-for="Year" />
+        <input type="hidden" asp-for="Month" />
+
+        <div asp-validation-summary="ModelOnly"
+             class="text-danger mb-3"></div>
+
+        <div class="row g-3">
+            <div class="col-md-8">
+                <label asp-for="Name" class="form-label"></label>
+                <input asp-for="Name" class="form-control" />
+                <span asp-validation-for="Name" class="text-danger"></span>
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="PlannedAmount" class="form-label"></label>
+                <input asp-for="PlannedAmount"
+                       class="form-control"
+                       inputmode="decimal" />
+                <span asp-validation-for="PlannedAmount" class="text-danger"></span>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="CategoryCode" class="form-label"></label>
+                <select asp-for="CategoryCode"
+                        asp-items="Model.Categories"
+                        class="form-select"></select>
+                <span asp-validation-for="CategoryCode" class="text-danger"></span>
+            </div>
+
+            <div class="col-md-6">
+                <label asp-for="BeneficiaryPersonId" class="form-label"></label>
+                <select asp-for="BeneficiaryPersonId"
+                        asp-items="Model.Beneficiaries"
+                        class="form-select"></select>
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="FrequencyCode" class="form-label"></label>
+                <select asp-for="FrequencyCode"
+                        asp-items="Model.Frequencies"
+                        class="form-select"></select>
+                <span asp-validation-for="FrequencyCode" class="text-danger"></span>
+            </div>
+
+            <div class="col-md-4">
+                <label asp-for="DueDateModeCode" class="form-label"></label>
+                <select asp-for="DueDateModeCode"
+                        asp-items="Model.DueDateModes"
+                        class="form-select"
+                        id="family-area-due-mode"></select>
+                <span asp-validation-for="DueDateModeCode" class="text-danger"></span>
+            </div>
+
+            <div class="col-md-4" id="family-area-specific-day">
+                <label asp-for="DueDay" class="form-label"></label>
+                <input asp-for="DueDay"
+                       class="form-control"
+                       min="1"
+                       max="31" />
+                <span asp-validation-for="DueDay" class="text-danger"></span>
+            </div>
+
+            <div class="col-md-4" id="family-area-days-before-end">
+                <label asp-for="DaysBeforeEnd" class="form-label"></label>
+                <input asp-for="DaysBeforeEnd"
+                       class="form-control"
+                       min="1"
+                       max="27" />
+                <span asp-validation-for="DaysBeforeEnd" class="text-danger"></span>
+            </div>
+
+            <div class="col-12">
+                <div class="form-text">
+                    Zmiana terminu, kwoty lub beneficjenta aktualizuje tylko nieopłacone
+                    wystąpienia od bieżącego miesiąca. Historia płatności nie jest nadpisywana.
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <label asp-for="ActiveFromUtc" class="form-label"></label>
+                <input asp-for="ActiveFromUtc" class="form-control" />
+            </div>
+
+            <div class="col-md-3">
+                <label asp-for="ActiveToUtc" class="form-label"></label>
+                <input asp-for="ActiveToUtc" class="form-control" />
+            </div>
+        </div>
+
+        <div class="family-area-note">
+            <strong>Bez kasowania historii</strong>
+            <span>
+                Edycja nie usuwa opłaconych miesięcy. Aby całkowicie zatrzymać pozycję,
+                użyj przycisku „Zakończ” na liście pozycji.
+            </span>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 mt-4">
+            <button type="submit" class="btn btn-primary">
+                Zapisz zmiany
+            </button>
+            <a asp-controller="FamilyAreas"
+               asp-action="Details"
+               asp-route-id="@Model.AreaId"
+               asp-route-year="@Model.Year"
+               asp-route-month="@Model.Month"
+               class="btn btn-outline-secondary">
+                Anuluj
+            </a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <script>
+        (() => {
+            const mode = document.getElementById("family-area-due-mode");
+            const specific = document.getElementById("family-area-specific-day");
+            const beforeEnd = document.getElementById("family-area-days-before-end");
+
+            if (!mode || !specific || !beforeEnd) return;
+
+            const refresh = () => {
+                specific.hidden = mode.value !== "SpecificDay";
+                beforeEnd.hidden = mode.value !== "DaysBeforeEnd";
+            };
+
+            mode.addEventListener("change", refresh);
+            refresh();
+        })();
+    </script>
+}

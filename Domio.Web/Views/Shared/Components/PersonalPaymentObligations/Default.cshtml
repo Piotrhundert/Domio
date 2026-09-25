@@ -1,0 +1,209 @@
+@using Domio.Web.ViewComponents
+@model PersonalPaymentObligationsViewModel
+@{
+    var period = new DateTime(Model.Year, Model.Month, 1);
+}
+
+<section id="personal-payment-obligations"
+         class="finance-section finance-payment-obligations-section mt-4">
+    <div class="finance-section-heading">
+        <div>
+            <span class="finance-section-number">WPŁATY</span>
+            <div>
+                <h2>Moje wpłaty i zobowiązania</h2>
+                <p>
+                    Zestawienie zbiera Twoje zobowiązania z budżetu domu,
+                    obszarów rodzinnych i pozostałych kosztów przypisanych do Ciebie.
+                    To tylko widok zbiorczy — Domio nie tworzy tutaj drugiego księgowania.
+                </p>
+            </div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2">
+            <a asp-controller="PersonalFinance"
+               asp-action="Index"
+               asp-route-paymentView="open"
+               class="btn btn-sm @(Model.ShowAll ? "btn-outline-secondary" : "btn-primary")">
+                Do opłacenia (@Model.OpenCount)
+            </a>
+            <a asp-controller="PersonalFinance"
+               asp-action="Index"
+               asp-route-paymentView="all"
+               class="btn btn-sm @(Model.ShowAll ? "btn-primary" : "btn-outline-secondary")">
+                Wszystkie (@(Model.OpenCount + Model.PaidCount))
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-4">
+            <div class="finance-contribution-amount h-100">
+                <span>Okres</span>
+                <strong>@period.ToString("MMMM yyyy")</strong>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="finance-contribution-amount h-100">
+                <span>Do opłacenia</span>
+                <strong>@Model.OpenCount</strong>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="finance-contribution-amount h-100">
+                <span>Łącznie pozostało</span>
+                <strong>@Model.RemainingTotal.ToString("N2") <small>PLN</small></strong>
+            </div>
+        </div>
+    </div>
+
+    @if (Model.Items.Count == 0)
+    {
+        <div class="finance-empty finance-empty-compact">
+            @if (Model.ShowAll)
+            {
+                <span>Brak zobowiązań przypisanych do Ciebie w tym miesiącu.</span>
+            }
+            else
+            {
+                <span>Nie masz obecnie nic do opłacenia w tym miesiącu.</span>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table finance-table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Źródło</th>
+                        <th>Pozycja</th>
+                        <th>Termin</th>
+                        <th>Status</th>
+                        <th class="text-end">Kwota</th>
+                        <th class="text-end">Zapłacono</th>
+                        <th class="text-end">Pozostało</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                @foreach (var item in Model.Items)
+                {
+                    var statusClass =
+                        item.IsPaid
+                            ? "text-bg-success"
+                            : item.IsPending
+                                ? "text-bg-warning"
+                                : item.IsOverdue
+                                    ? "text-bg-danger"
+                                    : "text-bg-light";
+
+                    <tr>
+                        <td>
+                            <span class="badge rounded-pill @statusClass">
+                                @item.SourceBadge
+                            </span>
+                        </td>
+                        <td>
+                            <strong>@item.Title</strong>
+                            <div class="finance-row-meta">
+                                @item.ContextName
+                            </div>
+                        </td>
+                        <td>
+                            @item.DueDateUtc.ToLocalTime().ToString("dd.MM.yyyy")
+                        </td>
+                        <td>
+                            <span class="badge rounded-pill @statusClass">
+                                @item.StatusNamePl
+                            </span>
+                        </td>
+                        <td class="text-end">
+                            <strong>
+                                @item.Amount.ToString("N2")
+                                @item.CurrencyCode
+                            </strong>
+                        </td>
+                        <td class="text-end">
+                            @item.PaidAmount.ToString("N2")
+                            @item.CurrencyCode
+                        </td>
+                        <td class="text-end">
+                            <strong>
+                                @item.RemainingAmount.ToString("N2")
+                                @item.CurrencyCode
+                            </strong>
+                        </td>
+                        <td class="text-end text-nowrap">
+                            @if (item.CanPay &&
+                                 item.SourceCode == PersonalPaymentObligationSources.Household &&
+                                 item.HouseholdObligationId.HasValue)
+                            {
+                                <a asp-controller="HouseholdFinance"
+                                   asp-action="SendContributionPayment"
+                                   asp-route-obligationId="@item.HouseholdObligationId.Value"
+                                   class="btn btn-sm btn-primary">
+                                    Wyślij wpłatę
+                                </a>
+                            }
+                            else if (item.CanPay &&
+                                     (item.SourceCode == PersonalPaymentObligationSources.FamilyArea ||
+                                      item.SourceCode == PersonalPaymentObligationSources.Family) &&
+                                     item.FamilyGroupId.HasValue &&
+                                     item.FamilyOccurrenceId.HasValue)
+                            {
+                                <a asp-controller="FamilyFinance"
+                                   asp-action="PayExpense"
+                                   asp-route-familyGroupId="@item.FamilyGroupId.Value"
+                                   asp-route-occurrenceId="@item.FamilyOccurrenceId.Value"
+                                   asp-route-year="@Model.Year"
+                                   asp-route-month="@Model.Month"
+                                   class="btn btn-sm btn-primary">
+                                    Przejdź do opłaty
+                                </a>
+                            }
+                            else if (item.IsPending)
+                            {
+                                <span class="small text-muted">Oczekuje</span>
+                            }
+                            else if (item.IsPaid)
+                            {
+                                <span class="small text-success">✓ Opłacono</span>
+                            }
+                            else if (item.RemainingAmount > 0m)
+                            {
+                                <span class="small text-muted">
+                                    Płatność dostępna w terminie
+                                </span>
+                            }
+                        </td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+<script>
+    (() => {
+        const panel = document.getElementById("personal-payment-obligations");
+        const page = document.querySelector(".finance-page");
+        const privacyNote = page?.querySelector(".finance-privacy-note");
+
+        if (!panel || !page || !privacyNote) {
+            return;
+        }
+
+        privacyNote.insertAdjacentElement("afterend", panel);
+
+        @if (Model.ReplaceLegacyContributionSection)
+        {
+            <text>
+            const legacyContribution = page.querySelector(".finance-contribution-section");
+            if (legacyContribution) {
+                legacyContribution.remove();
+            }
+            </text>
+        }
+    })();
+</script>

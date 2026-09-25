@@ -1,4 +1,4 @@
-﻿﻿@using Domio.Application.Authorization
+@using Domio.Application.Authorization
 @using Domio.Domain.FamilyFinance
 @using Domio.Domain.Users
 @{
@@ -268,6 +268,19 @@
             <main role="main"
                   class="domio-main domio-main-with-sidebar">
                 @RenderBody()
+
+                @if (string.Equals(
+                        ViewContext.RouteData.Values["controller"]?.ToString(),
+                        "PersonalFinance",
+                        StringComparison.OrdinalIgnoreCase) &&
+                     string.Equals(
+                        ViewContext.RouteData.Values["action"]?.ToString(),
+                        "Index",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    @await Component.InvokeAsync(
+                        "PersonalPaymentObligations")
+                }
             </main>
         </div>
     }
